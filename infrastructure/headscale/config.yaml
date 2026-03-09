@@ -1,0 +1,47 @@
+# Headscale Configuration
+# Self-hosted Tailscale control server
+
+server_url: http://192.168.45.245:8080
+listen_addr: 0.0.0.0:8080
+metrics_listen_addr: 127.0.0.1:9090
+grpc_listen_addr: 0.0.0.0:50443
+grpc_allow_insecure: true
+
+# Database configuration
+database:
+  type: sqlite
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+
+# Policy configuration
+policy:
+  mode: file
+  path: /etc/headscale/acl_policy.hujson
+
+# Logging
+log_level: info
+
+# IP prefix allocation
+prefixes:
+  v6: fd7a:115c:a1e0::/64
+  v4: 100.64.0.0/10
+
+# DNS configuration
+dns:
+  base_domain: k8s.local
+  nameservers:
+    global:
+      - 1.1.1.1
+      - 8.8.8.8
+  magic_dns: true
+
+# Noise protocol (Tailscale v2)
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+
+# DERP relay (disabled - using Tailscale's public DERP)
+derp:
+  server:
+    enabled: false
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default

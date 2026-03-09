@@ -1,0 +1,41 @@
+# Git Ignore for k8s-idp
+
+# Secrets (never commit!)
+*.key
+*.pem
+*.crt
+*_secret.yaml
+*_secret.env
+.env
+.env.*
+
+# Generated files
+*.generated.yaml
+*.generated.json
+
+# Local overrides
+values-local.yaml
+config-local.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Test outputs
+_test/
+*.test.yaml
