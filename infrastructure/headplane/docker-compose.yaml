@@ -1,0 +1,20 @@
+# Headplane Docker Compose Configuration
+# Web UI for Headscale
+
+services:
+  headplane:
+    image: ghcr.io/tale/headplane:latest
+    container_name: headplane
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config.yaml:/etc/headplane/config.yaml:ro
+      - /etc/headscale:/etc/headscale:ro
+      - /var/lib/headplane:/var/lib/headplane
+    environment:
+      - TZ=Asia/Seoul
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
