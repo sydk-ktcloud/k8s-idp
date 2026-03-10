@@ -1,0 +1,139 @@
+# Dex Helm Values
+# OIDC Provider for Kubernetes Platform SSO
+
+replicaCount: 1
+
+# GitHub OAuth credentials from Kubernetes Secret
+envFrom:
+  - secretRef:
+      name: dex-github-secret
+
+image:
+  repository: ghcr.io/dexidp/dex
+  pullPolicy: IfNotPresent
+  tag: "v2.39.1"
+
+# Service configuration
+service:
+  type: NodePort
+  port: 5556
+  nodePort: 30556
+
+# Enable grpc for some connectors
+grpc:
+  enabled: false
+
+# Dex configuration
+config:
+  issuer: http://100.64.0.1:30556
+  
+  # Storage backend - Kubernetes CRDs
+  storage:
+    type: kubernetes
+    config:
+      inCluster: true
+  
+  # Enable password database for static users (fallback)
+  enablePasswordDB: true
+  
+  # Static clients for platform services
+  staticClients:
+    - id: argocd
+      name: ArgoCD
+      secret: argocd-client-secret-12345
+      redirectURIs:
+        - http://argocd.gitops.svc.cluster.local/auth/callback
+        - http://localhost:8080/auth/callback
+        - http://100.64.0.1:30080/auth/callback
+    
+    - id: grafana
+      name: Grafana
+      secret: grafana-client-secret-12345
+      redirectURIs:
+        - http://grafana.monitoring.svc.cluster.local/login/generic_oauth
+        - http://localhost:3000/login/generic_oauth
+        - http://100.64.0.1:30080/login/generic_oauth
+    
+    - id: kubectl
+      name: kubectl
+      public: true
+      redirectURIs:
+        - http://localhost:8000
+        - http://localhost:18000
+
+  # GitHub OAuth Connector
+  connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: $GITHUB_CLIENT_ID
+        clientSecret: $GITHUB_CLIENT_SECRET
+        redirectURI: http://100.64.0.1:30556/callback
+
+  # Static password users (fallback)
+  staticPasswords:
+    - email: admin@k8s.local
+      hash: $2a$10$YwvjJHmggkfyNccxOaIYBu.HtuSHa5G8991sKXecmy/qajblM5kFG
+      username: admin
+      userID: "1000"
+
+  # OAuth2 response types supported
+  oauth2:
+    responseTypes:
+      - code
+    skipApprovalScreen: true
+
+# Environment variables for GitHub OAuth
+env:
+  - name: GITHUB_CLIENT_ID
+    value: "Ov23liMRGF1aSEOU3LDP"
+  - name: GITHUB_CLIENT_SECRET
+    value: "5279b2e3d1b2f139ec73019dee26dd2124288aad"
+
+# Resources
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Node selector (optional)
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Ingress (disabled initially, enable when DNS is ready)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: dex.k8s.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

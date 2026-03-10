@@ -1,0 +1,14 @@
+# ArgoCD with Dex SSO
+# Helmfile release definition
+
+repositories:
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
+
+releases:
+  - name: argocd
+    namespace: gitops
+    chart: argo/argo-cd
+    version: 7.8.7
+    values:
+      - values.yaml

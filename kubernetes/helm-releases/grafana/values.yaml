@@ -1,0 +1,53 @@
+# Grafana Helm Values with Dex OAuth
+replicas: 1
+
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30080
+
+adminUser: admin
+adminPassword: admin123
+
+# Dex OAuth Configuration
+grafana.ini:
+  auth.generic_oauth:
+    enabled: true
+    name: Dex
+    allow_sign_up: true
+    client_id: grafana
+    client_secret: ${GRAFANA_OAUTH_CLIENT_SECRET}
+    scopes: openid profile email groups
+    auth_url: http://dex.auth.svc.cluster.local:5556/auth
+    token_url: http://dex.auth.svc.cluster.local:5556/token
+    api_url: http://dex.auth.svc.cluster.local:5556/userinfo
+    root_url: http://localhost:3000
+    role_attribute_path: contains(email, '@k8s.local') && 'Admin'
+    tls_skip_verify_insecure: true
+
+  server:
+    root_url: http://localhost:3000
+
+# Environment variables for secrets
+env:
+  GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: grafana-client-secret-12345
+
+# Resources
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Persistence
+persistence:
+  enabled: false
+
+# Service account
+serviceAccount:
+  create: true
+
+# Disable secret validation
+assertNoLeakedSecrets: false

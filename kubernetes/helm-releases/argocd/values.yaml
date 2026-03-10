@@ -1,0 +1,76 @@
+# ArgoCD Helm Values with Dex SSO
+
+# ArgoCD Configuration
+configs:
+  cm:
+    url: http://argocd.gitops.svc.cluster.local
+    oidc.config: |
+      name: Dex
+      issuer: http://dex.auth.svc.cluster.local:5556
+      clientID: argocd
+      clientSecret: argocd-client-secret-12345
+      requestedScopes:
+        - openid
+        - profile
+        - email
+        - groups
+
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      g, admin@k8s.local, role:admin
+      g, platform@k8s.local, role:admin
+      g, gitops@k8s.local, role:admin
+      g, finops@k8s.local, role:readonly
+      g, security@k8s.local, role:admin
+      g, sre@k8s.local, role:admin
+      g, ai@k8s.local, role:readonly
+
+# Server configuration
+server:
+  extraArgs:
+    - --insecure
+  service:
+    type: ClusterIP
+
+# Resources
+controller:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+server:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+repoServer:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Disable Dex server (using external Dex)
+dex:
+  enabled: false
+
+# Redis
+redis:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

@@ -1,0 +1,14 @@
+# Dex OIDC Provider
+# Helmfile release definition
+
+repositories:
+  - name: dex
+    url: https://charts.dexidp.io
+
+releases:
+  - name: dex
+    namespace: auth
+    chart: dex/dex
+    version: 0.19.1
+    values:
+      - values.yaml
