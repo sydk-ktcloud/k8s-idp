@@ -1,4 +1,44 @@
-# Kubecost Helm Values for On-Premises FinOps
-
+# Kubecost Helm Values - v3.x with Longhorn Storage
 global:
-  clusterId: finops-lab-cluster
+  clusterId: "k8s-idp-cluster"
+  clusterName: "k8s-idp"
+  defaultStorageClass: "longhorn"
+  acknowledged: true  # Required for Kubecost 3.0+
+
+# Long-term metrics storage (replaces old kubecost-cost-analyzer PVC)
+localStore:
+  enabled: true
+  persistentVolume:
+    size: 32Gi
+    enabled: true
+    storageClass: "longhorn"
+    annotations:
+      helm.sh/resource-policy: keep
+
+# Short-term metrics storage (<2 days WAL)
+finopsagent:
+  enabled: true
+  persistence:
+    enabled: true
+    storageClass: "longhorn"
+    size: 8Gi
+    annotations:
+      helm.sh/resource-policy: keep
+
+# Aggregator - ClickHouse database (BLOCK STORAGE REQUIRED)
+aggregator:
+  enabled: true
+  persistentConfigsStorage:
+    storageClass: "longhorn"
+    storageRequest: 1Gi
+  aggregatorDbStorage:
+    storageClass: "longhorn"
+    storageRequest: 128Gi
+
+# Cloud cost configs
+cloudCost:
+  enabled: true
+  persistentConfigsStorage:
+    enabled: true
+    storageClass: "longhorn"
+    size: 1Gi
