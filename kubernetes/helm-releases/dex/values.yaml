@@ -44,7 +44,7 @@ config:
       redirectURIs:
         - http://argocd.gitops.svc.cluster.local/auth/callback
         - http://localhost:8080/auth/callback
-        - http://100.64.0.1:30080/auth/callback
+        - http://100.64.0.1:30081/auth/callback
     
     - id: grafana
       name: Grafana
@@ -85,11 +85,10 @@ config:
     skipApprovalScreen: true
 
 # Environment variables for GitHub OAuth
-env:
-  - name: GITHUB_CLIENT_ID
-    value: "Ov23liMRGF1aSEOU3LDP"
-  - name: GITHUB_CLIENT_SECRET
-    value: "5279b2e3d1b2f139ec73019dee26dd2124288aad"
+# Use envFrom from secret dex-github-secret
+envFrom:
+  - secretRef:
+      name: dex-github-secret
 
 # Resources
 resources:

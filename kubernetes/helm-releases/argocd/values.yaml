@@ -3,10 +3,10 @@
 # ArgoCD Configuration
 configs:
   cm:
-    url: http://argocd.gitops.svc.cluster.local
+    url: http://100.64.0.1:30081
     oidc.config: |
       name: Dex
-      issuer: http://dex.auth.svc.cluster.local:5556
+      issuer: http://100.64.0.1:30556
       clientID: argocd
       clientSecret: argocd-client-secret-12345
       requestedScopes:
@@ -31,8 +31,8 @@ server:
   extraArgs:
     - --insecure
   service:
-    type: ClusterIP
-
+    type: NodePort
+    nodePort: 30081
 # Resources
 controller:
   resources:
