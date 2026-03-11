@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: minio-storage
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:RELEASE
+        env:
+        - name: MINIO_ROOT_USER
+          value: "admin"
+        - name: MINIO_ROOT_PASSWORD
+          value: "K8sCluster@2026"
+        ports:
+        - containerPort: 9000
+          name: data
+        volumeMounts:
+        - mountPath: /data
+        - mountPath: /console
+          name: console
+          readOnly: true
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+        volumeMounts:
+        - mountPath: /data
+          name: data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: minio-data
+status: Bound
+volume:
+  capacity: 50Gi
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-console
+  namespace: minio-storage
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+      targetPort: 9000
+      nodePort: 30900
+  selector:
+    app: minio
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-api
+  namespace: minio-storage
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+      targetPort: 9000
+      nodePort: 30900
+  selector:
+    app: minio
