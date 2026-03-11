@@ -61,6 +61,22 @@ config:
         - http://localhost:8000
         - http://localhost:18000
 
+    - id: kubecost
+      name: Kubecost
+      secret: kubecost-client-secret-12345
+      redirectURIs:
+        - http://100.64.0.1:30090/oidc/authorize
+        - http://localhost:9090/oidc/authorize
+        - http://100.64.0.1:30091/oauth2/callback
+        - http://localhost:30091/oauth2/callback
+
+    - id: longhorn
+      name: Longhorn UI
+      secret: longhorn-client-secret-12345
+      redirectURIs:
+        - http://100.64.0.1:30071/oauth2/callback
+        - http://localhost:30071/oauth2/callback
+
   # GitHub OAuth Connector
   connectors:
     - type: github

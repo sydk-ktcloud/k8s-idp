@@ -1,0 +1,73 @@
+# Longhorn Helm Values
+# Distributed block storage for Kubernetes
+
+# Default StorageClass settings
+persistence:
+  defaultClass: true
+  defaultFsType: ext4
+  defaultClassReplicaCount: 2
+  defaultDataLocality: disabled
+  reclaimPolicy: Delete
+
+# Longhorn UI - NodePort for external access
+service:
+  ui:
+    type: NodePort
+    nodePort: 30070
+
+# Disable OpenShift OAuth (using Dex instead)
+openshift:
+  enabled: false
+
+# Longhorn Manager
+longhornManager:
+  log:
+    format: json
+
+# Longhorn UI replicas
+longhornUI:
+  replicas: 1
+
+# Default settings
+defaultSettings:
+  backupTarget: ""
+  backupTargetCredentialSecret: ""
+  allowRecurringJobWhileVolumeDetached: false
+  createDefaultDiskLabeledNodes: false
+  defaultDataPath: /var/lib/longhorn/
+  defaultDataLocality: disabled
+  replicaSoftAntiAffinity: false
+  storageOverProvisioningPercentage: 100
+  storageMinimalAvailablePercentage: 25
+  upgradeChecker: false
+  defaultReplicaCount: 2
+  defaultLonghornStaticStorageClass: longhorn
+  backupstorePollInterval: 300
+  taintToleration: ""
+  systemManagedComponentsNodeSelector: ""
+  priorityClass: ""
+  autoSalvage: true
+  autoDeletePodWhenVolumeDetachedUnexpectedly: true
+  disableSchedulingOnCordonedNode: true
+  replicaZoneSoftAntiAffinity: false
+  nodeDrainPolicy: block-if-contains-last-replica
+  replicaReplenishmentWaitInterval: 600
+  concurrentReplicaRebuildPerNodeLimit: 0
+  concurrentVolumeBackupRestorePerNodeLimit: 5
+  disableRevisionCounter: false
+  systemManagedPodsImagePullPolicy: if-not-present
+  allowVolumeCreationWithDegradedAvailability: true
+  autoCleanupSystemGeneratedSnapshot: true
+  concurrentAutomaticEngineUpgradePerNodeLimit: 0
+  defaultEngineImage: ""
+  defaultInstanceManagerImage: ""
+  kubernetesClusterAutoscalerEnabled: false
+  orphanAutoDeletion: false
+  storageNetwork: ""
+  deletingConfirmationFlag: false
+  engineReplicaTimeout: 8
+  snapshotDataIntegrity: disabled
+  failedBackupTTL: 1440
+  restoreVolumeRecurringJobs: false
+  recurringSuccessfulJobsHistoryLimit: 1
+  recurringFailedJobsHistoryLimit: 1

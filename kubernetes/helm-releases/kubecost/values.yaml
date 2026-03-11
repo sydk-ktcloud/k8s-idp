@@ -42,3 +42,17 @@ cloudCost:
     enabled: true
     storageClass: "longhorn"
     size: 1Gi
+
+# Frontend Service - NodePort for external access
+frontend:
+  service:
+    type: NodePort
+    port: 9090
+    nodePort: 30090
+    sessionAffinity:
+      enabled: true  # Required for OIDC auth
+      timeoutSeconds: 10800
+
+# OIDC disabled - using OAuth2 Proxy instead
+oidc:
+  enabled: false
