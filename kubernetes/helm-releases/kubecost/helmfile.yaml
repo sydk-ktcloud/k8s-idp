@@ -1,0 +1,14 @@
+# kubecost with Dex SSO (X)
+# Helmfile release definition
+
+repositories:
+  - name: kubecost
+    url: https://kubecost.github.io/kubecost/
+
+releases:
+  - name: kubecost
+    namespace: kubecost
+    chart: kubecost/kubecost
+    version: 3.1.5
+    values:
+      - values.yaml
