@@ -1,0 +1,4 @@
+# Kubecost Helm Values for On-Premises FinOps
+
+global:
+  clusterId: finops-lab-cluster
