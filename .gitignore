@@ -39,3 +39,7 @@ Thumbs.db
 # Test outputs
 _test/
 *.test.yaml
+
+# Kubeconfig files with tokens
+kubeconfig/kubeconfig-*
+!kubeconfig/README.md
