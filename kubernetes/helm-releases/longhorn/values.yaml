@@ -9,12 +9,10 @@ persistence:
   defaultDataLocality: disabled
   reclaimPolicy: Delete
 
-# Longhorn UI - NodePort for external access
+# Longhorn UI - ClusterIP (access via OAuth2 Proxy)
 service:
   ui:
-    type: NodePort
-    nodePort: 30070
-
+    type: ClusterIP
 # Disable OpenShift OAuth (using Dex instead)
 openshift:
   enabled: false

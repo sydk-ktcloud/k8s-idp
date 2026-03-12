@@ -43,16 +43,14 @@ cloudCost:
     storageClass: "longhorn"
     size: 1Gi
 
-# Frontend Service - NodePort for external access
+# Frontend Service - ClusterIP (access via OAuth2 Proxy)
 frontend:
   service:
-    type: NodePort
+    type: ClusterIP
     port: 9090
-    nodePort: 30090
     sessionAffinity:
       enabled: true  # Required for OIDC auth
       timeoutSeconds: 10800
-
 # OIDC disabled - using OAuth2 Proxy instead
 oidc:
   enabled: false
