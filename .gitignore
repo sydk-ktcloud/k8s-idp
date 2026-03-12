@@ -9,6 +9,10 @@
 .env
 .env.*
 
+# GCP Service Account Keys
+*-d0b8f9185818.json
+sydk-ktcloud-*.json
+
 # Generated files
 *.generated.yaml
 *.generated.json

@@ -1,0 +1,14 @@
+# Crossplane
+# Helmfile release definition
+
+repositories:
+  - name: crossplane-stable
+    url: https://charts.crossplane.io/stable
+
+releases:
+  - name: crossplane
+    namespace: crossplane-system
+    chart: crossplane-stable/crossplane
+    version: 1.18.0
+    values:
+      - values.yaml

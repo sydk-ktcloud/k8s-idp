@@ -1,0 +1,14 @@
+# Crossplane Helm Values
+# Infrastructure as Code for Kubernetes
+
+# Enable webhooks
+webhooks:
+  enabled: true
+
+# RBAC settings  
+rbacManager:
+  enabled: true
+  managementPolicy: All
+
+# Enable package manager forpackages:
+  enabled: true
