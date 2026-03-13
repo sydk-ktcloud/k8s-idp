@@ -1,0 +1,25 @@
+name: Deploy Infrastructure
+on:
+  push:
+    branches: [ main ] # 메인 브랜치에 코드가 올라가면 실행
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+
+      # Dex가 사용할 GitHub Secret을 자동으로 생성
+      - name: Create Dex GitHub Secret
+        run: |
+          kubectl create secret generic dex-github-secret \
+            --namespace auth \
+            --from-literal=GITHUB_CLIENT_ID=${{ secrets.GH_CLIENT_ID }} \
+            --from-literal=GITHUB_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }} \
+            --dry-run=client -o yaml | kubectl apply -f -
