@@ -16,7 +16,6 @@ jobs:
         with:
           authkey: ${{ secrets.HEADSCALE_KEY }}
         env:
-          # Headscale 사용 시에는 이 환경 변수를 명시해주는 것이 가장 확실합니다.
           TS_LOGIN_SERVER: http://218.55.202.191:9090
 
       - name: Setup Kubeconfig
