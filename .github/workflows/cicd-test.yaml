@@ -15,13 +15,15 @@ jobs:
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.HEADSCALE_KEY }}
-          login-server: http://<해드스케일-서버-공인-IP>:8080 # 팀장님께 받은 외부 IP 주소
+        env:
+          # Headscale 사용 시에는 이 환경 변수를 명시해주는 것이 가장 확실합니다.
+          TS_LOGIN_SERVER: http://218.55.202.191:9090
 
       - name: Setup Kubeconfig
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
-      # 이제 이 단계에서 초록색 불이 들어올 것입니다!
+    
       - name: Check K8s Connection
         run: kubectl get nodes
