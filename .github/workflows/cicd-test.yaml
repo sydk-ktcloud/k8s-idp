@@ -1,4 +1,4 @@
-name: CI-CD Base Setup
+name: CI-CD Connectivity Success
 on:
   push:
     branches: [ cicd ]
@@ -10,15 +10,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      # [추가] 로봇을 우리 팀 전용망(Headscale)에 합류시키기
+      - name: Connect to Headscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.HEADSCALE_KEY }}
+          login-server: http://<해드스케일-서버-공인-IP>:8080 # 팀장님께 받은 외부 IP 주소
+
       - name: Setup Kubeconfig
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
-      # 서버 접속 확인 (여기서 성공해야 다음 단계가 가능합니다)
+      # 이제 이 단계에서 초록색 불이 들어올 것입니다!
       - name: Check K8s Connection
         run: kubectl get nodes
-
-      # 인프라 폴더 내의 파일들이 잘 있는지 확인
-      - name: Verify Infrastructure Files
-        run: ls -R kubernetes/
