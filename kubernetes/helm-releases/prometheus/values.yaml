@@ -1,0 +1,73 @@
+# Kube Prometheus Stack Values
+# Monitoring stack with Longhorn storage
+
+# Disable default Grafana (using separate Grafana installation)
+grafana:
+  enabled: false
+
+# Prometheus Configuration
+prometheus:
+  prometheusSpec:
+    # Retention settings
+    retention: 15d
+    retentionSize: "45GiB"
+    
+    # Storage - Longhorn PVC
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+    
+    # Resource limits
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
+    
+    # Scrape configuration
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+
+# Alertmanager Configuration
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# Node Exporter - Disable due to restricted PSP
+nodeExporter:
+  enabled: false
+
+# Kube State Metrics
+kubeStateMetrics:
+  enabled: true
+
+# Prometheus Operator
+prometheusOperator:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
