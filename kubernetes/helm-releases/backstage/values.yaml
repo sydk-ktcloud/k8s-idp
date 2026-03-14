@@ -1,0 +1,120 @@
+# Backstage Helm Values
+# Developer Portal with NodePort access
+
+# Enable PostgreSQL
+postgresql:
+  enabled: true
+  postgresqlUsername: backstage
+  postgresqlPassword: backstage123
+  postgresqlDatabase: backstage
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    size: 5Gi
+  service:
+    port: 5432
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: martinaif/backstage-k8s-demo-frontend
+    tag: test1
+    pullPolicy: IfNotPresent
+  containerPort: 80
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30070
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+# Backend configuration
+backend:
+  enabled: true
+  nodeEnv: production
+  demoData: false
+  replicaCount: 1
+  image:
+    repository: martinaif/backstage-k8s-demo-backend
+    tag: test1
+    pullPolicy: IfNotPresent
+  containerPort: 7000
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 200m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  extraEnvVars:
+    - name: APP_CONFIG_backend_database_client
+      value: pg
+    - name: APP_CONFIG_backend_database_connection_host
+      value: backstage-postgresql
+    - name: APP_CONFIG_backend_database_connection_port
+      value: "5432"
+    - name: APP_CONFIG_backend_database_connection_user
+      value: backstage
+    - name: APP_CONFIG_backend_database_connection_password
+      valueFrom:
+        secretKeyRef:
+          name: backstage-postgresql
+          key: postgresql-password
+    - name: APP_CONFIG_backend_database_connection_database
+      value: backstage
+    - name: APP_CONFIG_rollbar_accountToken
+      value: ""
+    - name: APP_CONFIG_scaffolder_github_token
+      value: ""
+    - name: APP_CONFIG_scaffolder_gitlab_api_token
+      value: ""
+    - name: APP_CONFIG_scaffolder_azure_api_token
+      value: ""
+    - name: APP_CONFIG_scaffolder_bitbucket_token
+      value: ""
+
+# Disable lighthouse
+lighthouse:
+  enabled: false
+
+# Disable ingress - using NodePort
+ingress:
+  enabled: false
+  ingressClassName: ""
+  annotations: {}
+  hosts: []
+
+# App configuration
+appConfig:
+  app:
+    baseUrl: http://100.64.0.1:30070
+    title: K8S-IDP Developer Portal
+  
+  backend:
+    baseUrl: http://100.64.0.1:30070
+    listen:
+      port: 7000
+    cors:
+      origin: http://100.64.0.1:30070
+    database:
+      client: pg
+      connection:
+        database: backstage
+        host: backstage-postgresql
+        user: backstage
+        port: 5432
+        password:
+          $secret:
+            env: APP_CONFIG_backend_database_connection_password
+  
+  # Catalog configuration
+  catalog:
+    rules:
+      - allow: [Component, System, API, Resource, Location]

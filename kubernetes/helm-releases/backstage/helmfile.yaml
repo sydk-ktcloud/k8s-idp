@@ -1,0 +1,14 @@
+# Backstage Developer Portal
+# Helmfile release definition
+
+repositories:
+  - name: deliveryhero
+    url: https://charts.deliveryhero.io
+
+releases:
+  - name: backstage
+    namespace: backstage
+    chart: deliveryhero/backstage
+    version: 0.1.13
+    values:
+      - values.yaml
