@@ -1,0 +1,162 @@
+# Custom Backstage Deployment
+# Using locally built image with minimal plugins
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+type: Opaque
+stringData:
+  postgresql-password: backstage123
+  postgresql-postgres-password: backstage123
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage-postgresql
+  template:
+    metadata:
+      labels:
+        app: backstage-postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_USER
+          value: backstage
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backstage-postgresql
+              key: postgresql-password
+        - name: POSTGRES_DB
+          value: backstage
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: postgresql-data
+        persistentVolumeClaim:
+          claimName: backstage-postgresql
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+spec:
+  selector:
+    app: backstage-postgresql
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backstage-backend-secrets
+  namespace: backstage
+type: Opaque
+stringData:
+  POSTGRES_HOST: backstage-postgresql
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: backstage
+  POSTGRES_PASSWORD: backstage123
+  BACKEND_SECRET: "dev-secret-key-change-in-production"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-backend
+  namespace: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage-backend
+  template:
+    metadata:
+      labels:
+        app: backstage-backend
+    spec:
+      containers:
+      - name: backstage
+        image: 100.64.0.5:5001/backstage-backend:latest
+        imagePullPolicy: Always
+        envFrom:
+        - secretRef:
+            name: backstage-backend-secrets
+        ports:
+        - containerPort: 7007
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 7007
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 7007
+          initialDelaySeconds: 60
+          periodSeconds: 15
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-backend
+  namespace: backstage
+spec:
+  type: NodePort
+  selector:
+    app: backstage-backend
+  ports:
+  - port: 7007
+    targetPort: 7007
+    nodePort: 30070

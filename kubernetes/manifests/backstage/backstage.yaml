@@ -1,0 +1,244 @@
+# Backstage Developer Portal
+# Simple deployment with demo images
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+type: Opaque
+stringData:
+  postgresql-password: backstage123
+  postgresql-postgres-password: backstage123
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage-postgresql
+  template:
+    metadata:
+      labels:
+        app: backstage-postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_USER
+          value: backstage
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backstage-postgresql
+              key: postgresql-password
+        - name: POSTGRES_DB
+          value: backstage
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: postgresql-data
+        persistentVolumeClaim:
+          claimName: backstage-postgresql
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-postgresql
+  namespace: backstage
+spec:
+  selector:
+    app: backstage-postgresql
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backstage-app-config
+  namespace: backstage
+data:
+  app-config.yaml: |
+    app:
+      baseUrl: http://100.64.0.1:30070
+      title: K8S-IDP Developer Portal
+    
+    backend:
+      baseUrl: http://100.64.0.1:30070
+      listen:
+        port: 7000
+      cors:
+        origin: http://100.64.0.1:30070
+      database:
+        client: pg
+        connection:
+          host: backstage-postgresql
+          port: 5432
+          user: backstage
+          password: backstage123
+          database: backstage
+    
+    catalog:
+      rules:
+        - allow: [Component, System, API, Resource, Location]
+      locations:
+        - type: file
+          target: /app/examples/entities.yaml
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-backend
+  namespace: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage-backend
+  template:
+    metadata:
+      labels:
+        app: backstage-backend
+    spec:
+      containers:
+      - name: backstage
+        image: martinaif/backstage-k8s-demo-backend:test1
+        env:
+        - name: APP_CONFIG_backend_database_client
+          value: pg
+        - name: APP_CONFIG_backend_database_connection_host
+          value: backstage-postgresql
+        - name: APP_CONFIG_backend_database_connection_port
+          value: "5432"
+        - name: APP_CONFIG_backend_database_connection_user
+          value: backstage
+        - name: APP_CONFIG_backend_database_connection_password
+          value: backstage123
+        - name: APP_CONFIG_backend_database_connection_database
+          value: backstage
+        - name: APP_CONFIG_rollbar_accountToken
+          value: disabled
+        - name: APP_CONFIG_scaffolder_github_token
+          value: disabled
+        - name: APP_CONFIG_scaffolder_gitlab_api_token
+          value: disabled
+        - name: APP_CONFIG_scaffolder_azure_api_token
+          value: disabled
+        - name: APP_CONFIG_scaffolder_bitbucket_token
+          value: "x-token-disabled"
+        - name: BACKSTAGE_SKIP_PLUGINS
+          value: "rollbar,scaffolder"
+        ports:
+        - containerPort: 7000
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/app-config.yaml
+          subPath: app-config.yaml
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      volumes:
+      - name: app-config
+        configMap:
+          name: backstage-app-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-backend
+  namespace: backstage
+spec:
+  selector:
+    app: backstage-backend
+  ports:
+  - port: 7000
+    targetPort: 7000
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-frontend
+  namespace: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage-frontend
+  template:
+    metadata:
+      labels:
+        app: backstage-frontend
+    spec:
+      containers:
+      - name: backstage
+        image: martinaif/backstage-k8s-demo-frontend:test1
+        env:
+        - name: BACKEND_URL
+          value: http://backstage-backend:7000
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-frontend
+  namespace: backstage
+spec:
+  type: NodePort
+  selector:
+    app: backstage-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30070
