@@ -15,7 +15,8 @@ backend:
   listen: ':7007'
   cors:
     origin: http://100.64.0.1:30070
-
+  csp:
+    upgrade-insecure-requests: false
   # config options: https://node-postgres.com/apis/client
   database:
     client: pg
@@ -32,8 +33,16 @@ backend:
       #     $file: <file-path>/ca/server.crt
 
 auth:
+  environment: production
+  session:
+    secret: ${BACKEND_SECRET}
   providers:
-    guest: {}
+    oidc:
+      production:
+        metadataUrl: http://100.64.0.1:30556/.well-known/openid-configuration
+        clientId: backstage
+        clientSecret: backstage-client-secret-12345
+        prompt: auto
 
 catalog:
   # Overrides the default list locations from app-config.yaml as these contain example data.
