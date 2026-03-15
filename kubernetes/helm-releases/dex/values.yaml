@@ -77,6 +77,12 @@ config:
         - http://100.64.0.1:30071/oauth2/callback
         - http://localhost:30071/oauth2/callback
 
+    - id: backstage
+      name: Backstage Developer Portal
+      secret: backstage-client-secret-12345
+      redirectURIs:
+        - http://100.64.0.1:30070/api/auth/oidc/handler/frame
+
   # GitHub OAuth Connector
   connectors:
     - type: github
@@ -131,6 +137,8 @@ podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
   fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   allowPrivilegeEscalation: false

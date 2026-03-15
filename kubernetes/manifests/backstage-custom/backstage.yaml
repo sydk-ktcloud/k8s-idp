@@ -119,11 +119,15 @@ spec:
     spec:
       containers:
       - name: backstage
-        image: 100.64.0.5:5001/backstage-backend:latest
+        image: kylekim1223/backstage-backend:latest
         imagePullPolicy: Always
         envFrom:
         - secretRef:
             name: backstage-backend-secrets
+        volumeMounts:
+        - name: production-config
+          mountPath: /app/app-config.production.yaml
+          subPath: app-config.production.yaml
         ports:
         - containerPort: 7007
         resources:
@@ -145,6 +149,10 @@ spec:
             port: 7007
           initialDelaySeconds: 60
           periodSeconds: 15
+      volumes:
+      - name: production-config
+        configMap:
+          name: backstage-production-config
 
 ---
 apiVersion: v1
