@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-relay
+  namespace: kube-system
+  labels:
+    k8s-app: hubble-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-relay
+    spec:
+      serviceAccountName: hubble-relay
+      containers:
+      - name: hubble-relay
+        image: quay.io/cilium/hubble-relay:v1.16.9
+        imagePullPolicy: IfNotPresent
+        command:
+        - hubble-relay
+        args:
+        - serve
+        - --dial-timeout=5s
+        - --peer-service=hubble-peer.kube-system.svc.cluster.local:443
+        - --tls-client-ca-files=/var/lib/cilium/tls/hubble-ca/ca.crt
+        ports:
+        - containerPort: 4245
+          name: grpc
+        volumeMounts:
+        - name: hubble-ca
+          mountPath: /var/lib/cilium/tls/hubble-ca
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: hubble-ca
+        secret:
+          secretName: cilium-hubble-ca
