@@ -1,0 +1,117 @@
+# Cilium CNI Values with Hubble UI Enabled
+# Zero Trust Networking Foundation
+
+# Cilium Agent Configuration
+kubeProxyReplacement: true
+k8sServiceHost: localhost
+k8sServicePort: 7445
+
+# Enable Hubble (Network Observability)
+hubble:
+  enabled: true
+  listenAddress: ":4244"
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - icmp
+      - http
+    serviceMonitor:
+      enabled: true
+  relay:
+    enabled: true
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# Enable Hubble UI
+hubbleUI:
+  enabled: true
+  replicas: 1
+  service:
+    type: ClusterIP
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Enable L7 Proxy for HTTP visibility
+l7Proxy:
+  enabled: true
+
+# Enable Prometheus metrics
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Operator Configuration
+operator:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Resources for Cilium Agent
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Enable IPsec encryption (optional - for mTLS at network layer)
+# encryption:
+#   enabled: true
+#   type: ipsec
+
+# Tunnel mode (VXLAN for simplicity)
+tunnel: vxlan
+
+# Enable endpoint health checking
+endpointHealthChecking:
+  enabled: true
+
+# Enable health checking of nodes
+healthChecking:
+  enabled: true
+
+# Enable endpoint routes (for better visibility)
+endpointRoutes:
+  enabled: true
+
+# Enable host firewall
+hostFirewall:
+  enabled: true
+
+# Policy audit mode (log policy decisions without enforcing)
+# Set to false after testing policies
+policyAuditMode: false
+
+# DNS Proxy for L7 visibility
+dnsProxy:
+  enable: true
+
+# Node affinity for control plane workloads
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
