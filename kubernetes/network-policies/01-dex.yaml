@@ -1,0 +1,69 @@
+# Dex OIDC Provider NetworkPolicy
+# Allows: Ingress from all platform services, DNS resolution
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dex-allow
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dex
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: gitops
+      ports:
+        - protocol: TCP
+          port: 5556
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 5556
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: backstage
+      ports:
+        - protocol: TCP
+          port: 5556
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kubecost
+      ports:
+        - protocol: TCP
+          port: 5556
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: longhorn-system
+      ports:
+        - protocol: TCP
+          port: 5556
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.244.0.0/16
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443

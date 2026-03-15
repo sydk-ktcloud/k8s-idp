@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 00-default-deny-all.yaml
+  - 01-dex.yaml
+  - 02-argocd.yaml
+  - 03-monitoring.yaml
+  - 04-backstage.yaml
+  - 05-kubecost.yaml
+  - 06-longhorn.yaml
+  - 07-cilium-hubble.yaml
