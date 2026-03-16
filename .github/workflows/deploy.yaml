@@ -18,9 +18,6 @@ jobs:
           ARGOCD_USERNAME: \${{ secrets.ARGOCD_USERNAME }}
           ARGOCD_PASSWORD: \${{ secrets.ARGOCD_PASSWORD }}
         run: |
-          # Install curl and jq
-          apt-get update && apt-get install -y curl jq
-          
           # Login to ArgoCD
           ARGOCD_TOKEN=$(curl -s -X POST "\${ARGOCD_SERVER}/api/v1/session" \
             -H "Content-Type: application/json" \
