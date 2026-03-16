@@ -1,0 +1,74 @@
+name: ArgoCD Sync
+
+on:
+  workflow_call:
+    inputs:
+      application:
+        required: true
+        type: string
+        description: ArgoCD Application name
+      timeout:
+        required: false
+        type: number
+        default: 150
+        description: Timeout in seconds
+
+jobs:
+  sync:
+    runs-on: self-hosted
+    steps:
+      - name: Sync ArgoCD Application
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
+          ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+          APP_NAME: ${{ inputs.application }}
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          echo "Syncing ArgoCD Application: ${APP_NAME}"
+          
+          LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${ARGOCD_SERVER}/api/v1/session" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${ARGOCD_USERNAME}\",\"password\":\"${ARGOCD_PASSWORD}\"}")
+          
+          HTTP_CODE=$(echo "$LOGIN_RESPONSE" | tail -1)
+          RESPONSE_BODY=$(echo "$LOGIN_RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Login failed with HTTP code: $HTTP_CODE"
+            echo "Response: $RESPONSE_BODY"
+            exit 1
+          fi
+          
+          ARGOCD_TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.token')
+          
+          if [ -z "$ARGOCD_TOKEN" ] || [ "$ARGOCD_TOKEN" = "null" ]; then
+            echo "Failed to get token"
+            exit 1
+          fi
+          
+          echo "ArgoCD login successful"
+          
+          SYNC_RESPONSE=$(curl -s -X POST "${ARGOCD_SERVER}/api/v1/applications/${APP_NAME}/sync" \
+            -H "Authorization: Bearer ${ARGOCD_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"revision":"HEAD"}')
+          
+          echo "Sync response: ${SYNC_RESPONSE}"
+          
+          MAX_ITER=$((TIMEOUT / 5))
+          for i in $(seq 1 $MAX_ITER); do
+            sleep 5
+            STATUS=$(curl -s "${ARGOCD_SERVER}/api/v1/applications/${APP_NAME}" \
+              -H "Authorization: Bearer ${ARGOCD_TOKEN}" | jq -r '.status.sync.status')
+            
+            echo "Sync status: ${STATUS}"
+            
+            if [ "${STATUS}" = "Synced" ]; then
+              echo "Application synced successfully!"
+              exit 0
+            fi
+          done
+          
+          echo "Sync timeout after ${TIMEOUT} seconds"
+          exit 1

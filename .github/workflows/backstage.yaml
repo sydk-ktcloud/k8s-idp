@@ -91,51 +91,12 @@ jobs:
         run: echo ${{ steps.meta.outputs.tags }}
 
   deploy:
-    name: Trigger ArgoCD Sync
+    name: Deploy
     runs-on: self-hosted
     needs: build-image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
-      - name: Sync ArgoCD Application
-        env:
-          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
-          ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
-          ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
-        run: |
-          LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${ARGOCD_SERVER}/api/v1/session" \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"${ARGOCD_USERNAME}\",\"password\":\"${ARGOCD_PASSWORD}\"}")
-          
-          HTTP_CODE=$(echo "$LOGIN_RESPONSE" | tail -1)
-          RESPONSE_BODY=$(echo "$LOGIN_RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Login failed with HTTP code: $HTTP_CODE"
-            exit 1
-          fi
-          
-          ARGOCD_TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.token')
-          
-          SYNC_RESPONSE=$(curl -s -X POST "${ARGOCD_SERVER}/api/v1/applications/k8s-idp/sync" \
-            -H "Authorization: Bearer ${ARGOCD_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d '{"revision":"HEAD"}')
-          
-          echo "Sync triggered: ${SYNC_RESPONSE}"
-          
-          for i in {1..30}; do
-            sleep 5
-            STATUS=$(curl -s "${ARGOCD_SERVER}/api/v1/applications/k8s-idp" \
-              -H "Authorization: Bearer ${ARGOCD_TOKEN}" | jq -r '.status.sync.status')
-            
-            echo "Sync status: ${STATUS}"
-            
-            if [ "${STATUS}" = "Synced" ]; then
-              echo "Application synced successfully!"
-              exit 0
-            fi
-          done
-          
-          echo "Sync timeout"
-          exit 1
+      - name: Trigger ArgoCD Sync
+        uses: ./.github/workflows/argocd-sync.yaml
+        with:
+          application: k8s-idp
