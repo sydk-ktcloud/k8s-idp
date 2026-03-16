@@ -1,0 +1,76 @@
+server:
+
+  replicas: 3   # Vault 서버 Pod를 3개 생성 (HA 구성)
+
+  resources:   # Pod가 사용할 CPU / 메모리 제한
+    requests:  # 최소 보장 자원
+      memory: 256Mi
+      cpu: 250m
+    limits:    # 최대 사용 가능 자원
+      memory: 512Mi
+      cpu: 500m
+
+  readinessProbe:   # Pod가 트래픽을 받을 준비가 되었는지 확인
+    enabled: true
+
+  livenessProbe:    # Pod가 정상적으로 살아있는지 확인 (문제 있으면 재시작)
+    enabled: true
+
+  dataStorage:   # Vault 데이터 저장 스토리지
+    enabled: true
+    size: 10Gi   # 저장 공간 크기
+    mountPath: /vault/data   # Vault 데이터 저장 경로
+    storageClass: longhorn   # Longhorn 스토리지 사용
+
+  auditStorage:   # Vault audit 로그 저장 스토리지
+    enabled: true
+    size: 10Gi
+    mountPath: /vault/audit
+    storageClass: longhorn
+
+  service:   # Kubernetes Service 설정
+    enabled: true
+    type: ClusterIP   # 클러스터 내부에서만 접근 가능
+    port: 8200        # Vault API 포트
+
+  ha:   # High Availability 설정
+    enabled: true
+
+    raft:   # Raft Storage Backend 사용
+      enabled: true
+      setNodeId: true   # 각 Pod에 고유 Node ID 설정
+
+      config: |   # Vault 실제 설정 파일
+        ui = true   # Vault UI 활성화
+
+        listener "tcp" {   # Vault API Listener 설정
+          address = "[::]:8200"          # API 접근 포트
+          cluster_address = "[::]:8201"  # Vault 클러스터 통신 포트
+          tls_disable = 1                # TLS 비활성화 (테스트 환경)
+        }
+
+        storage "raft" {   # Raft 스토리지 설정
+          path = "/vault/data"   # Raft 데이터 저장 경로
+
+          retry_join {   # 클러스터 자동 조인 설정
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+
+        api_addr = "http://$(HOSTNAME).vault-internal:8200"
+        # 각 Pod의 API 주소 설정 (Vault 내부 통신)
+
+        cluster_addr = "http://$(HOSTNAME).vault-internal:8201"
+        # Vault 클러스터 노드 간 통신 주소
+
+ui:
+  enabled: true        # Vault Web UI 활성화
+  serviceType: ClusterIP   # UI도 내부 서비스로 노출
