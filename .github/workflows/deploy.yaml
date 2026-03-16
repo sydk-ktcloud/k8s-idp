@@ -1,0 +1,63 @@
+name: Deploy to K8s
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync ArgoCD Application
+        env:
+          ARGOCD_SERVER: \${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_USERNAME: \${{ secrets.ARGOCD_USERNAME }}
+          ARGOCD_PASSWORD: \${{ secrets.ARGOCD_PASSWORD }}
+        run: |
+          # Install curl and jq
+          apt-get update && apt-get install -y curl jq
+          
+          # Login to ArgoCD
+          ARGOCD_TOKEN=$(curl -s -X POST "\${ARGOCD_SERVER}/api/v1/session" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"\${ARGOCD_USERNAME}\",\"password\":\"\${ARGOCD_PASSWORD}\"}" | jq -r '.token')
+          
+          echo "ArgoCD login successful"
+          
+          # Sync the application
+          SYNC_RESPONSE=$(curl -s -X POST "\${ARGOCD_SERVER}/api/v1/applications/k8s-idp/sync" \
+            -H "Authorization: Bearer \${ARGOCD_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"revision":"HEAD"}')
+          
+          echo "Sync response: \${SYNC_RESPONSE}"
+          
+          # Check sync status
+          for i in {1..30}; do
+            sleep 5
+            STATUS=$(curl -s "\${ARGOCD_SERVER}/api/v1/applications/k8s-idp" \
+              -H "Authorization: Bearer \${ARGOCD_TOKEN}" | jq -r '.status.sync.status')
+            
+            echo "Sync status: \${STATUS}"
+            
+            if [ "\${STATUS}" = "Synced" ]; then
+              echo "Application synced successfully!"
+              exit 0
+            fi
+          done
+          
+          echo "Sync timeout after 150 seconds"
+          exit 1
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "Deployment triggered via ArgoCD GitOps"
+          echo "Repository: sydk-ktcloud/k8s-idp"
+          echo "ArgoCD Application: k8s-idp"
+          echo "=========================================="

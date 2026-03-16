@@ -1,0 +1,23 @@
+name: CI-CD Connectivity Test
+on:
+  push:
+    branches: [ cicd ]
+  workflow_dispatch:
+
+jobs:
+  connectivity-test:
+    runs-on: k8s-idp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check K8s Connection
+        run: |
+          echo "Testing Kubernetes connection..."
+          kubectl get nodes
+          kubectl get namespaces
+
+      - name: Check ArgoCD Connection
+        run: |
+          echo "Testing ArgoCD connection..."
+          kubectl get applications -n argocd
