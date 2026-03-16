@@ -14,52 +14,52 @@ jobs:
 
       - name: Sync ArgoCD Application
         env:
-          ARGOCD_SERVER: \${{ secrets.ARGOCD_SERVER }}
-          ARGOCD_USERNAME: \${{ secrets.ARGOCD_USERNAME }}
-          ARGOCD_PASSWORD: \${{ secrets.ARGOCD_PASSWORD }}
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
+          ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
         run: |
           # Login to ArgoCD
-          echo "Connecting to ArgoCD: \${ARGOCD_SERVER}"
+          echo "Connecting to ArgoCD: ${ARGOCD_SERVER}"
           
-          LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "\${ARGOCD_SERVER}/api/v1/session" \
+          LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${ARGOCD_SERVER}/api/v1/session" \
             -H "Content-Type: application/json" \
-            -d "{\"username\":\"\${ARGOCD_USERNAME}\",\"password\":\"\${ARGOCD_PASSWORD}\"}")
+            -d "{\"username\":\"${ARGOCD_USERNAME}\",\"password\":\"${ARGOCD_PASSWORD}\"}")
           
-          HTTP_CODE=$(echo "\$LOGIN_RESPONSE" | tail -1)
-          RESPONSE_BODY=$(echo "\$LOGIN_RESPONSE" | sed '\$d')
+          HTTP_CODE=$(echo "$LOGIN_RESPONSE" | tail -1)
+          RESPONSE_BODY=$(echo "$LOGIN_RESPONSE" | sed '$d')
           
-          if [ "\$HTTP_CODE" != "200" ]; then
-            echo "Login failed with HTTP code: \$HTTP_CODE"
-            echo "Response: \$RESPONSE_BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Login failed with HTTP code: $HTTP_CODE"
+            echo "Response: $RESPONSE_BODY"
             exit 1
           fi
           
-          ARGOCD_TOKEN=$(echo "\$RESPONSE_BODY" | jq -r '.token')
+          ARGOCD_TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.token')
           
-          if [ -z "\$ARGOCD_TOKEN" ] || [ "\$ARGOCD_TOKEN" = "null" ]; then
-            echo "Failed to get token from response: \$RESPONSE_BODY"
+          if [ -z "$ARGOCD_TOKEN" ] || [ "$ARGOCD_TOKEN" = "null" ]; then
+            echo "Failed to get token from response: $RESPONSE_BODY"
             exit 1
           fi
           
           echo "ArgoCD login successful"
           
           # Sync the application
-          SYNC_RESPONSE=$(curl -s -X POST "\${ARGOCD_SERVER}/api/v1/applications/k8s-idp/sync" \
-            -H "Authorization: Bearer \${ARGOCD_TOKEN}" \
+          SYNC_RESPONSE=$(curl -s -X POST "${ARGOCD_SERVER}/api/v1/applications/k8s-idp/sync" \
+            -H "Authorization: Bearer ${ARGOCD_TOKEN}" \
             -H "Content-Type: application/json" \
             -d '{"revision":"HEAD"}')
           
-          echo "Sync response: \${SYNC_RESPONSE}"
+          echo "Sync response: ${SYNC_RESPONSE}"
           
           # Check sync status
           for i in {1..30}; do
             sleep 5
-            STATUS=$(curl -s "\${ARGOCD_SERVER}/api/v1/applications/k8s-idp" \
-              -H "Authorization: Bearer \${ARGOCD_TOKEN}" | jq -r '.status.sync.status')
+            STATUS=$(curl -s "${ARGOCD_SERVER}/api/v1/applications/k8s-idp" \
+              -H "Authorization: Bearer ${ARGOCD_TOKEN}" | jq -r '.status.sync.status')
             
-            echo "Sync status: \${STATUS}"
+            echo "Sync status: ${STATUS}"
             
-            if [ "\${STATUS}" = "Synced" ]; then
+            if [ "${STATUS}" = "Synced" ]; then
               echo "Application synced successfully!"
               exit 0
             fi
