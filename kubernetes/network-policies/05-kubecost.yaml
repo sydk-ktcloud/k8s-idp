@@ -16,6 +16,12 @@ spec:
         - protocol: TCP
           port: 4180
   egress:
+    # k8s API access (no 'to' = all destinations)
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
     - to:
         - podSelector:
             matchLabels:

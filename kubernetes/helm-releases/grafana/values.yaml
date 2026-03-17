@@ -19,8 +19,8 @@ grafana.ini:
     client_secret: ${GRAFANA_OAUTH_CLIENT_SECRET}
     scopes: openid profile email groups
     auth_url: http://100.64.0.1:30556/auth
-    token_url: http://100.64.0.1:30556/token
-    api_url: http://100.64.0.1:30556/userinfo
+    token_url: http://dex.auth.svc.cluster.local:5556/token
+    api_url: http://dex.auth.svc.cluster.local:5556/userinfo
     root_url: http://100.64.0.1:30080
     role_attribute_path: contains(email, '@k8s.local') && 'Admin'
     tls_skip_verify_insecure: true

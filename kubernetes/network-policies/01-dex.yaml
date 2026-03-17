@@ -14,6 +14,11 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Allow external browser access via NodePort 30556 (for OAuth login redirect)
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 5556
     - from:
         - namespaceSelector:
             matchLabels:
@@ -50,6 +55,7 @@ spec:
         - protocol: TCP
           port: 5556
   egress:
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -58,6 +64,13 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # Kubernetes API server (no 'to' restriction = allow to any destination)
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    # External HTTPS (GitHub connector, etc.)
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

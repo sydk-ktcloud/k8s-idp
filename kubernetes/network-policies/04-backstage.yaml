@@ -1,10 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: backstage-allow
+  name: backstage-backend-allow
   namespace: backstage
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: backstage-backend
   policyTypes:
     - Ingress
     - Egress
@@ -12,9 +14,7 @@ spec:
     - from: []
       ports:
         - protocol: TCP
-          port: 80
-        - protocol: TCP
-          port: 7000
+          port: 7007
   egress:
     - to:
         - podSelector:
@@ -23,13 +23,6 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
-    - to:
-        - podSelector:
-            matchLabels:
-              app: backstage-backend
-      ports:
-        - protocol: TCP
-          port: 7000
     - to:
         - namespaceSelector:
             matchLabels:
@@ -40,6 +33,44 @@ spec:
       ports:
         - protocol: TCP
           port: 5556
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backstage-postgresql-allow
+  namespace: backstage
+spec:
+  podSelector:
+    matchLabels:
+      app: backstage-postgresql
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backstage-backend
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
     - to:
         - namespaceSelector: {}
           podSelector:
