@@ -31,8 +31,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'yarn'
-          cache-dependency-path: backstage-app/yarn.lock
+
+      - name: Enable Corepack (Yarn 활성화)
+        run: corepack enable
 
       - name: Install dependencies
         run: yarn install --immutable
@@ -51,7 +52,7 @@ jobs:
     name: Build & Push Docker Image
     runs-on: self-hosted
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     
     steps:
       - name: Checkout
