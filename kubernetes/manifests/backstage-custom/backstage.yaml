@@ -99,7 +99,10 @@ stringData:
   POSTGRES_PORT: "5432"
   POSTGRES_USER: backstage
   POSTGRES_PASSWORD: backstage123
+  POSTGRES_DB: backstage
   BACKEND_SECRET: "dev-secret-key-change-in-production"
+  GITHUB_TOKEN: ""
+  OIDC_CLIENT_SECRET: "backstage-client-secret-12345"
 
 ---
 apiVersion: apps/v1
@@ -168,3 +171,76 @@ spec:
   - port: 7007
     targetPort: 7007
     nodePort: 30070
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backstage-production-config
+  namespace: backstage
+data:
+  app-config.production.yaml: |
+    app:
+      baseUrl: http://100.64.0.1:30070
+      title: K8S-IDP Developer Portal
+    
+    backend:
+      baseUrl: http://100.64.0.1:30070
+      listen: ':7007'
+      cors:
+        origin: http://100.64.0.1:30070
+      csp:
+        upgrade-insecure-requests: false
+      database:
+        client: pg
+        connection:
+          host: ${POSTGRES_HOST}
+          port: ${POSTGRES_PORT}
+          user: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+          database: ${POSTGRES_DB}
+    
+    auth:
+      environment: production
+      session:
+        secret: ${BACKEND_SECRET}
+      providers:
+        oidc:
+          production:
+            metadataUrl: http://100.64.0.1:30556/.well-known/openid-configuration
+            clientId: backstage
+            clientSecret: ${OIDC_CLIENT_SECRET}
+            prompt: auto
+            signIn:
+              resolvers:
+                - resolver: emailLocalPartMatchingUserEntityName
+                  dangerouslyAllowSignInWithoutUserInCatalog: true
+    
+    integrations:
+      github:
+        - host: github.com
+          token: ${GITHUB_TOKEN}
+    
+    proxy:
+      '/kubecost':
+        target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
+        changeOrigin: true
+    
+    kubecost:
+      baseUrl: /api/proxy/kubecost
+    
+    catalog:
+      locations:
+        - type: file
+          target: ./examples/entities.yaml
+        - type: file
+          target: ./examples/template/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./examples/org.yaml
+          rules:
+            - allow: [User, Group]
+    
+    permission:
+      enabled: true
