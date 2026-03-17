@@ -99,6 +99,7 @@ stringData:
   POSTGRES_PORT: "5432"
   POSTGRES_USER: backstage
   POSTGRES_PASSWORD: backstage123
+  POSTGRES_DB: backstage
   BACKEND_SECRET: "dev-secret-key-change-in-production"
 
 ---
@@ -168,3 +169,46 @@ spec:
   - port: 7007
     targetPort: 7007
     nodePort: 30070
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backstage-production-config
+  namespace: backstage
+data:
+  app-config.production.yaml: |
+    app:
+      baseUrl: http://100.64.0.1:30070
+      title: K8S-IDP Developer Portal
+    
+    backend:
+      baseUrl: http://100.64.0.1:30070
+      listen: ':7007'
+      cors:
+        origin: http://100.64.0.1:30070
+      csp:
+        upgrade-insecure-requests: false
+      database:
+        client: pg
+        connection:
+          host: ${POSTGRES_HOST}
+          port: ${POSTGRES_PORT}
+          user: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+          database: ${POSTGRES_DB}
+          
+    auth:
+      environment: production
+      session:
+        secret: ${BACKEND_SECRET}
+      providers:
+        guest: {}
+        
+    proxy:
+      '/kubecost':
+        target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
+        changeOrigin: true
+        
+    kubecost:
+      baseUrl: /api/proxy/kubecost
