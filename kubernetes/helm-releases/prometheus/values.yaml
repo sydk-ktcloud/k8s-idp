@@ -9,6 +9,7 @@ grafana:
 prometheus:
   prometheusSpec:
     # Retention settings
+    enableRemoteWriteReceiver: true
     retention: 15d
     retentionSize: "45GiB"
     

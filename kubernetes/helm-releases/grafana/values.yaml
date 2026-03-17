@@ -51,3 +51,16 @@ serviceAccount:
 
 # Disable secret validation
 assertNoLeakedSecrets: false
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        url: http://loki.monitoring:3100
+        access: proxy
+      - name: Tempo
+        type: tempo
+        url: http://tempo.monitoring:3100
+        access: proxy
