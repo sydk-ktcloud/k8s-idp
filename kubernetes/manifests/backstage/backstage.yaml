@@ -139,7 +139,8 @@ spec:
     spec:
       containers:
       - name: backstage
-        image: martinaif/backstage-k8s-demo-backend:test1
+        image: kylekim1223/backstage-backend:latest
+        imagePullPolicy: Always
         env:
         - name: APP_CONFIG_backend_database_client
           value: pg
