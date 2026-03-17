@@ -11,10 +11,21 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/alloy
-    directory:
-      recurse: true
+    chart: alloy
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 0.12.5
+    helm:
+      valuesObject:
+        alloy:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
+        clustering:
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -22,3 +33,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

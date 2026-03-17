@@ -12,8 +12,7 @@ spec:
     path: kubernetes/argocd-apps
     directory:
       recurse: true
-      exclude:
-        - k8s-idp.yaml
+      exclude: "k8s-idp.yaml"
   destination:
     server: https://kubernetes.default.svc
     namespace: gitops

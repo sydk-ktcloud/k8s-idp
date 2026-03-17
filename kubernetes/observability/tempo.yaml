@@ -11,10 +11,22 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/tempo
-    directory:
-      recurse: true
+    chart: tempo
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 1.10.1
+    helm:
+      valuesObject:
+        tempo:
+          storage:
+            trace:
+              backend: local
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -22,3 +34,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
