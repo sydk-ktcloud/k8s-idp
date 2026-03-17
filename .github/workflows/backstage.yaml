@@ -92,11 +92,9 @@ jobs:
 
   deploy:
     name: Deploy
-    runs-on: self-hosted
     needs: build-image
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    steps:
-      - name: Trigger ArgoCD Sync
-        uses: ./.github/workflows/argocd-sync.yaml
-        with:
-          application: k8s-idp
+    uses: ./.github/workflows/argocd-sync.yaml
+    with:
+      application: k8s-idp
+    secrets: inherit
