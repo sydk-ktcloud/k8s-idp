@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/manifests/backstage
+    path: kubernetes/manifests/backstage-custom
     directory:
       recurse: true
   destination:
