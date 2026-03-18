@@ -9,14 +9,37 @@ alloy:
   configMap:
     create: true
     content: |
-      // Prometheus 메트릭 스크래핑
-      prometheus.scrape "kubernetes" {
-        targets = discovery.kubernetes.pods.targets
-        forward_to = [prometheus.remote_write.default.receiver]
-      }
-
+      // K8s Pod 자동 탐색
       discovery.kubernetes "pods" {
         role = "pod"
+      }
+
+      // 공통 태그 설정
+      discovery.relabel "common_labels" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          target_label  = "node"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "service"
+        }
+        rule {
+          replacement  = "local-k8s"
+          target_label = "cluster"
+        }
+      }
+
+      // Prometheus 메트릭 스크래핑
+      prometheus.scrape "kubernetes" {
+        targets    = discovery.relabel.common_labels.output
+        forward_to = [prometheus.remote_write.default.receiver]
       }
 
       prometheus.remote_write "default" {
@@ -27,8 +50,27 @@ alloy:
 
       // 로그 수집
       loki.source.kubernetes "pods" {
-        targets    = discovery.kubernetes.pods.targets
+        targets    = discovery.relabel.common_labels.output
         forward_to = [loki.write.default.receiver]
+      }
+
+      // 로그 파싱 (JSON 포맷 파싱, traceID/level 라벨 추출)
+      loki.process "parse_logs" {
+        forward_to = [loki.write.default.receiver]
+
+        stage.json {
+          expressions = {
+            level   = "level",
+            traceID = "traceID",
+          }
+        }
+
+        stage.labels {
+          values = {
+            level   = "level",
+            traceID = "traceID",
+          }
+        }
       }
 
       loki.write "default" {

@@ -1,4 +1,13 @@
 tempo:
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+  livenessProbe:
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    failureThreshold: 10
+    
   resources:
     limits:
       cpu: 200m
