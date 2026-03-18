@@ -15,9 +15,7 @@ spec:
   versions:
     - name: v1alpha1
       served: true
-      reference:
-        apiVersion: sql.gcp.upbound.io/v1beta1
-        kind: DatabaseInstance
+      referenceable: true
       schema:
         openAPIV3Schema:
           type: object
@@ -26,31 +24,23 @@ spec:
               type: object
               properties:
                 name:
-                    type: string
-                    description: Name of the Cloud SQL instance
+                  type: string
+                  description: Name of the Cloud SQL instance
                 databaseVersion:
-                    type: string
-                    description: Database version (e.g., POSTGRES_15, MYSQL_8_0)
-                    default: POSTGRES_15
+                  type: string
+                  description: Database version
+                  default: POSTGRES_15
                 tier:
-                    type: string
-                    description: Machine tier (e.g., db-custom-1-3840, db-f1-micro)
-                    default: db-custom-1-3840
+                  type: string
+                  description: Machine tier
+                  default: db-custom-1-3840
                 region:
-                    type: string
-                    description: Region for the database
-                    default: us-central1
+                  type: string
+                  description: Region for the database
+                  default: us-central1
                 diskSize:
-                    type: integer
-                    description: Disk size in GB
-                    default: 20
-                diskType:
-                    type: string
-                    description: Disk type (PD_SSD, PD_HDD)
-                    default: PD_SSD
-                availabilityType:
-                    type: string
-                    description: Availability type (REGIONAL, ZONAL)
-                    default: ZONAL
+                  type: integer
+                  description: Disk size in GB
+                  default: 20
               required:
                 - name

@@ -126,7 +126,16 @@ catalog:
     #     - allow: [User, Group]
 
 kubernetes:
-  # see https://backstage.io/docs/features/kubernetes/configuration for kubernetes configuration options
+  serviceLocatorMethod:
+    type: multiTenant
+  clusterLocatorMethods:
+    - type: config
+      clusters:
+        - name: k8s-idp
+          url: https://kubernetes.default.svc
+          authProvider: serviceAccount
+          skipTLSVerify: true
+          skipMetricsLookup: true
 kubecost:
   baseUrl: /api/proxy/kubecost
 # see https://backstage.io/docs/permissions/getting-started for more on the permission framework

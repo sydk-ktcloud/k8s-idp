@@ -3,6 +3,56 @@
 
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backstage
+  namespace: backstage
+automountServiceAccountToken: true
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backstage-read-crossplane
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets", "namespaces", "persistentvolumeclaims", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.crossplane.io"]
+    resources: ["compositeresourcedefinitions", "compositions", "claims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["gcpinstances", "buckets", "clusters", "databases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["xgcpinstances", "xbuckets", "xclusters", "xdatabases"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backstage-read-crossplane
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backstage-read-crossplane
+subjects:
+  - kind: ServiceAccount
+    name: backstage
+    namespace: backstage
+
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: backstage-postgresql
@@ -120,6 +170,7 @@ spec:
       labels:
         app: backstage-backend
     spec:
+      serviceAccountName: backstage
       containers:
       - name: backstage
         image: kylekim1223/backstage-backend:latest
@@ -241,6 +292,30 @@ data:
           target: ./examples/org.yaml
           rules:
             - allow: [User, Group]
+        - type: file
+          target: ./templates/infrastructure-only/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/service/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/service-with-infra/template.yaml
+          rules:
+            - allow: [Template]
+    
+    kubernetes:
+      serviceLocatorMethod:
+        type: multiTenant
+      clusterLocatorMethods:
+        - type: config
+          clusters:
+            - name: k8s-idp
+              url: https://kubernetes.default.svc
+              authProvider: serviceAccount
+              skipTLSVerify: true
+              skipMetricsLookup: true
     
     permission:
       enabled: true
