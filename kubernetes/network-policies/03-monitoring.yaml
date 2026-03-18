@@ -30,11 +30,44 @@ spec:
         - protocol: TCP
           port: 8080
         - protocol: TCP
+          port: 9093
+        - protocol: TCP
           port: 10250
         - protocol: TCP
           port: 10251
         - protocol: TCP
           port: 10252
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alertmanager-allow
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alertmanager
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9093
+  egress:
     - to:
         - namespaceSelector: {}
           podSelector:
