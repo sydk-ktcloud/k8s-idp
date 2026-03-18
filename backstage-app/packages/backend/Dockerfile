@@ -30,15 +30,8 @@ RUN yarn build:backend
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 FROM node:24-trixie-slim
 
-ENV PYTHON=/usr/bin/python3
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--no-node-snapshot"
-
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends python3 g++ build-essential libsqlite3-dev && \
-    rm -rf /var/lib/apt/lists/*
 
 USER node
 WORKDIR /app
