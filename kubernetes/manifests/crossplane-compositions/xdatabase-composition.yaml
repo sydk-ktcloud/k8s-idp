@@ -1,0 +1,45 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xdatabase.k8s-idp.example.org
+  labels:
+    provider: gcp
+    resource: sql
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XDatabase
+  resources:
+    - name: sql-instance
+      base:
+        apiVersion: sql.gcp.upbound.io/v1beta1
+        kind: DatabaseInstance
+        spec:
+          forProvider:
+            region: us-central1
+            databaseVersion: POSTGRES_15
+            settings:
+              - tier: db-custom-1-3840
+                diskSize: 20
+                diskType: PD_SSD
+                availabilityType: ZONAL
+                backupConfiguration:
+                  - enabled: true
+            deletionProtection: false
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: spec.databaseVersion
+          toFieldPath: spec.forProvider.databaseVersion
+        - fromFieldPath: spec.tier
+          toFieldPath: spec.forProvider.settings[0].tier
+        - fromFieldPath: spec.diskSize
+          toFieldPath: spec.forProvider.settings[0].diskSize
+        - fromFieldPath: spec.diskType
+          toFieldPath: spec.forProvider.settings[0].diskType
+        - fromFieldPath: spec.availabilityType
+          toFieldPath: spec.forProvider.settings[0].availabilityType
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels

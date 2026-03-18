@@ -1,0 +1,37 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xbucket.k8s-idp.example.org
+  labels:
+    provider: gcp
+    resource: storage
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XBucket
+  resources:
+    - name: storage-bucket
+      base:
+        apiVersion: storage.gcp.upbound.io/v1beta1
+        kind: Bucket
+        spec:
+          forProvider:
+            location: US
+            storageClass: STANDARD
+            uniformBucketLevelAccess:
+              enabled: true
+            versioning:
+              enabled: false
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+        - fromFieldPath: spec.storageClass
+          toFieldPath: spec.forProvider.storageClass
+        - fromFieldPath: spec.versioning
+          toFieldPath: spec.forProvider.versioning.enabled
+        - fromFieldPath: spec.uniformBucketLevelAccess
+          toFieldPath: spec.forProvider.uniformBucketLevelAccess.enabled
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels

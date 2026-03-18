@@ -1,0 +1,55 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xclusters.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XCluster
+    plural: xclusters
+    singular: xcluster
+  claimNames:
+    kind: Cluster
+    plural: clusters
+    singular: cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      reference:
+        apiVersion: container.gcp.upbound.io/v1beta1
+        kind: Cluster
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                    type: string
+                    description: Name of the GKE cluster
+                location:
+                    type: string
+                    description: Cluster location/region
+                    default: us-central1
+                nodeCount:
+                    type: integer
+                    description: Initial node count
+                    default: 3
+                machineType:
+                    type: string
+                    description: Node machine type
+                    default: e2-medium
+                network:
+                    type: string
+                    description: VPC network name
+                    default: default
+                subnetwork:
+                    type: string
+                    description: Subnetwork name
+                enableAutopilot:
+                    type: boolean
+                    description: Enable Autopilot mode
+                    default: false
+              required:
+                - name

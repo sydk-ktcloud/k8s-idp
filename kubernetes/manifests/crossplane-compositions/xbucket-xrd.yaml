@@ -1,0 +1,48 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xbuckets.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XBucket
+    plural: xbuckets
+    singular: xbucket
+  claimNames:
+    kind: Bucket
+    plural: buckets
+    singular: bucket
+  versions:
+    - name: v1alpha1
+      served: true
+      reference:
+        apiVersion: storage.gcp.upbound.io/v1beta1
+        kind: Bucket
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                    type: string
+                    description: Name of the GCS bucket
+                location:
+                    type: string
+                    description: Bucket location (e.g., US, EU, us-central1)
+                    default: US
+                storageClass:
+                    type: string
+                    description: Storage class (STANDARD, NEARLINE, COLDLINE, ARCHIVE)
+                    default: STANDARD
+                versioning:
+                    type: boolean
+                    description: Enable versioning
+                    default: false
+                uniformBucketLevelAccess:
+                    type: boolean
+                    description: Enable uniform bucket-level access
+                    default: true
+              required:
+                - name

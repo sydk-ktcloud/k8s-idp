@@ -1,0 +1,46 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xcluster.k8s-idp.example.org
+  labels:
+    provider: gcp
+    resource: container
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XCluster
+  resources:
+    - name: gke-cluster
+      base:
+        apiVersion: container.gcp.upbound.io/v1beta1
+        kind: Cluster
+        spec:
+          forProvider:
+            location: us-central1
+            network: projects/sydk-ktcloud/global/networks/default
+            initialNodeCount: 3
+            nodeConfig:
+              - machineType: e2-medium
+                oauthScopes:
+                  - "https://www.googleapis.com/auth/cloud-platform"
+            enableIntranodeVisibility: true
+            ipAllocationPolicy:
+              - clusterSecondaryRangeName: pods
+                servicesSecondaryRangeName: services
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+        - fromFieldPath: spec.network
+          toFieldPath: spec.forProvider.network
+          transforms:
+            - type: string
+              string:
+                fmt: "projects/sydk-ktcloud/global/networks/%s"
+        - fromFieldPath: spec.nodeCount
+          toFieldPath: spec.forProvider.initialNodeCount
+        - fromFieldPath: spec.machineType
+          toFieldPath: spec.forProvider.nodeConfig[0].machineType
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels

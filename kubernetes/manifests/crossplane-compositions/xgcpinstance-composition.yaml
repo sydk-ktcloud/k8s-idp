@@ -1,0 +1,45 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xgcpinstance.k8s-idp.example.org
+  labels:
+    provider: gcp
+    resource: compute
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XGCPInstance
+  resources:
+    - name: compute-instance
+      base:
+        apiVersion: compute.gcp.upbound.io/v1beta1
+        kind: Instance
+        spec:
+          forProvider:
+            machineType: e2-medium
+            zone: us-central1-a
+            bootDisk:
+              initializeParams:
+                size: 100
+            networkInterfaces:
+              - accessConfigs:
+                  - type: ONE_TO_ONE_NAT
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.machineType
+          toFieldPath: spec.forProvider.machineType
+          transforms:
+            - type: string
+              string:
+                fmt: "zones/%s"
+        - fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.zone
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-a"
+        - fromFieldPath: spec.diskSize
+          toFieldPath: spec.forProvider.bootDisk.initializeParams.size
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels
