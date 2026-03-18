@@ -1,0 +1,234 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: infrastructure-only-template
+  title: 인프라 프로비저닝
+  description: GCP 리소스(VM, GCS, GKE, Cloud SQL)를 프로비저닝합니다
+spec:
+  owner: user:guest
+  type: resource
+
+  parameters:
+    - title: 기본 정보
+      required:
+        - componentName
+      properties:
+        componentName:
+          title: 리소스 이름
+          type: string
+          description: 리소스의 고유 이름
+          ui:field: EntityNamePicker
+          ui:autofocus: true
+        namespace:
+          title: Kubernetes 네임스페이스
+          type: string
+          description: 리소스가 배포될 네임스페이스
+          default: default
+
+    - title: 리소스 유형 선택
+      required:
+        - resourceType
+      properties:
+        resourceType:
+          title: 리소스 유형
+          type: string
+          enum:
+            - gcpinstance
+            - bucket
+            - cluster
+            - database
+          enumNames:
+            - GCP Compute Instance (VM)
+            - Google Cloud Storage (Bucket)
+            - Google Kubernetes Engine (GKE)
+            - Cloud SQL
+          description: 프로비저닝할 GCP 리소스 유형을 선택하세요
+          default: gcpinstance
+
+    - title: GCP Instance 설정
+      required:
+        - vmMachineType
+        - vmRegion
+        - vmZone
+        - vmDiskSize
+      properties:
+        vmMachineType:
+          title: 머신 타입
+          type: string
+          description: VM의 머신 타입
+          default: e2-medium
+        vmRegion:
+          title: 리전
+          type: string
+          description: GCP 리전
+          default: us-central1
+        vmZone:
+          title: 존
+          type: string
+          description: GCP 존
+          default: us-central1-a
+        vmDiskSize:
+          title: 디스크 크기 (GB)
+          type: number
+          description: VM 디스크 크기 (GB)
+          default: 100
+      visible: ${{ parameters.resourceType === 'gcpinstance' }}
+
+    - title: Bucket 설정
+      required:
+        - bucketLocation
+        - bucketStorageClass
+        - bucketVersioning
+      properties:
+        bucketLocation:
+          title: 위치
+          type: string
+          description: Bucket의 위치
+          default: US
+        bucketStorageClass:
+          title: 스토리지 클래스
+          type: string
+          enum:
+            - STANDARD
+            - NEARLINE
+            - COLDLINE
+            - ARCHIVE
+          enumNames:
+            - Standard
+            - Nearline
+            - Coldline
+            - Archive
+          description: Bucket의 스토리지 클래스
+          default: STANDARD
+        bucketVersioning:
+          title: 버전 관리
+          type: boolean
+          description: 버전 관리 활성화 여부
+          default: false
+      visible: ${{ parameters.resourceType === 'bucket' }}
+
+    - title: GKE 클러스터 설정
+      required:
+        - clusterLocation
+        - clusterNodeCount
+        - clusterMachineType
+      properties:
+        clusterLocation:
+          title: 위치
+          type: string
+          description: GKE 클러스터의 위치
+          default: us-central1
+        clusterNodeCount:
+          title: 노드 수
+          type: number
+          description: 클러스터의 노드 수
+          default: 3
+        clusterMachineType:
+          title: 머신 타입
+          type: string
+          description: 노드의 머신 타입
+          default: e2-medium
+      visible: ${{ parameters.resourceType === 'cluster' }}
+
+    - title: Cloud SQL 설정
+      required:
+        - dbDatabaseVersion
+        - dbTier
+        - dbRegion
+        - dbDiskSize
+      properties:
+        dbDatabaseVersion:
+          title: 데이터베이스 버전
+          type: string
+          enum:
+            - POSTGRES_15
+            - POSTGRES_14
+            - POSTGRES_13
+            - MYSQL_8_0
+            - MYSQL_5_7
+          enumNames:
+            - PostgreSQL 15
+            - PostgreSQL 14
+            - PostgreSQL 13
+            - MySQL 8.0
+            - MySQL 5.7
+          description: 데이터베이스 엔진 버전
+          default: POSTGRES_15
+        dbTier:
+          title: 티어
+          type: string
+          description: Cloud SQL 인스턴스 티어
+          default: db-custom-1-3840
+        dbRegion:
+          title: 리전
+          type: string
+          description: Cloud SQL 인스턴스 리전
+          default: us-central1
+        dbDiskSize:
+          title: 디스크 크기 (GB)
+          type: number
+          description: 데이터베이스 디스크 크기 (GB)
+          default: 20
+      visible: ${{ parameters.resourceType === 'database' }}
+
+    - title: 저장소 설정
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: 저장소 위치
+          type: string
+          description: Pull Request를 생성할 저장소
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: 템플릿 가져오기
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          componentName: ${{ parameters.componentName }}
+          namespace: ${{ parameters.namespace }}
+          resourceType: ${{ parameters.resourceType }}
+          vmMachineType: ${{ parameters.vmMachineType }}
+          vmRegion: ${{ parameters.vmRegion }}
+          vmZone: ${{ parameters.vmZone }}
+          vmDiskSize: ${{ parameters.vmDiskSize }}
+          bucketLocation: ${{ parameters.bucketLocation }}
+          bucketStorageClass: ${{ parameters.bucketStorageClass }}
+          bucketVersioning: ${{ parameters.bucketVersioning }}
+          clusterLocation: ${{ parameters.clusterLocation }}
+          clusterNodeCount: ${{ parameters.clusterNodeCount }}
+          clusterMachineType: ${{ parameters.clusterMachineType }}
+          dbDatabaseVersion: ${{ parameters.dbDatabaseVersion }}
+          dbTier: ${{ parameters.dbTier }}
+          dbRegion: ${{ parameters.dbRegion }}
+          dbDiskSize: ${{ parameters.dbDiskSize }}
+
+    - id: publish
+      name: Pull Request 생성
+      action: publish:github
+      input:
+        description: "인프라 리소스: ${{ parameters.componentName }} ( ${{ parameters.resourceType }} )"
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: 'main'
+        targetPath: apps/${{ parameters.componentName }}
+
+    - id: register
+      name: 카탈로그 등록
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Pull Request
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: 카탈로그에서 열기
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
