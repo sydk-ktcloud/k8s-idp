@@ -32,6 +32,12 @@ kind: Deployment
 metadata:
   name: backstage-postgresql
   namespace: backstage
+  labels:
+    owner: team-platform
+    team: platform
+    cost-center: internal-platform
+    environment: prod
+    service: backstage-db
 spec:
   replicas: 1
   selector:
@@ -41,6 +47,11 @@ spec:
     metadata:
       labels:
         app: backstage-postgresql
+        owner: team-platform
+        team: platform
+        cost-center: internal-platform
+        environment: prod
+        service: backstage-db
     spec:
       containers:
       - name: postgresql
@@ -110,6 +121,12 @@ kind: Deployment
 metadata:
   name: backstage-backend
   namespace: backstage
+  labels:
+    owner: team-platform
+    team: platform
+    cost-center: internal-platform
+    environment: prod
+    service: backstage-backend
 spec:
   replicas: 1
   selector:
@@ -119,6 +136,11 @@ spec:
     metadata:
       labels:
         app: backstage-backend
+        owner: team-platform
+        team: platform
+        cost-center: internal-platform
+        environment: prod
+        service: backstage-backend
     spec:
       containers:
       - name: backstage
@@ -163,6 +185,12 @@ kind: Service
 metadata:
   name: backstage-backend
   namespace: backstage
+  labels:
+    owner: team-platform
+    team: platform
+    cost-center: internal-platform
+    environment: prod
+    service: backstage-backend
 spec:
   type: NodePort
   selector:
@@ -178,12 +206,18 @@ kind: ConfigMap
 metadata:
   name: backstage-production-config
   namespace: backstage
+  labels:
+    owner: team-platform
+    team: platform
+    cost-center: internal-platform
+    environment: prod
+    service: backstage-backend
 data:
   app-config.production.yaml: |
     app:
       baseUrl: http://100.64.0.1:30070
       title: K8S-IDP Developer Portal
-    
+
     backend:
       baseUrl: http://100.64.0.1:30070
       listen: ':7007'
@@ -199,7 +233,7 @@ data:
           user: ${POSTGRES_USER}
           password: ${POSTGRES_PASSWORD}
           database: ${POSTGRES_DB}
-    
+
     auth:
       environment: production
       session:
@@ -215,20 +249,20 @@ data:
               resolvers:
                 - resolver: emailLocalPartMatchingUserEntityName
                   dangerouslyAllowSignInWithoutUserInCatalog: true
-    
+
     integrations:
       github:
         - host: github.com
           token: ${GITHUB_TOKEN}
-    
+
     proxy:
       '/kubecost':
         target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
         changeOrigin: true
-    
+
     kubecost:
       baseUrl: /api/proxy/kubecost
-    
+
     catalog:
       locations:
         - type: file
@@ -241,6 +275,6 @@ data:
           target: ./examples/org.yaml
           rules:
             - allow: [User, Group]
-    
+
     permission:
       enabled: true
