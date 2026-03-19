@@ -10,10 +10,10 @@ metadata:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
     team: platform
-    owner: security       # Security Engineer 담당
-    cost_center: internal-platform
-    env: prod
-    system: platform
+    owner: security
+    cost-center: internal-platform
+    environment: prod
+    system: security
     service: auth
 ---
 apiVersion: v1
@@ -26,10 +26,10 @@ metadata:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
     team: platform
-    owner: security       # Security Engineer 담당
-    cost_center: internal-platform
-    env: prod
-    system: platform
+    owner: security
+    cost-center: internal-platform
+    environment: prod
+    system: security
 ---
 apiVersion: v1
 kind: Namespace
@@ -41,9 +41,9 @@ metadata:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
     team: platform
-    owner: platform       # Platform Lead 담당
-    cost_center: internal-platform
-    env: prod
+    owner: platform-lead
+    cost-center: internal-platform
+    environment: prod
     system: platform
 ---
 apiVersion: v1
@@ -56,10 +56,10 @@ metadata:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
     team: platform
-    owner: sre            # SRE / Observability 담당
-    cost_center: internal-platform
-    env: prod
-    system: platform
+    owner: sre
+    cost-center: internal-platform
+    environment: prod
+    system: observability
 ---
 apiVersion: v1
 kind: Namespace
@@ -71,10 +71,10 @@ metadata:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
     team: platform
-    owner: finops         # FinOps Engineer 담당
-    cost_center: internal-platform
-    env: prod
-    system: platform
+    owner: finops
+    cost-center: internal-platform
+    environment: prod
+    system: finops
 ---
 apiVersion: v1
 kind: Namespace
@@ -86,7 +86,22 @@ metadata:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
     team: platform
-    owner: platform       # Platform Lead 담당
-    cost_center: internal-platform
-    env: prod
+    owner: platform-lead
+    cost-center: internal-platform
+    environment: prod
+    system: infra
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backstage
+  labels:
+    name: backstage
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    team: platform
+    owner: finops
+    cost-center: internal-platform
+    environment: prod
     system: platform
