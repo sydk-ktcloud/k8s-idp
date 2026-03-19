@@ -1,3 +1,25 @@
+# MinIO Storage Configuration
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  namespace: minio-storage
+  labels:
+    team: platform
+    owner: platform-lead
+    cost-center: internal-platform
+    env: prod
+    system: infra
+    service: minio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,6 +27,12 @@ metadata:
   namespace: minio-storage
   labels:
     app: minio
+    team: platform
+    owner: platform-lead
+    cost-center: internal-platform
+    env: prod
+    system: infra
+    service: minio
 spec:
   replicas: 1
   selector:
@@ -14,10 +42,21 @@ spec:
     metadata:
       labels:
         app: minio
+        team: platform
+        owner: platform-lead
+        cost-center: internal-platform
+        env: prod
+        system: infra
+        service: minio
     spec:
       containers:
       - name: minio
-        image: minio/minio:RELEASE
+        image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+        args:
+          - server
+          - /data
+          - --console-address
+          - ":9001"
         env:
         - name: MINIO_ROOT_USER
           value: "admin"
@@ -25,54 +64,62 @@ spec:
           value: "K8sCluster@2026"
         ports:
         - containerPort: 9000
-          name: data
+          name: api
+        - containerPort: 9001
+          name: console
         volumeMounts:
         - mountPath: /data
-        - mountPath: /console
-          name: console
-          readOnly: true
+          name: data
         resources:
           requests:
             memory: 256Mi
             cpu: 100m
-        volumeMounts:
-        - mountPath: /data
-          name: data
+          limits:
+            memory: 512Mi
+            cpu: 500m
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: minio-data
-status: Bound
-volume:
-  capacity: 50Gi
-  accessModes:
-  - ReadWriteOnce
-  storageClassName: longhorn
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: minio-console
-  namespace: minio-storage
-spec:
-  type: NodePort
-  ports:
-    - port: 9000
-      targetPort: 9000
-      nodePort: 30900
-  selector:
-    app: minio
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: minio-api
   namespace: minio-storage
+  labels:
+    team: platform
+    owner: platform-lead
+    cost-center: internal-platform
+    env: prod
+    system: infra
+    service: minio
 spec:
   type: NodePort
   ports:
     - port: 9000
       targetPort: 9000
-      nodePort: 30900
+      nodePort: 30900  
+  selector:
+    app: minio
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-console
+  namespace: minio-storage
+  labels:
+    team: platform
+    owner: platform-lead
+    cost-center: internal-platform
+    env: prod
+    system: infra
+    service: minio
+spec:
+  type: NodePort
+  ports:
+    - port: 9001
+      targetPort: 9001
+      nodePort: 30901 # 콘솔 포트 (30900과 충돌 방지)
   selector:
     app: minio
