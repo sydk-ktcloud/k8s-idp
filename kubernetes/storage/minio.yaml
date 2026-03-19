@@ -49,9 +49,18 @@ spec:
         system: infra
         service: minio
     spec:
+      securityContext:        
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: minio
         image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+        securityContext:        
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         args:
           - server
           - /data
@@ -99,7 +108,7 @@ spec:
   ports:
     - port: 9000
       targetPort: 9000
-      nodePort: 30900  
+      nodePort: 30900
   selector:
     app: minio
 ---
@@ -120,6 +129,6 @@ spec:
   ports:
     - port: 9001
       targetPort: 9001
-      nodePort: 30901 # 콘솔 포트 (30900과 충돌 방지)
+      nodePort: 30901
   selector:
     app: minio
