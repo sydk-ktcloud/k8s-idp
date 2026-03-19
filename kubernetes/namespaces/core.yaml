@@ -12,7 +12,7 @@ metadata:
     team: platform
     owner: security
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: security
     service: auth
 ---
@@ -28,7 +28,7 @@ metadata:
     team: platform
     owner: security
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: security
 ---
 apiVersion: v1
@@ -43,7 +43,7 @@ metadata:
     team: platform
     owner: platform-lead
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: platform
 ---
 apiVersion: v1
@@ -58,7 +58,7 @@ metadata:
     team: platform
     owner: sre
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: observability
 ---
 apiVersion: v1
@@ -73,7 +73,7 @@ metadata:
     team: platform
     owner: finops
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: finops
 ---
 apiVersion: v1
@@ -88,7 +88,7 @@ metadata:
     team: platform
     owner: platform-lead
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: infra
 ---
 apiVersion: v1
@@ -103,5 +103,5 @@ metadata:
     team: platform
     owner: finops
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: platform
