@@ -8,10 +8,10 @@ metadata:
     storageclass.kubernetes.io/is-default-class: "true"
   labels:
     team: platform
-    owner: platform       # Platform Lead 담당
+    owner: platform-lead
     cost_center: internal-platform
-    env: prod
-    system: platform
+    env: production
+    system: infra
 provisioner: driver.longhorn.io
 allowVolumeExpansion: true
 reclaimPolicy: Delete
@@ -32,9 +32,9 @@ metadata:
     storageclass.kubernetes.io/is-default-class: "false"
   labels:
     team: platform
-    owner: platform       # Platform Lead 담당
+    owner: platform-lead    
     cost_center: internal-platform
-    env: prod
-    system: platform
+    env: production
+    system: infra
 provisioner: rancher.io/local-path
 volumeBindingMode: WaitForFirstConsumer
