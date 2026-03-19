@@ -11,7 +11,8 @@ import {
 } from '@backstage/core-components';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';
-import { useState, useEffect } from 'react';
+import { useAsync } from 'react-use';
+import { Entity } from '@backstage/catalog-model';
 import {
   Grid,
   Card,
@@ -212,7 +213,7 @@ const MyServicesCard = () => {
         </Typography>
       ) : (
         <List dense>
-          {services.map(service => (
+          {services.map((service: Entity) => (
             <ListItem
               key={service.metadata.name}
               button
