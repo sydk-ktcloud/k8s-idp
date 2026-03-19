@@ -1,31 +1,40 @@
 # Longhorn Storage Configuration
-# 설치: kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.6.2/deploy/longhorn.yaml
-
 ---
-# 기본 StorageClass를 Longhorn으로 변경
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: longhorn
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
+  labels:
+    team: platform
+    owner: platform       # Platform Lead 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
 provisioner: driver.longhorn.io
 allowVolumeExpansion: true
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 parameters:
-  numberOfReplicas: "2"          # 4노드 클러스터에 맞춰 2副本
+  numberOfReplicas: "2"
   staleReplicaTimeout: "30"
   fromBackup: ""
   fsType: "ext4"
-  dataEngine: "v1"               # v1 = SPDK 없이 동작
+  dataEngine: "v1"
 
 ---
-# local-path를 기본에서 제외
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: local-path
   annotations:
     storageclass.kubernetes.io/is-default-class: "false"
+  labels:
+    team: platform
+    owner: platform       # Platform Lead 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
 provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
