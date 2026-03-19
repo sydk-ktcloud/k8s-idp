@@ -105,3 +105,18 @@ metadata:
     cost-center: internal-platform
     env: prod
     system: platform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minio-storage
+  labels:
+    name: minio-storage
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    team: platform
+    owner: platform-lead
+    cost-center: internal-platform
+    env: prod
+    system: infra
