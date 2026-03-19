@@ -3,6 +3,7 @@ import { makeStyles } from '@material-ui/core';
 import HomeIcon from '@material-ui/icons/Home';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import CloudIcon from '@material-ui/icons/Cloud';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -22,8 +23,6 @@ import {
   Link,
 } from '@backstage/core-components';
 import MenuIcon from '@material-ui/icons/Menu';
-import { MyGroupsSidebarItem } from '@backstage/plugin-org';
-import GroupIcon from '@material-ui/icons/People';
 
 const useSidebarLogoStyles = makeStyles({
   root: {
@@ -58,26 +57,16 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
     <Sidebar>
       <SidebarLogo />
       <SidebarDivider />
-      <SidebarGroup label="Menu" icon={<MenuIcon />}>
-        {/* Global nav, not org-specific */}
-        <SidebarItem icon={HomeIcon} to="catalog" text="Home" />
-        <MyGroupsSidebarItem
-          singularTitle="My Group"
-          pluralTitle="My Groups"
-          icon={GroupIcon}
-        />
-        <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
-        <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." />
-        {/* End global nav */}
-        <SidebarDivider />
-        <SidebarScrollWrapper>
-          {/* Items in this group will be scrollable if they run out of space */}
-        </SidebarScrollWrapper>
+      <SidebarGroup label="메뉴" icon={<MenuIcon />}>
+        <SidebarItem icon={HomeIcon} to="/" text="홈" />
+        <SidebarItem icon={CloudIcon} to="catalog" text="카탈로그" />
+        <SidebarItem icon={LibraryBooks} to="docs" text="문서" />
+        <SidebarItem icon={CreateComponentIcon} to="create" text="생성" />
       </SidebarGroup>
       <SidebarSpace />
       <SidebarDivider />
       <SidebarGroup
-        label="Settings"
+        label="설정"
         icon={<UserSettingsSignInAvatar />}
         to="/settings"
       >
