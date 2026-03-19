@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: trip-backend-service
+spec:
+  selector:
+    app: trip-backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trip-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trip-backend
+  template:
+    metadata:
+      labels:
+        app: trip-backend
+    spec:
+      containers:
+      - name: trip-backend
+        image: junho010712/trip-backend:latest # GitHub Actions가 빌드할 이미지 주소
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://trip-db:5432/trip_db"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "postgres"
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: "password"
