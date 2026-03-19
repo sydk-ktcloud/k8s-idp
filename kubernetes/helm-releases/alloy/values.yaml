@@ -14,29 +14,24 @@ alloy:
         targets = discovery.kubernetes.pods.targets
         forward_to = [prometheus.remote_write.default.receiver]
       }
-
       discovery.kubernetes "pods" {
         role = "pod"
       }
-
       prometheus.remote_write "default" {
         endpoint {
           url = "http://prometheus-kube-prometheus-prometheus.monitoring:9090/api/v1/write"
         }
       }
-
       // 로그 수집
       loki.source.kubernetes "pods" {
         targets    = discovery.kubernetes.pods.targets
         forward_to = [loki.write.default.receiver]
       }
-
       loki.write "default" {
         endpoint {
           url = "http://loki.monitoring:3100/loki/api/v1/push"
         }
       }
-
       // OTel 트레이스 수신
       otelcol.receiver.otlp "default" {
         grpc {
@@ -49,7 +44,6 @@ alloy:
           traces = [otelcol.exporter.otlp.tempo.input]
         }
       }
-
       otelcol.exporter.otlp "tempo" {
         client {
           endpoint = "tempo.monitoring:4317"
@@ -61,6 +55,13 @@ alloy:
 
 controller:
   type: daemonset
+  podLabels:
+    team: platform
+    owner: sre
+    cost-center: internal-platform
+    environment: prod
+    service: alloy
+    system: observability
 
 resources:
   limits:
