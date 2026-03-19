@@ -11,7 +11,7 @@ import {
 } from '@backstage/core-components';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';
-import { useAsync } from 'react-use';
+import { useState, useEffect } from 'react';
 import {
   Grid,
   Card,
