@@ -9,6 +9,12 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
+    team: platform
+    owner: security       # Security Engineer 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
+    service: auth
 ---
 apiVersion: v1
 kind: Namespace
@@ -19,6 +25,11 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
+    team: platform
+    owner: security       # Security Engineer 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
 ---
 apiVersion: v1
 kind: Namespace
@@ -29,6 +40,11 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
+    team: platform
+    owner: platform       # Platform Lead 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
 ---
 apiVersion: v1
 kind: Namespace
@@ -39,6 +55,11 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
+    team: platform
+    owner: sre            # SRE / Observability 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
 ---
 apiVersion: v1
 kind: Namespace
@@ -49,19 +70,23 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
-#PP|apiVersion: v1
-#TK|kind: Namespace
-#PN|metadata:
-#BT|  name: kubecost
-#SQ|  labels:
-#BT|    name: kubecost
-#KS|    pod-security.kubernetes.io/enforce: restricted
-#PZ|    pod-security.kubernetes.io/audit: restricted
-#XB|    pod-security.kubernetes.io/enforce: restricted
-#ZP|---
-#PP|apiVersion: v1
-#TK|kind: Namespace
-#PN|metadata:
-#QN|  name: crossplane-system
-#SQ|  labels:
-#QN|    name: crossplane-system
+    team: platform
+    owner: finops         # FinOps Engineer 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crossplane-system
+  labels:
+    name: crossplane-system
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    team: platform
+    owner: platform       # Platform Lead 담당
+    cost_center: internal-platform
+    env: prod
+    system: platform
