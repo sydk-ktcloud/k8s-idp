@@ -17,7 +17,6 @@ import {
   SidebarGroup,
   SidebarItem,
   SidebarPage,
-  SidebarScrollWrapper,
   SidebarSpace,
   useSidebarOpenState,
   Link,

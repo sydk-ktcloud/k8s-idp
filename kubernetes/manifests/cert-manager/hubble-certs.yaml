@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hubble-relay-server
+  namespace: kube-system
+spec:
+  commonName: hubble-relay.kube-system.svc.cluster.local
+  dnsNames:
+    - hubble-relay.kube-system.svc.cluster.local
+    - hubble-relay.kube-system.svc
+    - hubble-relay
+    - localhost
+  issuerRef:
+    kind: ClusterIssuer
+    name: k8s-idp-ca-issuer
+  secretName: hubble-relay-server-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hubble-relay-client
+  namespace: kube-system
+spec:
+  commonName: hubble-relay-client
+  issuerRef:
+    kind: ClusterIssuer
+    name: k8s-idp-ca-issuer
+  secretName: hubble-relay-client-tls

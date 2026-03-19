@@ -1,0 +1,57 @@
+=== Wave 4 - GitOps Workflow Summary ===
+Date: 2026-03-18
+
+## Task 13: apps/ Directory Structure ✓
+- Created: apps/README.md
+- Created: apps/.argocd/application.yaml
+- Created: apps/.placeholder
+
+## Task 14: ArgoCD Application ✓
+- Created: apps/.argocd/application.yaml
+- Application: developer-apps
+- Watches: apps/* directory
+- Auto-sync enabled with prune and self-heal
+
+## Task 15: Kubernetes Plugin Configuration ✓
+- Updated: backstage-app/app-config.yaml
+  - Added kubernetes cluster configuration
+  - Cluster: k8s-idp (in-cluster)
+- Created: ServiceAccount, ClusterRole, ClusterRoleBinding
+  - ServiceAccount: backstage (backstage namespace)
+  - ClusterRole: backstage-read-crossplane
+  - Permissions: Crossplane XRDs, Claims, core K8s resources
+- Updated: kubernetes/manifests/backstage-custom/backstage.yaml
+  - Added RBAC for Crossplane resources
+  - Added serviceAccountName to deployment
+
+## Task 16: Crossplane XRD/Composition Verification ✓
+- XRDs Created:
+  - xgcpinstances.k8s-idp.example.org (GCP VM)
+  - xbuckets.k8s-idp.example.org (GCS Bucket)
+  - xclusters.k8s-idp.example.org (GKE Cluster)
+  - xdatabases.k8s-idp.example.org (Cloud SQL)
+- Compositions Created:
+  - xgcpinstance.k8s-idp.example.org
+  - xbucket.k8s-idp.example.org
+  - xcluster.k8s-idp.example.org
+  - xdatabase.k8s-idp.example.org
+
+## Verification Commands
+```bash
+# Check XRDs
+kubectl get xrd
+
+# Check Compositions
+kubectl get composition
+
+# Check ArgoCD Application
+kubectl get application developer-apps -n gitops
+
+# Check Backstage RBAC
+kubectl get clusterrole backstage-read-crossplane
+kubectl get sa backstage -n backstage
+```
+
+## Note
+- ApplicationSet CRD not installed, using Application instead
+- XRD files required referenceable: true field

@@ -1,4 +1,3 @@
-import React from 'react';
 import { makeStyles, createStyles, Theme } from '@material-ui/core';
 import {
   Header,
@@ -10,11 +9,7 @@ import {
   Progress,
   Link,
 } from '@backstage/core-components';
-import {
-  CatalogApi,
-  CatalogFilter,
-  catalogApiRef,
-} from '@backstage/plugin-catalog-react';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';
 import { useAsync } from 'react-use';
 import {
@@ -33,7 +28,6 @@ import {
 } from '@material-ui/core';
 import StorageIcon from '@material-ui/icons/Storage';
 import CloudIcon from '@material-ui/icons/Cloud';
-import DescriptionIcon from '@material-ui/icons/Description';
 import BuildIcon from '@material-ui/icons/Build';
 import LaunchIcon from '@material-ui/icons/Launch';
 import AccountTreeIcon from '@material-ui/icons/AccountTree';
@@ -179,7 +173,6 @@ const TemplateCards = () => {
 };
 
 const MyServicesCard = () => {
-  const classes = useStyles();
   const catalogApi = useApi(catalogApiRef);
 
   const {
@@ -187,10 +180,9 @@ const MyServicesCard = () => {
     loading,
     error,
   } = useAsync(async () => {
-    const filter: CatalogFilter = {
-      kind: 'component',
-    };
-    const response = await catalogApi.getEntities({ filter });
+    const response = await catalogApi.getEntities({
+      filter: { kind: 'component' },
+    });
     return response.items;
   }, []);
 
