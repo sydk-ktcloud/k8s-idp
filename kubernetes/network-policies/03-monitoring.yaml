@@ -16,7 +16,6 @@ spec:
         - protocol: TCP
           port: 9090
   egress:
-    # k8s API access (no 'to' = all destinations allowed)
     - ports:
         - protocol: TCP
           port: 443
@@ -41,6 +40,11 @@ spec:
           port: 10259
         - protocol: TCP
           port: 2381
+        - protocol: TCP
+          port: 10252
+        - protocol: TCP
+          port: 9153
+
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -71,6 +75,8 @@ spec:
       ports:
         - protocol: TCP
           port: 9093
+        - protocol: TCP
+          port: 8080
   egress:
     - to:
         - namespaceSelector: {}
@@ -105,7 +111,6 @@ spec:
         - protocol: TCP
           port: 8081
   egress:
-    # k8s API access (no 'to' = all destinations allowed)
     - ports:
         - protocol: TCP
           port: 443
@@ -141,7 +146,6 @@ spec:
         - protocol: TCP
           port: 10250
   egress:
-    # k8s API access (no 'to' = all destinations allowed)
     - ports:
         - protocol: TCP
           port: 443
@@ -233,6 +237,11 @@ spec:
         - protocol: TCP
           port: 3100
   egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -304,6 +313,8 @@ spec:
           port: 9090
         - protocol: TCP
           port: 443
+        - protocol: TCP
+          port: 6443
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -312,3 +323,19 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: monitoring-allow-kube-apiserver
+  namespace: monitoring
+spec:
+  endpointSelector: {}
+  egress:
+    - toEntities:
+        - kube-apiserver
+        - host
+        - remote-node
+    - toCIDR:
+        - 10.96.0.1/32
