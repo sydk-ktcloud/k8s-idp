@@ -100,11 +100,11 @@ controller:
   type: daemonset
   podLabels:
     team: platform
-    owner: sre
+    owner: team-sre
     cost-center: internal-platform
-    env: prod
-    service: alloy
+    environment: prod
     system: observability
+    service: alloy
 
 resources:
   limits:
