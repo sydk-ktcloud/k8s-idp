@@ -1,0 +1,37 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ componentName }}
+  description: "인프라 리소스: {{ resourceType }}"
+  tags:
+    - infrastructure
+    - {{ resourceType }}
+  annotations:
+    github.com/project-slug: sydk-ktcloud/k8s-idp
+spec:
+  type: resource
+  lifecycle: experimental
+  owner: user:guest
+  dependsOn:
+    - resource:crossplane-claims
+  links:
+    - url: https://console.cloud.google.com
+      title: Google Cloud Console
+      icon: cloud
+{% if resourceType == 'gcpinstance' -%}
+    - url: https://console.cloud.google.com/compute/instances?project={{ componentName }}
+      title: Compute Instances
+      icon: compute
+{% elif resourceType == 'bucket' -%}
+    - url: https://console.cloud.google.com/storage/browser/{{ componentName }}?project={{ componentName }}
+      title: Cloud Storage
+      icon: storage
+{% elif resourceType == 'cluster' -%}
+    - url: https://console.cloud.google.com/kubernetes/list?project={{ componentName }}
+      title: Kubernetes Clusters
+      icon: kubernetes
+{% elif resourceType == 'database' -%}
+    - url: https://console.cloud.google.com/sql/instances?project={{ componentName }}
+      title: Cloud SQL
+      icon: database
+{% endif -%}

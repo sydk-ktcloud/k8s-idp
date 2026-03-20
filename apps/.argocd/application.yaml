@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: developer-apps
+  namespace: gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/managed-by: backstage
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+    targetRevision: HEAD
+    path: apps
+    directory:
+      recurse: true
+      exclude: ".argocd/*"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

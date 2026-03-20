@@ -1,0 +1,42 @@
+module {{ name | replace("-", "" }}
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+)
+
+type Response struct {
+	Message     string `json:"message"`
+	Service     string `json:"service"`
+	Description string `json:"description"`
+}
+
+type HealthResponse struct {
+	Status string `json:"status"`
+}
+
+func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := Response{
+			Message:     "Hello from {{ name }}!",
+			Service:     "{{ name }}",
+			Description: "{{ description }}",
+		}
+		json.NewEncoder(w).Encode(response)
+	})
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := HealthResponse{Status: "healthy"}
+		json.NewEncoder(w).Encode(response)
+	})
+
+	http.ListenAndServe(":"+port, nil)
+}

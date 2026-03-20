@@ -56,11 +56,22 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-kube-prometheus-prometheus.monitoring:9090
+        isDefault: true
+        access: proxy
       - name: Loki
         type: loki
         url: http://loki.monitoring:3100
         access: proxy
+        jsonData:
+          derivedFields:
+            - matcherRegex: "traceID=(\\w+)"
+              name: TraceID
+              url: "$${__value.raw}"
+              datasourceUid: tempo
       - name: Tempo
         type: tempo
-        url: http://tempo.monitoring:3100
+        url: http://tempo.monitoring:3200
         access: proxy

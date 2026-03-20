@@ -1,0 +1,45 @@
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: {{ name }}
+  description: {{ description }}
+  annotations:
+    github.com/project-slug: {{ destination.owner }}/{{ destination.repo }}
+spec:
+  owner: {{ owner }}
+  domain: default
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ name }}-service
+  description: {{ description }}
+  tags:
+    - {{ language }}
+    - service
+  annotations:
+    github.com/project-slug: {{ destination.owner }}/{{ destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: service
+  lifecycle: experimental
+  owner: {{ owner }}
+  system: {{ name }}
+  dependsOn:
+    - resource:default/{{ name }}-infra
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: {{ name }}-infra
+  description: Infrastructure for {{ name }}
+  tags:
+    - infrastructure
+    - {{ resourceType }}
+  annotations:
+    github.com/project-slug: {{ destination.owner }}/{{ destination.repo }}
+spec:
+  type: {{ resourceType }}
+  lifecycle: experimental
+  owner: {{ owner }}
+  system: {{ name }}

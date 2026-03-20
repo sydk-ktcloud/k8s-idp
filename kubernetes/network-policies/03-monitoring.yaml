@@ -34,9 +34,13 @@ spec:
         - protocol: TCP
           port: 10250
         - protocol: TCP
-          port: 10251
+          port: 10249
         - protocol: TCP
-          port: 10252
+          port: 10257
+        - protocol: TCP
+          port: 10259
+        - protocol: TCP
+          port: 2381
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -98,6 +102,8 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+        - protocol: TCP
+          port: 8081
   egress:
     # k8s API access (no 'to' = all destinations allowed)
     - ports:
@@ -194,65 +200,20 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-          
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: prometheus-operator-allow
-  namespace: monitoring
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: prometheus-operator
-  policyTypes:
-    - Egress
-  egress:
     - to:
-        - namespaceSelector: {}
-      ports:
-        - protocol: TCP
-          port: 443
-    - to:
-        - namespaceSelector: {}
-          podSelector:
+        - podSelector:
             matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: kube-state-metrics-allow
-  namespace: monitoring
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: kube-state-metrics
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - ports:
-        - protocol: TCP
-          port: 8080
-  egress:
-    - to:
-        - namespaceSelector: {}
+              app.kubernetes.io/name: tempo
       ports:
         - protocol: TCP
-          port: 443
+          port: 3200
     - to:
-        - namespaceSelector: {}
-          podSelector:
+        - podSelector:
             matchLabels:
-              k8s-app: kube-dns
+              app.kubernetes.io/name: loki
       ports:
-        - protocol: UDP
-          port: 53
+        - protocol: TCP
+          port: 3100
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -296,6 +257,8 @@ spec:
     - Egress
   ingress:
     - ports:
+        - protocol: TCP
+          port: 3200
         - protocol: TCP
           port: 4317
         - protocol: TCP
