@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-init-sql
+
+data:
+    init.sql: |
+      -- 1. 기존 테이블 및 뷰 삭제 (초기화)
+      DROP VIEW IF EXISTS product;
+      DROP TABLE IF EXISTS cart CASCADE;
+      DROP TABLE IF EXISTS payments CASCADE;
+      DROP TABLE IF EXISTS order_products CASCADE;
+      DROP TABLE IF EXISTS orders CASCADE;
+      DROP TABLE IF EXISTS "Product" CASCADE;
+      DROP TABLE IF EXISTS users CASCADE;
+
+      -- 2. 공통 테이블 생성
+      CREATE TABLE users (
+          user_id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          name VARCHAR(255) NOT NULL
+      );
+      INSERT INTO users (email, name) VALUES ('test@naver.com', '테스트유저');
+
+      -- 3. Product 테이블 생성
+      CREATE TABLE "Product" (
+          product_id BIGINT PRIMARY KEY,
+          product_name VARCHAR(255),
+          price NUMERIC(38, 2),
+          addr VARCHAR(255),
+          image VARCHAR(255),
+          image_2 VARCHAR(255),
+          description TEXT,
+          category VARCHAR(255),
+          nights INTEGER
+      );
+
+      -- 4. 10개 상품 데이터 삽입
+      INSERT INTO "Product" (product_id, product_name, price, addr, image, image_2, description, category, nights) 
+      VALUES 
+      (1, '제주도 3박 4일 여행', 890000.00, '제주', '/assets/images/jeju.png', 'https://placehold.co/400x300?text=Jeju2', '제주도 푸른 바다 여행', 'JEJU', 3),
+      (2, '부산 당일치기', 230000.00, '부산', '/assets/images/busan.png', 'https://placehold.co/400x300?text=Busan2', '부산 해운대 투어', 'BUSAN', 0),
+      (3, '광주 2박 3일 여행', 460000.00, '광주', '/assets/images/Gwangju.png', 'https://placehold.co/400x300?text=Gwangju2', '광주 문화 예술 여행', 'GWANGJU', 2),
+      (4, '동해 바다 기차여행', 570000.00, '강원', '/assets/images/train.png', 'https://placehold.co/400x300?text=EastSea2', '강원도 동해 바다 열차', 'GANGWON', 1),
+      (5, '서울 고궁 투어', 330000.00, '서울', '/assets/images/gogung.png', 'https://placehold.co/400x300?text=Seoul2', '경복궁과 창덕궁 탐방', 'SEOUL', 0),
+      (6, '강릉 3박 4일 여행', 660000.00, '강릉', '/assets/images/gangrung.png', 'https://placehold.co/400x300?text=Gangneung2', '강릉 커피 거리와 바다', 'GANGWON', 3),
+      (7, '경복궁 역사 탐방', 150000.00, '서울', '/assets/images/kyungbokgung.png', 'https://placehold.co/400x300?text=Gyeongbokgung2', '서울의 역사 깊은 궁궐', 'SEOUL', 0),
+      (8, '전주 한옥마을 역사 투어', 210000.00, '전주', '/assets/images/hanock.png', 'https://placehold.co/400x300?text=Jeonju2', '전주 한옥의 멋과 맛', 'JEONBUK', 1),
+      (9, '부산 해산물 미식 투어', 180000.00, '부산', '/assets/images/seafood.png', 'https://placehold.co/400x300?text=Seafood2', '자갈치 시장 해산물 체험', 'BUSAN', 0),
+      (10, '전주 비빔밥 음식 여행', 120000.00, '전주', '/assets/images/hanock.png', 'https://placehold.co/400x300?text=Bibimbap2', '전주 전통 비빔밥 투어', 'JEONBUK', 0);
+
+      -- 5. 나머지 연관 테이블 생성
+      CREATE TABLE orders (
+          order_id SERIAL PRIMARY KEY, user_id BIGINT, total_amount NUMERIC(38, 2), status VARCHAR(50), 
+          order_name VARCHAR(255), created_at TIMESTAMP, order_number VARCHAR(255) NOT NULL UNIQUE,
+          CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES users(user_id)
+      );
+      CREATE TABLE order_products (
+          order_product_id SERIAL PRIMARY KEY, order_id BIGINT, product_id BIGINT, quantity INTEGER, 
+          price NUMERIC(38, 2), departure_date DATE,
+          CONSTRAINT fk_op_order FOREIGN KEY (order_id) REFERENCES orders(order_id),
+          CONSTRAINT fk_op_product FOREIGN KEY (product_id) REFERENCES "Product"(product_id)
+      );
+      CREATE TABLE cart (
+          cart_id SERIAL PRIMARY KEY, quantity INTEGER, user_id BIGINT, product_id BIGINT, departure_date DATE,
+          CONSTRAINT fk_cart_product FOREIGN KEY (product_id) REFERENCES "Product"(product_id)
+      );
+      CREATE TABLE payments (
+          payment_id SERIAL PRIMARY KEY, order_id BIGINT UNIQUE, payment_key VARCHAR(255) NOT NULL, 
+          method VARCHAR(50), amount NUMERIC(38, 2) NOT NULL, approved_at TIMESTAMP,
+          CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders(order_id)
+      );
+
+      -- 6. 대소문자 방지용 뷰 생성
+      CREATE OR REPLACE VIEW product AS SELECT * FROM "Product";
+
+      -- 7. 카테고리 한글화 업데이트
+      UPDATE "Product" SET category = '자연관광' WHERE product_id IN (1, 4);
+      UPDATE "Product" SET category = '도시여행' WHERE product_id IN (2, 3, 6);
+      UPDATE "Product" SET category = '문화예술' WHERE product_id IN (5);
+      UPDATE "Product" SET category = '역사탐방' WHERE product_id IN (7, 8);
+      UPDATE "Product" SET category = '음식여행' WHERE product_id IN (9, 10);
