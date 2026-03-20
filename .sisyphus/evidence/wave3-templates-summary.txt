@@ -1,0 +1,51 @@
+=== Wave 3 - Scaffolder Templates Summary ===
+Date: 2026-03-18
+
+## Task 9: Infrastructure-Only Template ✓
+- Location: backstage-app/templates/infrastructure-only/
+- Files created:
+  - template.yaml (Korean UI, 4 resource types)
+  - content/claim.yaml.tmpl (Crossplane Claims)
+  - content/kustomization.yaml.tmpl
+  - content/catalog-info.yaml.tmpl
+- Resource types: gcpinstance, bucket, cluster, database
+
+## Task 10: Service Template ✓
+- Location: backstage-app/templates/service/
+- Files created:
+  - template.yaml (Korean UI, 3 languages)
+  - content/catalog-info.yaml.tmpl
+  - content/package.json.tmpl (Node.js)
+  - content/index.js.tmpl (Express)
+  - content/requirements.txt.tmpl (Python)
+  - content/app.py.tmpl (Flask)
+  - content/main.go.tmpl (Go)
+  - content/README.md.tmpl
+- Languages: nodejs, python, go
+
+## Task 11: Service+Infra Bundle Template ✓
+- Location: backstage-app/templates/service-with-infra/
+- Files created:
+  - template.yaml (Korean UI, combined service+infra)
+  - content/catalog-info.yaml.tmpl (System, Component, Resource entities)
+  - content/claim.yaml.tmpl (Crossplane Claims)
+  - content/kustomization.yaml.tmpl
+  - content/package.json.tmpl
+  - content/index.js.tmpl
+  - content/README.md.tmpl
+- Creates: System + Component + Resource with relations
+
+## Task 12: Template Registration ✓
+- Updated: backstage-app/app-config.yaml
+- Added 3 template locations to catalog.locations
+- All YAML files validated successfully
+
+## Validation Results
+- infrastructure-only/template.yaml: VALID
+- service/template.yaml: VALID
+- service-with-infra/template.yaml: VALID
+- app-config.yaml: VALID
+
+## Note
+- isolated-vm build failure is pre-existing (native module compilation)
+- Not related to template changes

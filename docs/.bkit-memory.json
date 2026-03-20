@@ -1,0 +1,12 @@
+{
+  "currentFeature": "backstage-dex-sso",
+  "phase": "plan",
+  "updatedAt": "2026-03-14",
+  "planPath": "docs/01-plan/features/backstage-dex-sso.plan.md",
+  "sessionCount": 6,
+  "lastSession": {
+    "startedAt": "2026-03-16T23:08:45.744Z",
+    "platform": "claude",
+    "level": "Enterprise"
+  }
+}

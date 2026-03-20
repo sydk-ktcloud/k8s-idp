@@ -1,0 +1,41 @@
+=== Wave 5 - UI Customization Summary ===
+Date: 2026-03-19
+
+## Task 17: Custom Home Page ✓
+- Created: packages/app/src/components/home/HomePage.tsx
+- Features:
+  - Quick Links (ArgoCD, Grafana, Kubecost, GitHub)
+  - Template Cards (Infrastructure-only, Service, Service+Infra)
+  - My Services list (Catalog query)
+  - Korean labels
+
+## Task 18: Korean Language Support ✓
+- Updated: packages/app/src/components/Root/Root.tsx
+  - Menu items in Korean
+  - Korean labels for all sidebar items
+
+## Task 19: Menu Simplification ✓
+- Updated: packages/app/src/components/Root/Root.tsx
+- Removed: My Groups sidebar item
+- Simplified menu structure:
+  - 홈 (Home)
+  - 카탈로그 (Catalog)
+  - 문서 (Docs)
+  - 생성 (Create)
+  - 설정 (Settings)
+
+## Files Modified/Created
+```
+packages/app/src/components/home/HomePage.tsx    (new)
+packages/app/src/components/Root/Root.tsx       (modified - Korean UI)
+packages/app/src/App.tsx                       (modified - HomePage route)
+```
+
+## Verification
+```bash
+# Check home page exists
+ls packages/app/src/components/home/HomePage.tsx
+
+# Check Korean labels in Root.tsx
+grep "홈\|카탈로그\|문서\|생성" packages/app/src/components/Root/Root.tsx
+```

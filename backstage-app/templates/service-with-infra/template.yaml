@@ -1,0 +1,225 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: service-with-infra
+  title: 서비스 + 인프라 묶음 생성
+  description: 서비스와 필요한 인프라를 한 번에 생성합니다
+  tags:
+    - service
+    - infrastructure
+    - recommended
+spec:
+  owner: user:guest
+  type: service
+
+  parameters:
+    - title: 서비스 정보
+      required:
+        - componentName
+      properties:
+        componentName:
+          title: 서비스 이름
+          type: string
+          description: 서비스의 고유 이름 (소문자, 하이픈 사용)
+          ui:field: EntityNamePicker
+          ui:autofocus: true
+        description:
+          title: 설명
+          type: string
+          description: 이 서비스가 무엇을 하는지 설명하세요
+          ui:options:
+            rows: 3
+        owner:
+          title: 소유자
+          type: string
+          description: 서비스 소유자
+          default: user:guest
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - User
+              - Group
+
+    - title: 언어 및 프레임워크 선택
+      required:
+        - language
+      properties:
+        language:
+          title: 프로그래밍 언어
+          type: string
+          default: nodejs
+          enum:
+            - nodejs
+            - python
+            - go
+          enumNames:
+            - Node.js (Express)
+            - Python (Flask)
+            - Go (net/http)
+
+    - title: 인프라 설정
+      required:
+        - resourceType
+        - namespace
+      properties:
+        resourceType:
+          title: 인프라 타입
+          type: string
+          description: 함께 생성할 인프라 타입
+          default: database
+          enum:
+            - bucket
+            - database
+            - gcpinstance
+            - cluster
+          enumNames:
+            - GCS Bucket (스토리지)
+            - Cloud SQL (데이터베이스) - 권장
+            - GCP VM Instance
+            - GKE Cluster
+        namespace:
+          title: Kubernetes 네임스페이스
+          type: string
+          default: default
+
+    - title: Cloud SQL 설정
+      properties:
+        databaseVersion:
+          title: 데이터베이스 버전
+          type: string
+          default: POSTGRES_15
+          enum:
+            - POSTGRES_15
+            - POSTGRES_14
+            - MYSQL_8_0
+        tier:
+          title: 머신 티어
+          type: string
+          default: db-custom-1-3840
+        dbRegion:
+          title: 리전
+          type: string
+          default: us-central1
+        dbDiskSize:
+          title: 디스크 크기 (GB)
+          type: integer
+          default: 20
+      visible: ${{ parameters.resourceType === 'database' }}
+
+    - title: GCS Bucket 설정
+      properties:
+        location:
+          title: 버킷 위치
+          type: string
+          default: US
+        storageClass:
+          title: 스토리지 클래스
+          type: string
+          default: STANDARD
+          enum:
+            - STANDARD
+            - NEARLINE
+            - COLDLINE
+      visible: ${{ parameters.resourceType === 'bucket' }}
+
+    - title: GCP VM 설정
+      properties:
+        machineType:
+          title: 머신 타입
+          type: string
+          default: e2-medium
+        vmRegion:
+          title: 리전
+          type: string
+          default: us-central1
+        zone:
+          title: 존
+          type: string
+          default: us-central1-a
+        vmDiskSize:
+          title: 디스크 크기 (GB)
+          type: integer
+          default: 100
+      visible: ${{ parameters.resourceType === 'gcpinstance' }}
+
+    - title: GKE Cluster 설정
+      properties:
+        clusterLocation:
+          title: 클러스터 리전
+          type: string
+          default: us-central1
+        nodeCount:
+          title: 노드 수
+          type: integer
+          default: 3
+        nodeMachineType:
+          title: 노드 머신 타입
+          type: string
+          default: e2-medium
+      visible: ${{ parameters.resourceType === 'cluster' }}
+
+    - title: 저장소 설정
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: 저장소 위치
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: 템플릿 가져오기
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          name: ${{ parameters.componentName }}
+          description: ${{ parameters.description or parameters.componentName }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          resourceType: ${{ parameters.resourceType }}
+          namespace: ${{ parameters.namespace }}
+          databaseVersion: ${{ parameters.databaseVersion }}
+          tier: ${{ parameters.tier }}
+          dbRegion: ${{ parameters.dbRegion }}
+          dbDiskSize: ${{ parameters.dbDiskSize }}
+          location: ${{ parameters.location }}
+          storageClass: ${{ parameters.storageClass }}
+          machineType: ${{ parameters.machineType }}
+          vmRegion: ${{ parameters.vmRegion }}
+          zone: ${{ parameters.zone }}
+          vmDiskSize: ${{ parameters.vmDiskSize }}
+          clusterLocation: ${{ parameters.clusterLocation }}
+          nodeCount: ${{ parameters.nodeCount }}
+          nodeMachineType: ${{ parameters.nodeMachineType }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: 저장소 생성
+      action: publish:github
+      input:
+        description: ${{ parameters.description or parameters.componentName }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: 'main'
+        targetPath: apps/${{ parameters.componentName }}
+
+    - id: register
+      name: 카탈로그 등록
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: 저장소
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Pull Request
+        url: ${{ steps['publish'].output.remoteUrl }}/pulls
+      - title: 카탈로그에서 열기
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

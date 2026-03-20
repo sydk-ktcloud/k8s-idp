@@ -15,9 +15,7 @@ spec:
   versions:
     - name: v1alpha1
       served: true
-      reference:
-        apiVersion: container.gcp.upbound.io/v1beta1
-        kind: Cluster
+      referenceable: true
       schema:
         openAPIV3Schema:
           type: object
@@ -26,30 +24,19 @@ spec:
               type: object
               properties:
                 name:
-                    type: string
-                    description: Name of the GKE cluster
+                  type: string
+                  description: Name of the GKE cluster
                 location:
-                    type: string
-                    description: Cluster location/region
-                    default: us-central1
+                  type: string
+                  description: Cluster location/region
+                  default: us-central1
                 nodeCount:
-                    type: integer
-                    description: Initial node count
-                    default: 3
+                  type: integer
+                  description: Initial node count
+                  default: 3
                 machineType:
-                    type: string
-                    description: Node machine type
-                    default: e2-medium
-                network:
-                    type: string
-                    description: VPC network name
-                    default: default
-                subnetwork:
-                    type: string
-                    description: Subnetwork name
-                enableAutopilot:
-                    type: boolean
-                    description: Enable Autopilot mode
-                    default: false
+                  type: string
+                  description: Node machine type
+                  default: e2-medium
               required:
                 - name

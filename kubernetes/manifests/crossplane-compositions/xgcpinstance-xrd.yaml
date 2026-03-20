@@ -15,9 +15,7 @@ spec:
   versions:
     - name: v1alpha1
       served: true
-      reference:
-        apiVersion: compute.gcp.upbound.io/v1beta1
-        kind: Instance
+      referenceable: true
       schema:
         openAPIV3Schema:
           type: object
@@ -26,26 +24,26 @@ spec:
               type: object
               properties:
                 name:
-                    type: string
-                    description: Name of the GCP instance
+                  type: string
+                  description: Name of the GCP instance
                 machineType:
-                    type: string
-                    description: Machine type (e.g., e2-medium, e2-standard-2)
-                    default: e2-medium
+                  type: string
+                  description: Machine type (e.g., e2-medium, e2-standard-2)
+                  default: e2-medium
                 region:
-                    type: string
-                    description: GCP region
-                    default: us-central1
+                  type: string
+                  description: GCP region
+                  default: us-central1
                 zone:
-                    type: string
-                    description: Zone within the region
+                  type: string
+                  description: Zone within the region
                 diskSize:
-                    type: integer
-                    description: Disk size in GB
-                    default: 100
+                  type: integer
+                  description: Disk size in GB
+                  default: 100
                 labels:
-                    type: object
-                    description: Labels to apply to the instance
-                    x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  description: Labels to apply to the instance
+                  x-kubernetes-preserve-unknown-fields: true
               required:
                 - name

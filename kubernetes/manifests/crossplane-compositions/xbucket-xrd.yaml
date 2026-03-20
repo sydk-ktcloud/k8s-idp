@@ -15,9 +15,7 @@ spec:
   versions:
     - name: v1alpha1
       served: true
-      reference:
-        apiVersion: storage.gcp.upbound.io/v1beta1
-        kind: Bucket
+      referenceable: true
       schema:
         openAPIV3Schema:
           type: object
@@ -26,23 +24,19 @@ spec:
               type: object
               properties:
                 name:
-                    type: string
-                    description: Name of the GCS bucket
+                  type: string
+                  description: Name of the GCS bucket
                 location:
-                    type: string
-                    description: Bucket location (e.g., US, EU, us-central1)
-                    default: US
+                  type: string
+                  description: Bucket location
+                  default: US
                 storageClass:
-                    type: string
-                    description: Storage class (STANDARD, NEARLINE, COLDLINE, ARCHIVE)
-                    default: STANDARD
+                  type: string
+                  description: Storage class
+                  default: STANDARD
                 versioning:
-                    type: boolean
-                    description: Enable versioning
-                    default: false
-                uniformBucketLevelAccess:
-                    type: boolean
-                    description: Enable uniform bucket-level access
-                    default: true
+                  type: boolean
+                  description: Enable versioning
+                  default: false
               required:
                 - name

@@ -1,0 +1,62 @@
+# {{ name }}
+
+{{ description }}
+
+## Infrastructure
+
+이 서비스는 다음 인프라와 함께 배포됩니다:
+- **Type**: {{ resourceType }}
+
+## Getting Started
+
+### Prerequisites
+
+{% if language == 'nodejs' -%}
+- Node.js 18+
+- npm or yarn
+{% elif language == 'python' -%}
+- Python 3.11+
+- pip
+{% elif language == 'go' -%}
+- Go 1.21+
+{% endif -%}
+
+### Environment Variables
+
+{% if resourceType == 'database' -%}
+```bash
+DATABASE_HOST={{ name }}-db
+DATABASE_PORT=5432
+DATABASE_NAME={{ name }}
+DATABASE_USER=<from-secret>
+DATABASE_PASSWORD=<from-secret>
+```
+{% elif resourceType == 'bucket' -%}
+```bash
+GCS_BUCKET_NAME={{ name }}
+```
+{% endif -%}
+
+### Installation
+
+{% if language == 'nodejs' -%}
+```bash
+npm install
+npm start
+```
+{% elif language == 'python' -%}
+```bash
+pip install -r requirements.txt
+python app.py
+```
+{% elif language == 'go' -%}
+```bash
+go run main.go
+```
+{% endif -%}
+
+### Health Check
+
+```bash
+curl http://localhost:3000/health
+```

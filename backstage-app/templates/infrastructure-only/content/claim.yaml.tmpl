@@ -1,0 +1,47 @@
+{% if resourceType == 'gcpinstance' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: GCPInstance
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  machineType: {{ vmMachineType }}
+  region: {{ vmRegion }}
+  zone: {{ vmZone }}
+  diskSize: {{ vmDiskSize }}
+{% elif resourceType == 'bucket' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: Bucket
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  location: {{ bucketLocation }}
+  storageClass: {{ bucketStorageClass }}
+  versioning: {{ bucketVersioning }}
+{% elif resourceType == 'cluster' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: Cluster
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  location: {{ clusterLocation }}
+  nodeCount: {{ clusterNodeCount }}
+  machineType: {{ clusterMachineType }}
+{% elif resourceType == 'database' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: Database
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  databaseVersion: {{ dbDatabaseVersion }}
+  tier: {{ dbTier }}
+  region: {{ dbRegion }}
+  diskSize: {{ dbDiskSize }}
+{% endif -%}
