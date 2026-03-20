@@ -1,5 +1,8 @@
 # Git Ignore for k8s-idp
 
+# Dependencies (never commit!)
+node_modules/
+
 # Secrets (never commit!)
 *.key
 *.pem

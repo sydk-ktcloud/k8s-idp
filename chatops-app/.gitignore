@@ -1,5 +1,23 @@
+
+# Dependencies
 node_modules/
+
+# Environment
 .env
-npm-debug.log
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# ETC
 logs/
 dist/
+
