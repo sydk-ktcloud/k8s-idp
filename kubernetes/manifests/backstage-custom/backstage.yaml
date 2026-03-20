@@ -267,11 +267,6 @@ data:
                 - resolver: emailLocalPartMatchingUserEntityName
                   dangerouslyAllowSignInWithoutUserInCatalog: true
     
-    integrations:
-      github:
-        - host: github.com
-          token: ${GITHUB_TOKEN}
-    
     proxy:
       '/kubecost':
         target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
