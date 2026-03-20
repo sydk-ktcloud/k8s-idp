@@ -3,12 +3,14 @@ kind: Service
 metadata:
   name: trip-backend-service
 spec:
+  type: NodePort 
   selector:
     app: trip-backend
   ports:
     - protocol: TCP
       port: 8080
       targetPort: 8080
+      nodePort: 30088 
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -26,7 +28,7 @@ spec:
     spec:
       containers:
       - name: trip-backend
-        image: junho010712/trip-backend:latest # GitHub Actions가 빌드할 이미지 주소
+        image: junho010712/trip-backend:latest
         ports:
         - containerPort: 8080
         env:
@@ -35,4 +37,6 @@ spec:
         - name: SPRING_DATASOURCE_USERNAME
           value: "postgres"
         - name: SPRING_DATASOURCE_PASSWORD
-          value: "password"
+          value: "1771" # DB 설정과 일치시킨 비밀번호입니다.
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "none"
