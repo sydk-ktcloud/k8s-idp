@@ -1,4 +1,12 @@
 # ArgoCD Helm Values with Dex SSO
+global:
+  additionalLabels:
+    team: platform
+    owner: team-platform
+    cost-center: internal-platform
+    env: prod
+    system: gitops
+    service: argo
 
 # ArgoCD Configuration
 configs:
@@ -32,7 +40,15 @@ server:
     - --insecure
   service:
     type: NodePort
-    nodePort: 30081
+    nodePortHttp: 30081
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    
 # Resources
 controller:
   resources:
@@ -42,15 +58,6 @@ controller:
     requests:
       cpu: 250m
       memory: 256Mi
-
-server:
-  resources:
-    limits:
-      cpu: 200m
-      memory: 256Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
 
 repoServer:
   resources:
