@@ -79,6 +79,8 @@ backend:
       value: ""
     - name: APP_CONFIG_scaffolder_bitbucket_token
       value: ""
+    - name: BACKEND_SECRET
+      value: "backstage-backend-session-secret-67890"
 
 # Disable lighthouse
 lighthouse:
@@ -87,9 +89,6 @@ lighthouse:
 # Disable ingress - using NodePort
 ingress:
   enabled: false
-  ingressClassName: ""
-  annotations: {}
-  hosts: []
 
 # App configuration
 appConfig:
@@ -118,3 +117,20 @@ appConfig:
   catalog:
     rules:
       - allow: [Component, System, API, Resource, Location]
+
+  # Auth configuration for OIDC (Dex + GitHub)
+  auth:
+    environment: production
+    session:
+      secret: ${BACKEND_SECRET}
+    providers:
+      oidc:
+        production:
+          metadataUrl: http://100.64.0.1:30556/.well-known/openid-configuration
+          clientId: backstage
+          clientSecret: backstage-client-secret-12345
+          prompt: auto
+          signIn:
+            resolvers:
+              - resolver: emailLocalPartMatchingUserEntityName
+                dangerouslyAllowSignInWithoutUserInCatalog: true
