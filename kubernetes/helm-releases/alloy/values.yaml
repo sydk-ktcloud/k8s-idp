@@ -102,7 +102,7 @@ controller:
     team: platform
     owner: team-sre
     cost-center: internal-platform
-    environment: prod
+    env: prod
     system: observability
     service: alloy
 
