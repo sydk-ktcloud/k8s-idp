@@ -9,12 +9,6 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: security
-    cost-center: internal-platform
-    env: prod
-    system: security
-    service: auth
 ---
 apiVersion: v1
 kind: Namespace
@@ -25,11 +19,6 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: security
-    cost-center: internal-platform
-    env: prod
-    system: security
 ---
 apiVersion: v1
 kind: Namespace
@@ -40,11 +29,6 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: platform-lead
-    cost-center: internal-platform
-    env: prod
-    system: platform
 ---
 apiVersion: v1
 kind: Namespace
@@ -55,11 +39,6 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: sre
-    cost-center: internal-platform
-    env: prod
-    system: observability
 ---
 apiVersion: v1
 kind: Namespace
@@ -70,53 +49,19 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: finops
-    cost-center: internal-platform
-    env: prod
-    system: finops
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: crossplane-system
-  labels:
-    name: crossplane-system
-    pod-security.kubernetes.io/enforce: privileged
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: platform-lead
-    cost-center: internal-platform
-    env: prod
-    system: infra
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: backstage
-  labels:
-    name: backstage
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: finops
-    cost-center: internal-platform
-    env: prod
-    system: platform
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: minio-storage
-  labels:
-    name: minio-storage
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/warn: restricted
-    team: platform
-    owner: platform-lead
-    cost-center: internal-platform
-    env: prod
-    system: infra
+#PP|apiVersion: v1
+#TK|kind: Namespace
+#PN|metadata:
+#BT|  name: kubecost
+#SQ|  labels:
+#BT|    name: kubecost
+#KS|    pod-security.kubernetes.io/enforce: restricted
+#PZ|    pod-security.kubernetes.io/audit: restricted
+#XB|    pod-security.kubernetes.io/enforce: restricted
+#ZP|---
+#PP|apiVersion: v1
+#TK|kind: Namespace
+#PN|metadata:
+#QN|  name: crossplane-system
+#SQ|  labels:
+#QN|    name: crossplane-system
