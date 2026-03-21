@@ -32,6 +32,7 @@ import CloudIcon from '@material-ui/icons/Cloud';
 import BuildIcon from '@material-ui/icons/Build';
 import LaunchIcon from '@material-ui/icons/Launch';
 import AccountTreeIcon from '@material-ui/icons/AccountTree';
+import FlashOnIcon from '@material-ui/icons/FlashOn';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -111,23 +112,30 @@ const TemplateCards = () => {
 
   const templates = [
     {
+      title: '서버 빠른 시작',
+      description: '3가지 선택만으로 GCP 서버를 즉시 생성합니다 (초보자 추천)',
+      url: '/create/templates/default/simple-server-template',
+      icon: <FlashOnIcon />,
+      tags: ['beginner', 'quick-start'],
+    },
+    {
       title: '인프라 프로비저닝',
       description: 'GCP 리소스(VM, GCS, GKE, Cloud SQL)를 프로비저닝합니다',
-      url: '/create/templates/infrastructure-only',
+      url: '/create/templates/default/infrastructure-only-template',
       icon: <CloudIcon />,
       tags: ['infrastructure', 'gcp'],
     },
     {
       title: '서비스 생성',
       description: '새로운 서비스를 생성합니다 (Node.js, Python, Go 지원)',
-      url: '/create/templates/service-template',
+      url: '/create/templates/default/service-template',
       icon: <BuildIcon />,
       tags: ['service', 'recommended'],
     },
     {
       title: '서비스 + 인프라 묶음',
       description: '서비스와 필요한 인프라를 한 번에 생성합니다',
-      url: '/create/templates/service-with-infra',
+      url: '/create/templates/default/service-with-infra',
       icon: <StorageIcon />,
       tags: ['service', 'infrastructure', 'recommended'],
     },

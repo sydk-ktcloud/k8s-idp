@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ componentName }}
+  description: "GCP 서버: {{ componentName }}"
+  tags:
+    - server
+    - gcp
+  annotations:
+    github.com/project-slug: sydk-ktcloud/k8s-idp
+spec:
+  type: resource
+  lifecycle: experimental
+  owner: user:guest
+  links:
+    - url: https://console.cloud.google.com/compute/instances
+      title: Google Cloud Console (서버 확인)
+      icon: cloud

@@ -16,14 +16,9 @@ spec:
         componentName:
           title: 리소스 이름
           type: string
-          description: 리소스의 고유 이름
+          description: 리소스를 구분할 영문 이름 (소문자와 하이픈만 사용, 예: my-server-01)
           ui:field: EntityNamePicker
           ui:autofocus: true
-        namespace:
-          title: Kubernetes 네임스페이스
-          type: string
-          description: 리소스가 배포될 네임스페이스
-          default: default
 
     - title: 리소스 유형 선택
       required:
@@ -38,73 +33,103 @@ spec:
             - cluster
             - database
           enumNames:
-            - GCP Compute Instance (VM)
-            - Google Cloud Storage (Bucket)
-            - Google Kubernetes Engine (GKE)
-            - Cloud SQL
-          description: 프로비저닝할 GCP 리소스 유형을 선택하세요
+            - "GCP VM 서버 – 애플리케이션을 실행할 서버"
+            - "GCS 버킷 – 파일·이미지·동영상 저장소"
+            - "GKE 클러스터 – 컨테이너 실행 환경 (Kubernetes)"
+            - "Cloud SQL – 관계형 데이터베이스 (PostgreSQL / MySQL)"
+          description: 생성할 GCP 리소스 유형을 선택하세요
           default: gcpinstance
 
-    - title: GCP Instance 설정
+    - title: VM 서버 설정
       required:
         - vmMachineType
         - vmRegion
-        - vmZone
         - vmDiskSize
       properties:
         vmMachineType:
-          title: 머신 타입
+          title: 서버 크기
           type: string
-          description: VM의 머신 타입
           default: e2-medium
+          enum:
+            - e2-small
+            - e2-medium
+            - e2-standard-4
+          enumNames:
+            - "소형 (1 vCPU · 2 GB RAM – 개발/테스트용)"
+            - "중형 (2 vCPU · 4 GB RAM – 일반 서비스용)  ← 권장"
+            - "대형 (4 vCPU · 16 GB RAM – 고성능용)"
+          description: 서버 규모를 선택하세요. 잘 모르겠으면 '중형'을 선택하세요.
         vmRegion:
-          title: 리전
+          title: 서버 위치 (리전)
           type: string
-          description: GCP 리전
           default: us-central1
-        vmZone:
-          title: 존
-          type: string
-          description: GCP 존
-          default: us-central1-a
+          enum:
+            - us-central1
+            - asia-northeast3
+            - us-west1
+            - europe-west1
+          enumNames:
+            - "미국 중부 (Iowa)  ← 권장"
+            - "한국 (서울)"
+            - "미국 서부 (Oregon)"
+            - "유럽 서부 (Belgium)"
+          description: 서버가 실제로 위치할 데이터센터 지역입니다. 서비스 이용자와 가까운 곳을 선택하세요.
         vmDiskSize:
-          title: 디스크 크기 (GB)
+          title: 저장 공간
           type: number
-          description: VM 디스크 크기 (GB)
-          default: 100
+          default: 50
+          enum:
+            - 20
+            - 50
+            - 100
+            - 200
+          enumNames:
+            - "20 GB – 가벼운 앱"
+            - "50 GB – 일반 앱  ← 권장"
+            - "100 GB – 대용량 앱"
+            - "200 GB – 빅데이터/ML용"
+          description: 서버 디스크 크기입니다. 운영체제 + 설치 파일 + 데이터를 모두 포함합니다.
       visible: ${{ parameters.resourceType === 'gcpinstance' }}
 
-    - title: Bucket 설정
+    - title: 스토리지 버킷 설정
       required:
         - bucketLocation
         - bucketStorageClass
         - bucketVersioning
       properties:
         bucketLocation:
-          title: 위치
+          title: 저장 위치
           type: string
-          description: Bucket의 위치
           default: US
+          enum:
+            - US
+            - ASIA
+            - EU
+          enumNames:
+            - "미국 (US)  ← 권장"
+            - "아시아 (ASIA)"
+            - "유럽 (EU)"
+          description: 파일이 저장될 데이터센터 위치입니다.
         bucketStorageClass:
-          title: 스토리지 클래스
+          title: 스토리지 유형
           type: string
+          default: STANDARD
           enum:
             - STANDARD
             - NEARLINE
             - COLDLINE
             - ARCHIVE
           enumNames:
-            - Standard
-            - Nearline
-            - Coldline
-            - Archive
-          description: Bucket의 스토리지 클래스
-          default: STANDARD
+            - "일반 (자주 접근하는 파일용)  ← 권장"
+            - "저빈도 (월 1회 이하 접근 – 비용 저렴)"
+            - "아카이브 (분기 1회 이하 접근 – 더 저렴)"
+            - "장기 보관 (연 1회 이하, 백업용 – 가장 저렴)"
+          description: 파일에 얼마나 자주 접근하는지에 따라 요금이 달라집니다. 잘 모르면 '일반'을 선택하세요.
         bucketVersioning:
-          title: 버전 관리
+          title: 이전 버전 보관
           type: boolean
-          description: 버전 관리 활성화 여부
           default: false
+          description: 켜면 파일을 덮어쓰거나 삭제해도 이전 버전으로 복구할 수 있습니다.
       visible: ${{ parameters.resourceType === 'bucket' }}
 
     - title: GKE 클러스터 설정
@@ -114,23 +139,49 @@ spec:
         - clusterMachineType
       properties:
         clusterLocation:
-          title: 위치
+          title: 클러스터 위치 (리전)
           type: string
-          description: GKE 클러스터의 위치
           default: us-central1
+          enum:
+            - us-central1
+            - asia-northeast3
+            - us-west1
+            - europe-west1
+          enumNames:
+            - "미국 중부 (Iowa)  ← 권장"
+            - "한국 (서울)"
+            - "미국 서부 (Oregon)"
+            - "유럽 서부 (Belgium)"
+          description: 클러스터가 위치할 지역입니다. 서비스 이용자와 가까운 곳을 선택하세요.
         clusterNodeCount:
-          title: 노드 수
+          title: 서버 노드 수
           type: number
-          description: 클러스터의 노드 수
           default: 3
+          enum:
+            - 1
+            - 3
+            - 5
+          enumNames:
+            - "1개 (테스트/개발용 – 장애 시 중단 가능)"
+            - "3개 (기본 운영용)  ← 권장"
+            - "5개 (고가용성 – 트래픽이 많을 때)"
+          description: 클러스터를 구성하는 서버 대수입니다. 많을수록 안정적이지만 비용이 늘어납니다.
         clusterMachineType:
-          title: 머신 타입
+          title: 노드 서버 크기
           type: string
-          description: 노드의 머신 타입
           default: e2-medium
+          enum:
+            - e2-small
+            - e2-medium
+            - e2-standard-4
+          enumNames:
+            - "소형 (1 vCPU · 2 GB RAM – 가벼운 컨테이너용)"
+            - "중형 (2 vCPU · 4 GB RAM – 일반 서비스용)  ← 권장"
+            - "대형 (4 vCPU · 16 GB RAM – 리소스 집약적 서비스용)"
+          description: 각 노드 서버의 사양입니다.
       visible: ${{ parameters.resourceType === 'cluster' }}
 
-    - title: Cloud SQL 설정
+    - title: 데이터베이스 설정
       required:
         - dbDatabaseVersion
         - dbTier
@@ -138,8 +189,9 @@ spec:
         - dbDiskSize
       properties:
         dbDatabaseVersion:
-          title: 데이터베이스 버전
+          title: 데이터베이스 종류
           type: string
+          default: POSTGRES_15
           enum:
             - POSTGRES_15
             - POSTGRES_14
@@ -147,28 +199,55 @@ spec:
             - MYSQL_8_0
             - MYSQL_5_7
           enumNames:
-            - PostgreSQL 15
-            - PostgreSQL 14
-            - PostgreSQL 13
-            - MySQL 8.0
-            - MySQL 5.7
-          description: 데이터베이스 엔진 버전
-          default: POSTGRES_15
+            - "PostgreSQL 15 (최신)  ← 권장"
+            - "PostgreSQL 14"
+            - "PostgreSQL 13"
+            - "MySQL 8.0"
+            - "MySQL 5.7"
+          description: 사용할 데이터베이스 엔진입니다. 잘 모르면 'PostgreSQL 15'를 선택하세요.
         dbTier:
-          title: 티어
+          title: DB 서버 크기
           type: string
-          description: Cloud SQL 인스턴스 티어
           default: db-custom-1-3840
+          enum:
+            - db-custom-1-3840
+            - db-custom-2-7680
+            - db-custom-4-15360
+          enumNames:
+            - "소형 (1 vCPU · 3.75 GB – 개발/테스트용)  ← 권장"
+            - "중형 (2 vCPU · 7.5 GB – 일반 서비스용)"
+            - "대형 (4 vCPU · 15 GB – 고성능 서비스용)"
+          description: 데이터베이스 서버의 사양입니다.
         dbRegion:
-          title: 리전
+          title: DB 위치 (리전)
           type: string
-          description: Cloud SQL 인스턴스 리전
           default: us-central1
+          enum:
+            - us-central1
+            - asia-northeast3
+            - us-west1
+            - europe-west1
+          enumNames:
+            - "미국 중부 (Iowa)  ← 권장"
+            - "한국 (서울)"
+            - "미국 서부 (Oregon)"
+            - "유럽 서부 (Belgium)"
+          description: 데이터베이스 서버가 위치할 지역입니다. 애플리케이션 서버와 같은 지역을 선택하면 빠릅니다.
         dbDiskSize:
-          title: 디스크 크기 (GB)
+          title: DB 저장 공간
           type: number
-          description: 데이터베이스 디스크 크기 (GB)
           default: 20
+          enum:
+            - 20
+            - 50
+            - 100
+            - 200
+          enumNames:
+            - "20 GB – 소규모 앱  ← 권장"
+            - "50 GB – 중규모 앱"
+            - "100 GB – 대규모 앱"
+            - "200 GB – 빅데이터용"
+          description: 데이터베이스 디스크 크기입니다.
       visible: ${{ parameters.resourceType === 'database' }}
 
     - title: 저장소 설정
@@ -192,11 +271,11 @@ spec:
         url: ./content
         values:
           componentName: ${{ parameters.componentName }}
-          namespace: ${{ parameters.namespace }}
+          namespace: default
           resourceType: ${{ parameters.resourceType }}
           vmMachineType: ${{ parameters.vmMachineType }}
           vmRegion: ${{ parameters.vmRegion }}
-          vmZone: ${{ parameters.vmZone }}
+          vmZone: ${{ parameters.vmRegion }}-a
           vmDiskSize: ${{ parameters.vmDiskSize }}
           bucketLocation: ${{ parameters.bucketLocation }}
           bucketStorageClass: ${{ parameters.bucketStorageClass }}
