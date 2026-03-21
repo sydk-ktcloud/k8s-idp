@@ -288,6 +288,10 @@ data:
           rules:
             - allow: [User, Group]
         - type: file
+          target: ./templates/simple-server/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
           target: ./templates/infrastructure-only/template.yaml
           rules:
             - allow: [Template]

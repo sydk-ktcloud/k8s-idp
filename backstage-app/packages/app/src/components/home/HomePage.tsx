@@ -75,7 +75,7 @@ const QuickLinksCard = () => {
   const links = [
     { title: 'ArgoCD', url: 'https://argocd.k8s-idp.local', icon: <AccountTreeIcon /> },
     { title: 'Grafana', url: '/grafana', icon: <BuildIcon /> },
-    { title: 'Kubecost', url: '/kubecost', icon: <CloudIcon /> },
+    { title: 'Kubecost', url: 'http://100.64.0.1:30091', icon: <CloudIcon /> },
     { title: 'GitHub', url: 'https://github.com/sydk-ktcloud/k8s-idp', icon: <LaunchIcon /> },
   ];
 
