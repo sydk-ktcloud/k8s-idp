@@ -1,0 +1,37 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xpubsubs.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XPubSub
+    plural: xpubsubs
+  claimNames:
+    kind: PubSub
+    plural: pubsubs
+    singular: pubsub
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Pub/Sub 토픽 이름
+                messageRetentionDuration:
+                  type: string
+                  description: 메시지 보관 기간 (예- 86400s = 1일)
+                  default: "86400s"
+                ackDeadlineSeconds:
+                  type: number
+                  description: 메시지 처리 제한 시간 (초)
+                  default: 30

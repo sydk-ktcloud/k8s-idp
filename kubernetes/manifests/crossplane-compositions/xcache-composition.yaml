@@ -1,0 +1,44 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xcache.k8s-idp.example.org
+  labels:
+    provider: gcp
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XCache
+
+  resources:
+    # ── Cloud Memorystore Redis ──────────────────────────────
+    - name: redis-instance
+      base:
+        apiVersion: redis.gcp.upbound.io/v1beta1
+        kind: Instance
+        spec:
+          providerConfigRef:
+            name: default
+          forProvider:
+            tier: BASIC
+            memorySizeGb: 1
+            redisVersion: REDIS_7_0
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.region
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.redisVersion
+          toFieldPath: spec.forProvider.redisVersion
+        # memorySizeGb: tier → 크기 매핑
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.tier
+          toFieldPath: spec.forProvider.memorySizeGb
+          transforms:
+            - type: map
+              map:
+                small: "1"
+                standard: "4"
+                large: "16"
