@@ -80,6 +80,12 @@ catalog:
       rules:
         - allow: [Template]
 
+    # Service wizard template - 질문 기반 인프라 구성 마법사
+    - type: file
+      target: ../../templates/service-wizard/template.yaml
+      rules:
+        - allow: [Template]
+
     # Simple server template - 서버 빠른 시작 (초보자용)
     - type: file
       target: ../../templates/simple-server/template.yaml

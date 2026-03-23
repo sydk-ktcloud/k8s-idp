@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ values.componentName }}
+  description: "{{ values.description }}"
+  annotations:
+    backstage.io/source-location: url:https://github.com/{{ values.destination.owner }}/{{ values.destination.repo }}
+  tags:
+    - {{ values.serviceType }}
+    - {{ values.scale }}
+    - gcp
+  links:
+    - url: https://console.cloud.google.com
+      title: Google Cloud Console
+      icon: cloud
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:guest

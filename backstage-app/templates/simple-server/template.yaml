@@ -20,7 +20,7 @@ spec:
         componentName:
           title: 서버 이름
           type: string
-          description: 서버를 구분할 영문 이름 (소문자와 하이픈만 사용, 예: my-web-server)
+          description: "서버를 구분할 영문 이름 (소문자와 하이픈만 사용, 예: my-web-server)"
           ui:field: EntityNamePicker
           ui:autofocus: true
 

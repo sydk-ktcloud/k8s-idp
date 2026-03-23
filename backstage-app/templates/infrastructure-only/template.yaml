@@ -16,7 +16,7 @@ spec:
         componentName:
           title: 리소스 이름
           type: string
-          description: 리소스를 구분할 영문 이름 (소문자와 하이픈만 사용, 예: my-server-01)
+          description: "리소스를 구분할 영문 이름 (소문자와 하이픈만 사용, 예: my-server-01)"
           ui:field: EntityNamePicker
           ui:autofocus: true
 
