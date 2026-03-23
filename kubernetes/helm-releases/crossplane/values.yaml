@@ -1,6 +1,13 @@
 # Crossplane Helm Values
 # Infrastructure as Code for Kubernetes
-
+customLabels:
+  team: platform
+  owner: team-platform
+  cost-center: internal-platform
+  env: prod
+  system: infra
+  service: crossplane
+  
 # Enable webhooks
 webhooks:
   enabled: true
