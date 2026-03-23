@@ -1,4 +1,12 @@
 # Grafana Helm Values with Dex OAuth
+podLabels:
+  team: platform
+  owner: team-sre
+  cost-center: internal-platform
+  env: prod
+  system: observability
+  service: loki
+
 replicas: 1
 
 service:
