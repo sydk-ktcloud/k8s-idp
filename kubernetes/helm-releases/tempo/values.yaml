@@ -1,3 +1,11 @@
+podLabels:
+  team: platform
+  owner: team-sre
+  cost-center: internal-platform
+  env: prod
+  system: observability
+  service: tempo
+
 tempo:
   readinessProbe:
     initialDelaySeconds: 30
