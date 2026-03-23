@@ -12,7 +12,6 @@ spec:
     - protocol: TCP
       port: 8080
       targetPort: 8080
-      # Grafana(30080)와 겹치지 않는 빈 포트번호를 지정합니다.
       nodePort: 30088 
 ---
 apiVersion: apps/v1
@@ -45,8 +44,12 @@ spec:
           value: "none"
         # --- 모니터링을 위한 OTel 설정 추가 ---
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "alloy.monitoring.svc.cluster.local:4317" 
+          value: "http://alloy.monitoring.svc.cluster.local:4317" 
         - name: OTEL_SERVICE_NAME
           value: "trip-backend-service"
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: "grpc"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none" # 메트릭 전송 끄기
+        - name: OTEL_LOGS_EXPORTER
+          value: "none" # 로그 전송 끄기
