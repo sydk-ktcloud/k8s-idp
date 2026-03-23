@@ -31,6 +31,14 @@ spec:
                 index:
                   prefix: loki_index_
                   period: 24h
+          readinessProbe:
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 10
         deploymentMode: SingleBinary
         singleBinary:
           replicas: 1

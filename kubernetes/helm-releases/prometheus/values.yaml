@@ -57,7 +57,7 @@ alertmanager:
 
 # Node Exporter - Disable due to restricted PSP
 nodeExporter:
-  enabled: false
+  enabled: true
 
 # Kube State Metrics
 kubeStateMetrics:
