@@ -5,6 +5,12 @@ metadata:
   namespace: kube-system
   labels:
     k8s-app: hubble-relay
+    team: platform
+    owner: team-security
+    cost-center: internal-platform
+    env: prod
+    system: security
+    service: hubble-relay
 spec:
   replicas: 1
   selector:
@@ -14,6 +20,13 @@ spec:
     metadata:
       labels:
         k8s-app: hubble-relay
+        team: platform
+        owner: team-security
+        cost-center: internal-platform
+        env: prod
+        system: security
+        service: hubble-relay
+
     spec:
       serviceAccountName: hubble-relay
       containers:
