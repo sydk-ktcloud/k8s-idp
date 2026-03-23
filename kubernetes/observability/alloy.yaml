@@ -63,18 +63,6 @@ spec:
                 }
               }
 
-              // Prometheus 메트릭 스크래핑
-              prometheus.scrape "kubernetes" {
-                targets    = discovery.relabel.common_labels.output
-                forward_to = [prometheus.remote_write.default.receiver]
-              }
-
-              prometheus.remote_write "default" {
-                endpoint {
-                  url = "http://prometheus-kube-prometheus-prometheus.monitoring:9090/api/v1/write"
-                }
-              }
-
               // 로그 수집
               loki.source.kubernetes "pods" {
                 targets    = discovery.relabel.common_labels.output

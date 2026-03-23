@@ -331,11 +331,10 @@ metadata:
   name: monitoring-allow-kube-apiserver
   namespace: monitoring
 spec:
-  endpointSelector: {}
-  egress:
-    - toEntities:
-        - kube-apiserver
-        - host
-        - remote-node
-    - toCIDR:
-        - 10.96.0.1/32
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - prometheus
+          - alloy
