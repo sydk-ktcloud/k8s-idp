@@ -5,7 +5,7 @@ podLabels:
   cost-center: internal-platform
   env: prod
   system: observability
-  service: loki
+  service: grafana
 
 replicas: 1
 
