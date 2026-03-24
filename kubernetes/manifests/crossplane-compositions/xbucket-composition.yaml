@@ -18,6 +18,15 @@ spec:
           forProvider:
             location: US
             storageClass: STANDARD
+            labels:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              service: gcp-bucket
+              managed-by: crossplane
+              resource-type: bucket
             uniformBucketLevelAccess:
               enabled: true
             versioning:
