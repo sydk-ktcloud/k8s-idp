@@ -16,8 +16,6 @@ spec:
         kind: Bucket
         spec:
           forProvider:
-            location: US
-            storageClass: STANDARD
             labels:
               team: platform
               owner: team-platform
@@ -27,6 +25,8 @@ spec:
               service: gcp-bucket
               managed-by: crossplane
               resource-type: bucket
+            location: US
+            storageClass: STANDARD
             uniformBucketLevelAccess:
               enabled: true
             versioning:
