@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: trip-cart
-        image: junho010712/trip-front:latest # 메인과 같은 이미지를 사용하되 환경변수로 구분
+        image: kylekim1223/trip-front:latest # 메인과 같은 이미지를 사용하되 환경변수로 구분
         env:
         - name: VITE_SERVICE_NAME
           value: "CART_SERVICE"

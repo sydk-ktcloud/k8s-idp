@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: trip-backend
-        image: junho010712/trip-backend:latest
+        image: kylekim1223/trip-backend:latest
         ports:
         - containerPort: 8080
         env:
