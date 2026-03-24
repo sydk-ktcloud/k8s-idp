@@ -44,3 +44,5 @@ spec:
           toFieldPath: spec.forProvider.uniformBucketLevelAccess.enabled
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        - fromFieldPath: metadata.labels
+          toFieldPath: spec.forProvider.labels
