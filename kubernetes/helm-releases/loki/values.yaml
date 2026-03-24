@@ -33,6 +33,16 @@ loki:
           prefix: loki_index_
           period: 24h
 
+lokiCanary:
+  enabled: true
+  podLabels:
+    team: platform
+    owner: team-sre
+    cost-center: internal-platform
+    env: prod
+    system: observability
+    service: loki
+
 deploymentMode: SingleBinary
 
 singleBinary:
