@@ -16,7 +16,6 @@ spec:
         kind: Cluster
         spec:
           forProvider:
-            location: us-central1
             labels:
               team: platform
               owner: team-platform
@@ -26,6 +25,7 @@ spec:
               service: gcp-cluster
               managed-by: crossplane
               resource-type: cluster
+            location: us-central1
             network: projects/sydk-ktcloud/global/networks/default
             initialNodeCount: 3
             nodeConfig:
