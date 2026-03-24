@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Git Ignore for k8s-idp
 
 # Dependencies (never commit!)
@@ -50,3 +51,8 @@ _test/
 # Kubeconfig files with tokens
 kubeconfig/kubeconfig-*
 !kubeconfig/README.md
+=======
+node_modules/
+.env
+.DS_Store
+>>>>>>> feat/chatops-k8s-incluster
