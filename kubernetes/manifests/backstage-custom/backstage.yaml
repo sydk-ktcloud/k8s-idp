@@ -82,6 +82,8 @@ kind: Deployment
 metadata:
   name: backstage-postgresql
   namespace: backstage
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   replicas: 1
   selector:
@@ -160,6 +162,8 @@ kind: Deployment
 metadata:
   name: backstage-backend
   namespace: backstage
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   replicas: 1
   selector:
