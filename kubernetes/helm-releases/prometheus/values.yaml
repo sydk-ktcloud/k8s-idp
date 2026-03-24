@@ -23,7 +23,7 @@ prometheus:
         env: prod
         system: observability
         service: prometheus
-        
+
     # Retention settings
     enableRemoteWriteReceiver: true
     retention: 15d
@@ -83,9 +83,23 @@ alertmanager:
 nodeExporter:
   enabled: false
 
-# Kube State Metrics
-kubeStateMetrics:
-  enabled: true
+kube-state-metrics:
+  releaseLabel: true
+  prometheusScrape: false
+  customLabels:
+    team: platform
+    owner: team-sre
+    cost-center: internal-platform
+    env: prod
+    system: observability
+    service: kube-state-metrics
+  prometheus:
+    monitor:
+      enabled: true
+      http:
+        honorLabels: true
+      metrics:
+        honorLabels: true
 
 # Prometheus Operator
 prometheusOperator:
