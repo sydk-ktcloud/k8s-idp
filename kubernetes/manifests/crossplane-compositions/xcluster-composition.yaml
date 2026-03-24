@@ -17,6 +17,15 @@ spec:
         spec:
           forProvider:
             location: us-central1
+            labels:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              service: gcp-cluster
+              managed-by: crossplane
+              resource-type: cluster
             network: projects/sydk-ktcloud/global/networks/default
             initialNodeCount: 3
             nodeConfig:
