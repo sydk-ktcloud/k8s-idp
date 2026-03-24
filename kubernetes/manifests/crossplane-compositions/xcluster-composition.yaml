@@ -53,3 +53,5 @@ spec:
           toFieldPath: spec.forProvider.nodeConfig[0].machineType
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        - fromFieldPath: metadata.labels
+          toFieldPath: spec.forProvider.labels
