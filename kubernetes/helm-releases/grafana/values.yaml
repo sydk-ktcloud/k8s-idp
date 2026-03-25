@@ -43,7 +43,9 @@ resources:
 
 # Persistence
 persistence:
-  enabled: false
+  enabled: true
+  storageClassName: longhorn
+  size: 1Gi
 
 # Service account
 serviceAccount:
@@ -67,7 +69,7 @@ datasources:
         access: proxy
         jsonData:
           derivedFields:
-            - matcherRegex: "traceID=(\\w+)"
+            - matcherRegex: '"trace_id":"([^"]+)"'
               name: TraceID
               url: "$${__value.raw}"
               datasourceUid: tempo
