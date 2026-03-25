@@ -1,0 +1,48 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xcaches.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XCache
+    plural: xcaches
+  claimNames:
+    kind: Cache
+    plural: caches
+    singular: cache
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Redis 인스턴스 이름
+                region:
+                  type: string
+                  description: GCP 리전
+                  default: us-central1
+                tier:
+                  type: string
+                  description: "Redis 크기 (small: 1GB, standard: 4GB, large: 16GB)"
+                  default: standard
+                  enum:
+                    - small
+                    - standard
+                    - large
+                redisVersion:
+                  type: string
+                  description: Redis 버전
+                  default: REDIS_7_0
+                  enum:
+                    - REDIS_7_0
+                    - REDIS_6_X

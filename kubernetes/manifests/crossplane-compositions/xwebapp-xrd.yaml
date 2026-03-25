@@ -1,0 +1,56 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xwebapps.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XWebApp
+    plural: xwebapps
+  claimNames:
+    kind: WebApp
+    plural: webapps
+    singular: webapp
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: 웹앱 이름
+                environment:
+                  type: string
+                  description: "환경 (dev: 소형, standard: 중형, large: 대형)"
+                  default: standard
+                  enum:
+                    - dev
+                    - standard
+                    - large
+                region:
+                  type: string
+                  description: GCP 리전
+                  default: us-central1
+                dbEngine:
+                  type: string
+                  description: 데이터베이스 엔진
+                  default: POSTGRES_15
+                  enum:
+                    - POSTGRES_15
+                    - POSTGRES_14
+                    - MYSQL_8_0
+            status:
+              type: object
+              properties:
+                vmStatus:
+                  type: string
+                dbStatus:
+                  type: string

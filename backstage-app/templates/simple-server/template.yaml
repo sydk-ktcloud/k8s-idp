@@ -1,0 +1,110 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: simple-server-template
+  title: 서버 빠른 시작
+  description: 3가지 선택만으로 GCP 서버를 즉시 생성합니다 (초보자 추천)
+  tags:
+    - beginner
+    - quick-start
+    - server
+spec:
+  owner: user:guest
+  type: resource
+
+  parameters:
+    - title: 서버 기본 정보
+      required:
+        - componentName
+      properties:
+        componentName:
+          title: 서버 이름
+          type: string
+          description: "서버를 구분할 영문 이름 (소문자와 하이픈만 사용, 예: my-web-server)"
+          ui:field: EntityNamePicker
+          ui:autofocus: true
+
+    - title: 서버 사양 선택
+      required:
+        - serverSize
+      properties:
+        serverSize:
+          title: 서버 크기
+          type: string
+          default: e2-medium
+          enum:
+            - e2-small
+            - e2-medium
+            - e2-standard-4
+          enumNames:
+            - "소형 – 개발/테스트용 (1 vCPU · 2 GB RAM)"
+            - "중형 – 일반 서비스용 (2 vCPU · 4 GB RAM)  ← 권장"
+            - "대형 – 고성능 서비스용 (4 vCPU · 16 GB RAM)"
+          description: 서버 규모를 선택하세요. 잘 모르겠으면 '중형'을 선택하세요.
+        diskSize:
+          title: 저장 공간
+          type: number
+          default: 50
+          enum:
+            - 20
+            - 50
+            - 100
+            - 200
+          enumNames:
+            - "20 GB – 가벼운 앱"
+            - "50 GB – 일반 앱  ← 권장"
+            - "100 GB – 대용량 앱"
+            - "200 GB – 빅데이터/ML용"
+          description: 서버에 설치할 소프트웨어와 데이터 크기를 고려해 선택하세요.
+
+    - title: 저장소 설정
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: 저장소 위치
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+          description: 인프라 설정 파일을 커밋할 GitHub 저장소를 선택하세요.
+
+  steps:
+    - id: fetch-base
+      name: 템플릿 파일 준비
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          componentName: ${{ parameters.componentName }}
+          namespace: default
+          resourceType: gcpinstance
+          vmMachineType: ${{ parameters.serverSize }}
+          vmRegion: us-central1
+          vmZone: us-central1-a
+          vmDiskSize: ${{ parameters.diskSize }}
+
+    - id: publish
+      name: Pull Request 생성
+      action: publish:github
+      input:
+        description: "서버 생성 요청: ${{ parameters.componentName }}"
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        targetPath: apps/${{ parameters.componentName }}
+
+    - id: register
+      name: 카탈로그 등록
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Pull Request 확인하기
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: 카탈로그에서 열기
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

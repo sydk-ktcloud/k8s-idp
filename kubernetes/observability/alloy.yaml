@@ -17,6 +17,104 @@ spec:
     helm:
       valuesObject:
         alloy:
+          extraPorts:
+            - name: otlp-grpc
+              port: 4317
+              targetPort: 4317
+              protocol: TCP
+            - name: otlp-http
+              port: 4318
+              targetPort: 4318
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          configMap:
+            create: true
+            content: |
+              // K8s Pod 자동 탐색
+              discovery.kubernetes "pods" {
+                role = "pod"
+              }
+
+              // 공통 태그 설정
+              discovery.relabel "common_labels" {
+                targets = discovery.kubernetes.pods.targets
+
+                rule {
+                  source_labels = ["__meta_kubernetes_namespace"]
+                  target_label  = "namespace"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_node_name"]
+                  target_label  = "node"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+                  target_label  = "service"
+                }
+                rule {
+                  replacement  = "local-k8s"
+                  target_label = "cluster"
+                }
+              }
+
+              // 로그 수집
+              loki.source.kubernetes "pods" {
+                targets    = discovery.relabel.common_labels.output
+                forward_to = [loki.process.parse_logs.receiver]
+              }
+
+              // 로그 파싱 (JSON 포맷 파싱, traceID/level 라벨 추출)
+              loki.process "parse_logs" {
+                forward_to = [loki.write.default.receiver]
+
+                stage.json {
+                  expressions = {
+                    level   = "level",
+                    traceID = "traceID",
+                  }
+                }
+
+                stage.labels {
+                  values = {
+                    level   = "level",
+                    traceID = "traceID",
+                  }
+                }
+              }
+
+              loki.write "default" {
+                endpoint {
+                  url = "http://loki.monitoring:3100/loki/api/v1/push"
+                }
+              }
+
+              // OTel 트레이스 수신
+              otelcol.receiver.otlp "default" {
+                grpc {
+                  endpoint = "0.0.0.0:4317"
+                }
+                http {
+                  endpoint = "0.0.0.0:4318"
+                }
+                output {
+                  traces = [otelcol.exporter.otlp.tempo.input]
+                }
+              }
+
+              otelcol.exporter.otlp "tempo" {
+                client {
+                  endpoint = "tempo.monitoring:4317"
+                  tls {
+                    insecure = true
+                  }
+                }
+              }
           resources:
             requests:
               cpu: 100m
@@ -24,6 +122,15 @@ spec:
             limits:
               cpu: 200m
               memory: 512Mi
+        controller:
+          type: daemonset
+          podLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: alloy
         clustering:
           enabled: true
   destination:

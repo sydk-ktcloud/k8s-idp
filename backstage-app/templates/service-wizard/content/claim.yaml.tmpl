@@ -1,0 +1,109 @@
+{% if values.serviceType === 'web-api' %}
+# ── 웹 API 서버: VM + 데이터베이스 ────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: WebApp
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  environment: {{ values.scale }}
+  region: us-central1
+  dbEngine: POSTGRES_15
+
+{% elif values.serviceType === 'file-service' %}
+# ── 파일 저장 서비스: GCS 버킷 ────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: Bucket
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  location: US
+  storageClass: STANDARD
+  {%- if values.scale === 'large' %}
+  versioning: true
+  {%- else %}
+  versioning: false
+  {%- endif %}
+
+{% elif values.serviceType === 'container-app' %}
+# ── 컨테이너 앱: GKE 클러스터 ────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: Cluster
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  location: us-central1
+  {%- if values.scale === 'dev' %}
+  nodeCount: 1
+  machineType: e2-medium
+  {%- elif values.scale === 'standard' %}
+  nodeCount: 3
+  machineType: e2-medium
+  {%- else %}
+  nodeCount: 5
+  machineType: e2-standard-4
+  {%- endif %}
+
+{% elif values.serviceType === 'event-driven' %}
+# ── 이벤트 기반 서비스: Pub/Sub ──────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: PubSub
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  {%- if values.scale === 'dev' %}
+  messageRetentionDuration: "86400s"
+  ackDeadlineSeconds: 30
+  {%- elif values.scale === 'standard' %}
+  messageRetentionDuration: "604800s"
+  ackDeadlineSeconds: 60
+  {%- else %}
+  messageRetentionDuration: "604800s"
+  ackDeadlineSeconds: 120
+  {%- endif %}
+
+{% elif values.serviceType === 'data-processing' %}
+# ── 데이터 처리: 고성능 VM ────────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: GCPInstance
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  region: us-central1
+  zone: us-central1-a
+  {%- if values.scale === 'dev' %}
+  machineType: e2-standard-4
+  diskSize: 100
+  {%- elif values.scale === 'standard' %}
+  machineType: e2-standard-8
+  diskSize: 200
+  {%- else %}
+  machineType: n2-standard-16
+  diskSize: 500
+  {%- endif %}
+
+{% endif %}

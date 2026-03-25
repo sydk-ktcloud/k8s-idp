@@ -1,0 +1,55 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xpubsub.k8s-idp.example.org
+  labels:
+    provider: gcp
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XPubSub
+
+  resources:
+    # ── Pub/Sub 토픽 ─────────────────────────────────────────
+    - name: pubsub-topic
+      base:
+        apiVersion: pubsub.gcp.upbound.io/v1beta1
+        kind: Topic
+        spec:
+          providerConfigRef:
+            name: default
+          forProvider: {}
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.messageRetentionDuration
+          toFieldPath: spec.forProvider.messageRetentionDuration
+
+    # ── Pub/Sub 구독 ─────────────────────────────────────────
+    - name: pubsub-subscription
+      base:
+        apiVersion: pubsub.gcp.upbound.io/v1beta1
+        kind: Subscription
+        spec:
+          providerConfigRef:
+            name: default
+          forProvider:
+            ackDeadlineSeconds: 30
+      patches:
+        # 이름: <topic-name>-sub
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-sub"
+        # topicRef: 같은 이름의 토픽 참조
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.topicRef.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.ackDeadlineSeconds
+          toFieldPath: spec.forProvider.ackDeadlineSeconds

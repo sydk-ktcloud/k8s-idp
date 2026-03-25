@@ -81,7 +81,7 @@ alertmanager:
 
 # Node Exporter - Disable due to restricted PSP
 nodeExporter:
-  enabled: false
+  enabled: true
 
 kube-state-metrics:
   releaseLabel: true

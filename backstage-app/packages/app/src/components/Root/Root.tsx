@@ -4,6 +4,7 @@ import HomeIcon from '@material-ui/icons/Home';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import CloudIcon from '@material-ui/icons/Cloud';
+import DashboardIcon from '@material-ui/icons/Dashboard';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -58,6 +59,7 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
       <SidebarDivider />
       <SidebarGroup label="메뉴" icon={<MenuIcon />}>
         <SidebarItem icon={HomeIcon} to="/" text="홈" />
+        <SidebarItem icon={DashboardIcon} to="dashboard" text="프로비저닝 현황" />
         <SidebarItem icon={CloudIcon} to="catalog" text="카탈로그" />
         <SidebarItem icon={LibraryBooks} to="docs" text="문서" />
         <SidebarItem icon={CreateComponentIcon} to="create" text="생성" />
