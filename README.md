@@ -25,6 +25,7 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 |----------|------|------|
 | **Backstage** | ✅ 배포됨 | 개발자 포털, 서비스 카탈로그, 셀프서비스 |
 | **Crossplane** | ✅ 배포됨 | 클라우드 리소스 프로비저닝 (GCP) |
+| **GKE Burst** | ✅ 배포됨 | 온프레미스 부하 초과 시 GKE로 자동 확장 |
 | **ChatOps** | ✅ 배포됨 | Discord 기반 K8s 관리 봇 |
 | **Kubecost** | ✅ 배포됨 | 비용 모니터링 및 최적화 |
 
@@ -101,14 +102,15 @@ k8s-idp/
 │   │   ├── backstage-custom/   # Backstage 커스텀
 │   │   ├── cert-manager/       # 인증서 관리
 │   │   ├── cilium/             # CNI/Hubble 설정
-│   │   ├── crossplane-compositions/  # XRD/Composition (7종)
+│   │   ├── crossplane-compositions/  # XRD/Composition (8종, GKE Burst 포함)
 │   │   └── crossplane-providers/     # GCP Provider
 │   ├── argocd-apps/             # ArgoCD Application 정의
 │   ├── network-policies/        # Zero Trust 네트워크 정책
 │   ├── observability/           # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
 │   └── storage/                 # 스토리지 (Longhorn, MinIO)
 ├── apps/                        # Backstage Scaffolder 생성 리소스
-│   └── .argocd/                 # ApplicationSet (자동 감지)
+│   ├── .argocd/                 # ApplicationSet (자동 감지)
+│   └── gke-burst/               # GKE Burst Cluster Claim
 ├── backstage-app/               # Backstage 개발자 포털
 │   ├── packages/
 │   │   ├── app/                # Frontend (React)
@@ -197,6 +199,34 @@ k8s-idp/
 | Cache | XCache | Memorystore |
 | Messaging | XPubSub | Pub/Sub |
 | WebApp | XWebApp | 통합 웹앱 |
+| **Burst Cluster** | **XClusterBurst** | **GKE (온프레미스 burst 확장용)** |
+
+### 4. GKE Burst 확장
+
+**목적**: 온프레미스 클러스터 부하 초과 시 GKE로 워크로드 burst 확장
+
+**동작 방식**:
+1. `ClusterBurst` Claim 생성 → Crossplane이 GKE 클러스터 자동 프로비저닝
+2. Cluster + NodePool (autoscaling 0~5) 구성
+3. 연결 정보(`kubeconfig`)가 `default/gke-burst-kubeconfig` Secret에 자동 저장
+
+**리소스 구성**:
+- **XRD**: `xclusterbursts.k8s-idp.example.org`
+- **Composition**: `xclusterburst.gcp.k8s-idp.example.org`
+- **Claim**: `apps/gke-burst/claim.yaml`
+- **GKE 클러스터**: `k8s-idp-burst` (asia-northeast3, e2-standard-2, preemptible)
+
+**kubeconfig 획득**:
+```bash
+# Crossplane이 자동 생성한 Secret에서 추출
+kubectl get secret gke-burst-kubeconfig -n default \
+  -o jsonpath='{.data.kubeconfig}' | base64 -d > gke-burst-kubeconfig.yaml
+
+# 또는 gcloud로 직접 획득
+KUBECONFIG=kubeconfig/gke-burst \
+  gcloud container clusters get-credentials k8s-idp-burst \
+  --project=sydk-ktcloud --region=asia-northeast3
+```
 
 ## SSO 구성 (Dex)
 
@@ -271,6 +301,8 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 - [ ] Backstage 한국어 UI 완성
 - [ ] 추가 Crossplane Compositions
 - [ ] CI/CD 파이프라인 템플릿
+- [x] GKE Burst 클러스터 Crossplane 자동 프로비저닝
+- [ ] GKE Burst 자동 트리거 (HPA/KEDA 연동)
 
 ## 팀원
 

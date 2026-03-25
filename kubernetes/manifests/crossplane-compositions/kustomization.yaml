@@ -1,16 +1,19 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # 기존 단일 리소스 XRDs
+  # XRDs and Compositions for GCP resources
   - xgcpinstance-xrd.yaml
   - xgcpinstance-composition.yaml
   - xbucket-xrd.yaml
   - xbucket-composition.yaml
-  - xcluster-xrd.yaml
-  - xcluster-composition.yaml
   - xdatabase-xrd.yaml
   - xdatabase-composition.yaml
-  # 신규 복합/추가 XRDs
+  - xcluster-xrd.yaml
+  - xcluster-composition.yaml
+  # GKE Burst Cluster (scale-to-zero capable)
+  - xcluster-burst-xrd.yaml
+  - xcluster-burst-composition.yaml
+  # 새로운 복합/추가 XRDs
   - xwebapp-xrd.yaml
   - xwebapp-composition.yaml
   - xpubsub-xrd.yaml

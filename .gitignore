@@ -49,4 +49,6 @@ _test/
 
 # Kubeconfig files with tokens
 kubeconfig/kubeconfig-*
+kubeconfig/gke-burst
+kubeconfig/gke_gcloud_auth_plugin_cache
 !kubeconfig/README.md
