@@ -98,7 +98,11 @@ kube-state-metrics:
       enabled: true
       http:
         honorLabels: true
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 87748b44bebaa34152c3726b6c426e9f4e690012
 # Prometheus Operator
 prometheusOperator:
   resources:
