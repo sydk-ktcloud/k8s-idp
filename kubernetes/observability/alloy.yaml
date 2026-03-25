@@ -83,7 +83,7 @@ spec:
                 stage.labels {
                   values = {
                     level   = "level",
-                    traceID = "traceID",
+                    traceID = "trace_id",
                   }
                 }
               }
