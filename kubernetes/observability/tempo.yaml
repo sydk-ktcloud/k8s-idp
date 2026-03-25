@@ -16,17 +16,61 @@ spec:
     targetRevision: 1.10.1
     helm:
       valuesObject:
+        podLabels:
+          team: platform
+          owner: team-sre
+          cost-center: internal-platform
+          env: prod
+          system: observability
+          service: tempo
         tempo:
-          storage:
-            trace:
-              backend: local
+          readinessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 10
           resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
             limits:
               cpu: 200m
               memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          retention: 24h
+          storage:
+            trace:
+              backend: local
+              local:
+                path: /var/tempo/traces
+              wal:
+                path: /var/tempo/wal
+          receivers:
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:4317
+                http:
+                  endpoint: 0.0.0.0:4318
+            jaeger:
+              protocols:
+                thrift_http:
+                  endpoint: 0.0.0.0:14268
+        persistence:
+          enabled: true
+          storageClassName: longhorn
+          size: 10Gi
+        service:
+          type: ClusterIP
+          labels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: tempo
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
