@@ -27,6 +27,29 @@ async function queryPrometheus(query) {
   }
 }
 
+function extractFirstValue(result) {
+  if (!Array.isArray(result) || result.length === 0) {
+    return null;
+  }
+
+  const first = result[0];
+  const rawValue = first?.value?.[1];
+
+  if (rawValue === undefined || rawValue === null) {
+    return null;
+  }
+
+  const num = Number(rawValue);
+  return Number.isFinite(num) ? num : null;
+}
+
+async function queryPrometheusScalar(query) {
+  const result = await queryPrometheus(query);
+  return extractFirstValue(result);
+}
+
 module.exports = {
   queryPrometheus,
+  queryPrometheusScalar,
+  extractFirstValue,
 };
