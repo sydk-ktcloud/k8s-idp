@@ -10,7 +10,9 @@ spec:
     matchNames:
       - trip-app
   selector:
-    matchLabels: {}
+    matchExpressions:
+      - key: app
+        operator: Exists
   podMetricsEndpoints:
     - targetPort: 8080
       path: /actuator/prometheus
