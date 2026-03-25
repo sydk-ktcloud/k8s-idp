@@ -26,6 +26,12 @@ spec:
     metadata:
       labels:
         app: trip-cart
+        team: platform
+        owner: team-appdev
+        cost-center: internal-platform
+        env: prod
+        system: trip-app
+        service: trip-cart
     spec:
       containers:
       - name: trip-cart

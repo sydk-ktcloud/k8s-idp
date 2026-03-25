@@ -26,6 +26,12 @@ spec:
     metadata:
       labels:
         app: trip-payment
+        team: platform
+        owner: team-appdev
+        cost-center: internal-platform
+        env: prod
+        system: trip-app
+        service: trip-payment
     spec:
       containers:
       - name: trip-payment

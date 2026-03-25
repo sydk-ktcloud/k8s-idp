@@ -25,6 +25,12 @@ spec:
     metadata:
       labels:
         app: trip-db
+        team: platform
+        owner: team-appdev
+        cost-center: internal-platform
+        env: prod
+        system: trip-app
+        service: trip-db
     spec:
       containers:
       - name: postgres
