@@ -33,10 +33,8 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     runtimeOnly 'org.postgresql:postgresql'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    // 1. 로그를 JSON으로 만들어주는 인코더 (가장 많이 쓰임)
-    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
-    // 2. OpenTelemetry와 Logback을 연결해주는 어펜더
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.0.0-alpha'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
 }
 
 tasks.named('test') {
