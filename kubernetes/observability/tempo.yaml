@@ -16,6 +16,13 @@ spec:
     targetRevision: 1.10.1
     helm:
       valuesObject:
+        podLabels:
+          team: platform
+          owner: team-sre
+          cost-center: internal-platform
+          env: prod
+          system: observability
+          service: tempo
         tempo:
           readinessProbe:
             initialDelaySeconds: 30
@@ -57,6 +64,13 @@ spec:
           size: 10Gi
         service:
           type: ClusterIP
+          labels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: tempo
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

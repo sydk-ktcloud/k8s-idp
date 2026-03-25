@@ -1,13 +1,29 @@
 # Kube Prometheus Stack Values
 # Monitoring stack with Longhorn storage
-
 # Disable default Grafana (using separate Grafana installation)
+commonLabels:
+  team: platform
+  owner: team-sre
+  cost-center: internal-platform
+  env: prod
+  system: observability
+  service: prometheus
+
 grafana:
   enabled: false
 
 # Prometheus Configuration
 prometheus:
   prometheusSpec:
+    podMetadata:
+      labels:
+        team: platform
+        owner: team-sre
+        cost-center: internal-platform
+        env: prod
+        system: observability
+        service: prometheus
+
     # Retention settings
     enableRemoteWriteReceiver: true
     retention: 15d
@@ -39,6 +55,14 @@ prometheus:
 # Alertmanager Configuration
 alertmanager:
   alertmanagerSpec:
+    podMetadata:
+      labels:
+        team: platform
+        owner: team-sre
+        cost-center: internal-platform
+        env: prod
+        system: observability
+        service: alertmanager
     storage:
       volumeClaimTemplate:
         spec:
@@ -59,10 +83,26 @@ alertmanager:
 nodeExporter:
   enabled: true
 
-# Kube State Metrics
-kubeStateMetrics:
-  enabled: true
+kube-state-metrics:
+  releaseLabel: true
+  prometheusScrape: false
+  customLabels:
+    team: platform
+    owner: team-sre
+    cost-center: internal-platform
+    env: prod
+    system: observability
+    service: kube-state-metrics
+  prometheus:
+    monitor:
+      enabled: true
+      http:
+        honorLabels: true
+<<<<<<< HEAD
+        
+=======
 
+>>>>>>> 87748b44bebaa34152c3726b6c426e9f4e690012
 # Prometheus Operator
 prometheusOperator:
   resources:

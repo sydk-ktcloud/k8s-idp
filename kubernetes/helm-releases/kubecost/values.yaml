@@ -1,9 +1,20 @@
 # Kubecost Helm Values - v3.x with Longhorn Storage
+labelMappingConfigs:
+  department_label: "cost-center"
+
 global:
   clusterId: "k8s-idp-cluster"
   clusterName: "k8s-idp"
   defaultStorageClass: "longhorn"
   acknowledged: true  # Required for Kubecost 3.0+
+
+  additionalLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: kubecost
 
 # Long-term metrics storage (replaces old kubecost-cost-analyzer PVC)
 localStore:

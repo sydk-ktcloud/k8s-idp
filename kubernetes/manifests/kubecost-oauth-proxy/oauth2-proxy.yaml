@@ -21,6 +21,12 @@ metadata:
   namespace: kubecost
   labels:
     app: oauth2-proxy-kubecost
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: oauth2-proxy-kubecost
 spec:
   replicas: 1
   selector:
@@ -30,6 +36,12 @@ spec:
     metadata:
       labels:
         app: oauth2-proxy-kubecost
+        team: platform
+        owner: team-finops
+        cost-center: internal-platform
+        env: prod
+        system: finops
+        service: oauth2-proxy-kubecost
     spec:
       containers:
       - name: oauth2-proxy
