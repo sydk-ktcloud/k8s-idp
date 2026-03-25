@@ -47,6 +47,7 @@ RUN --mount=type=cache,target=/home/node/.cache/yarn,sharing=locked,uid=1000,gid
     yarn workspaces focus --all --production && rm -rf "$(yarn cache clean)"
 
 COPY --chown=node:node examples ./examples
+COPY --chown=node:node templates ./templates
 COPY --chown=node:node app-config*.yaml ./
 
 COPY --from=build --chown=node:node /app/packages/backend/dist/bundle.tar.gz ./

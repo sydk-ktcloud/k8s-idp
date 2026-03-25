@@ -1,0 +1,121 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xwebapp.k8s-idp.example.org
+  labels:
+    provider: gcp
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XWebApp
+
+  resources:
+    # ── VM 서버 ──────────────────────────────────────────────
+    - name: vm-instance
+      base:
+        apiVersion: compute.gcp.upbound.io/v1beta1
+        kind: Instance
+        spec:
+          providerConfigRef:
+            name: default
+          forProvider:
+            project: sydk-ktcloud
+            networkInterface:
+              - accessConfig:
+                  - networkTier: PREMIUM
+            bootDisk:
+              - initializeParams:
+                  - image: projects/debian-cloud/global/images/family/debian-11
+            tags:
+              - http-server
+              - https-server
+      patches:
+        # 이름: <webapp-name>-server
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-server"
+        # zone: <region>-a
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.zone
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-a"
+        # machineType: environment → 크기 매핑
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.forProvider.machineType
+          transforms:
+            - type: map
+              map:
+                dev: e2-small
+                standard: e2-medium
+                large: e2-standard-4
+        # diskSize: environment → 용량 매핑
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.forProvider.bootDisk[0].initializeParams[0].size
+          transforms:
+            - type: map
+              map:
+                dev: "20"
+                standard: "50"
+                large: "100"
+
+    # ── Cloud SQL 데이터베이스 ────────────────────────────────
+    - name: database
+      base:
+        apiVersion: sql.gcp.upbound.io/v1beta1
+        kind: DatabaseInstance
+        spec:
+          providerConfigRef:
+            name: default
+          forProvider:
+            region: us-central1
+            deletionProtection: false
+            settings:
+              - diskType: PD_SSD
+                availabilityType: ZONAL
+                backupConfiguration:
+                  - enabled: true
+      patches:
+        # 이름: <webapp-name>-db
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-db"
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.region
+        # databaseVersion
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.dbEngine
+          toFieldPath: spec.forProvider.databaseVersion
+        # tier: environment → DB 크기 매핑
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.forProvider.settings[0].tier
+          transforms:
+            - type: map
+              map:
+                dev: db-custom-1-3840
+                standard: db-custom-1-3840
+                large: db-custom-2-7680
+        # diskSize: environment → DB 용량 매핑
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.forProvider.settings[0].diskSize
+          transforms:
+            - type: map
+              map:
+                dev: "20"
+                standard: "50"
+                large: "100"

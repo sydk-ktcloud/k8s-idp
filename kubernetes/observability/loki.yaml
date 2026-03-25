@@ -53,7 +53,6 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 10
-
         lokiCanary:
           enabled: true
           podLabels:
@@ -63,7 +62,6 @@ spec:
             env: prod
             system: observability
             service: loki
-
         deploymentMode: SingleBinary
 
         singleBinary:

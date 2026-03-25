@@ -1,0 +1,11 @@
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: GCPInstance
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  machineType: {{ vmMachineType }}
+  region: {{ vmRegion }}
+  zone: {{ vmZone }}
+  diskSize: {{ vmDiskSize }}

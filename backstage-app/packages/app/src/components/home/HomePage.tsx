@@ -32,6 +32,8 @@ import CloudIcon from '@material-ui/icons/Cloud';
 import BuildIcon from '@material-ui/icons/Build';
 import LaunchIcon from '@material-ui/icons/Launch';
 import AccountTreeIcon from '@material-ui/icons/AccountTree';
+import FlashOnIcon from '@material-ui/icons/FlashOn';
+import AutoFixHighIcon from '@material-ui/icons/Stars';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -72,9 +74,9 @@ const QuickLinksCard = () => {
   const classes = useStyles();
 
   const links = [
-    { title: 'ArgoCD', url: 'https://argocd.k8s-idp.local', icon: <AccountTreeIcon /> },
-    { title: 'Grafana', url: '/grafana', icon: <BuildIcon /> },
-    { title: 'Kubecost', url: '/kubecost', icon: <CloudIcon /> },
+    { title: 'ArgoCD', url: 'http://100.64.0.1:30081', icon: <AccountTreeIcon /> },
+    { title: 'Grafana', url: 'http://100.64.0.1:30080', icon: <BuildIcon /> },
+    { title: 'Kubecost', url: 'http://100.64.0.1:30091', icon: <CloudIcon /> },
     { title: 'GitHub', url: 'https://github.com/sydk-ktcloud/k8s-idp', icon: <LaunchIcon /> },
   ];
 
@@ -111,23 +113,37 @@ const TemplateCards = () => {
 
   const templates = [
     {
+      title: '서비스 환경 구성 마법사',
+      description: '2가지 질문으로 필요한 인프라를 자동 결정합니다. 인프라 지식 불필요!',
+      url: '/create/templates/default/service-wizard',
+      icon: <AutoFixHighIcon />,
+      tags: ['wizard', 'recommended', 'beginner'],
+    },
+    {
+      title: '서버 빠른 시작',
+      description: '3가지 선택만으로 GCP 서버를 즉시 생성합니다 (초보자 추천)',
+      url: '/create/templates/default/simple-server-template',
+      icon: <FlashOnIcon />,
+      tags: ['beginner', 'quick-start'],
+    },
+    {
       title: '인프라 프로비저닝',
       description: 'GCP 리소스(VM, GCS, GKE, Cloud SQL)를 프로비저닝합니다',
-      url: '/create/templates/infrastructure-only',
+      url: '/create/templates/default/infrastructure-only-template',
       icon: <CloudIcon />,
       tags: ['infrastructure', 'gcp'],
     },
     {
       title: '서비스 생성',
       description: '새로운 서비스를 생성합니다 (Node.js, Python, Go 지원)',
-      url: '/create/templates/service-template',
+      url: '/create/templates/default/service-template',
       icon: <BuildIcon />,
       tags: ['service', 'recommended'],
     },
     {
       title: '서비스 + 인프라 묶음',
       description: '서비스와 필요한 인프라를 한 번에 생성합니다',
-      url: '/create/templates/service-with-infra',
+      url: '/create/templates/default/service-with-infra',
       icon: <StorageIcon />,
       tags: ['service', 'infrastructure', 'recommended'],
     },
