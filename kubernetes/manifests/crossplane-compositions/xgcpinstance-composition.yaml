@@ -17,14 +17,14 @@ spec:
         spec:
           forProvider:
             labels:
-                team: platform
-                owner: team-platform
-                cost-center: internal-platform
-                env: prod
-                system: infra
-                service: gcp-instance
-                managed-by: crossplane
-                resource-type: instance
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              service: gcp-instance
+              managed-by: crossplane
+              resource-type: instance
             machineType: e2-medium
             zone: us-central1-a
             bootDisk:
