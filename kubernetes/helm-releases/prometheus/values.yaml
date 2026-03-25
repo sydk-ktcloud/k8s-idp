@@ -98,9 +98,7 @@ kube-state-metrics:
       enabled: true
       http:
         honorLabels: true
-      metrics:
-        honorLabels: true
-
+        
 # Prometheus Operator
 prometheusOperator:
   resources:

@@ -83,3 +83,4 @@ datasources:
         type: tempo
         url: http://tempo.monitoring:3200
         access: proxy
+        uid: tempo
