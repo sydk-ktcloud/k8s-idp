@@ -1,0 +1,50 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xakscluster.k8s-idp.example.org
+  labels:
+    provider: azure
+    resource: aks
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XAKSCluster
+  resources:
+    - name: aks-cluster
+      base:
+        apiVersion: containerservice.azure.upbound.io/v1beta1
+        kind: KubernetesCluster
+        spec:
+          forProvider:
+            location: koreacentral
+            resourceGroupName: ""
+            dnsPrefix: ""
+            defaultNodePool:
+              - name: default
+                nodeCount: 3
+                vmSize: Standard_B2ms
+            identity:
+              - type: SystemAssigned
+            tags:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              managed-by: crossplane
+              resource-type: aks-cluster
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+        - fromFieldPath: spec.resourceGroupName
+          toFieldPath: spec.forProvider.resourceGroupName
+        - fromFieldPath: spec.dnsPrefix
+          toFieldPath: spec.forProvider.dnsPrefix
+        - fromFieldPath: spec.nodeCount
+          toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
+        - fromFieldPath: spec.vmSize
+          toFieldPath: spec.forProvider.defaultNodePool[0].vmSize
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels

@@ -1,0 +1,51 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xazuredatabase.k8s-idp.example.org
+  labels:
+    provider: azure
+    resource: database
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XAzureDatabase
+  resources:
+    - name: postgresql-flexible-server
+      base:
+        apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+        kind: FlexibleServer
+        spec:
+          forProvider:
+            location: koreacentral
+            resourceGroupName: ""
+            administratorLogin: adminuser
+            skuName: B_Standard_B1ms
+            storageMb: 32768
+            version: "15"
+            backupRetentionDays: 7
+            geoRedundantBackupEnabled: false
+            tags:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              managed-by: crossplane
+              resource-type: azure-database
+          writeConnectionSecretsToRef:
+            namespace: default
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+        - fromFieldPath: spec.resourceGroupName
+          toFieldPath: spec.forProvider.resourceGroupName
+        - fromFieldPath: spec.administratorLogin
+          toFieldPath: spec.forProvider.administratorLogin
+        - fromFieldPath: spec.skuName
+          toFieldPath: spec.forProvider.skuName
+        - fromFieldPath: spec.storageMb
+          toFieldPath: spec.forProvider.storageMb
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels

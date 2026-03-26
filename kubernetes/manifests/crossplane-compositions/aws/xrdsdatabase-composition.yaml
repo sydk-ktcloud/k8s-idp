@@ -1,0 +1,60 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xrdsdatabase.k8s-idp.example.org
+  labels:
+    provider: aws
+    resource: rds
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XRDSDatabase
+  resources:
+    - name: rds-instance
+      base:
+        apiVersion: rds.aws.upbound.io/v1beta1
+        kind: Instance
+        spec:
+          forProvider:
+            region: us-east-1
+            engine: postgres
+            engineVersion: "15.4"
+            instanceClass: db.t3.medium
+            allocatedStorage: 20
+            dbName: appdb
+            username: admin
+            skipFinalSnapshot: true
+            publiclyAccessible: false
+            storageType: gp2
+            storageEncrypted: true
+            autoMinorVersionUpgrade: true
+            backupRetentionPeriod: 7
+            tags:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              managed-by: crossplane
+              resource-type: rds-instance
+          writeConnectionSecretsToRef:
+            namespace: default
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: spec.engine
+          toFieldPath: spec.forProvider.engine
+        - fromFieldPath: spec.engineVersion
+          toFieldPath: spec.forProvider.engineVersion
+        - fromFieldPath: spec.instanceClass
+          toFieldPath: spec.forProvider.instanceClass
+        - fromFieldPath: spec.diskSize
+          toFieldPath: spec.forProvider.allocatedStorage
+        - fromFieldPath: spec.dbName
+          toFieldPath: spec.forProvider.dbName
+        - fromFieldPath: spec.username
+          toFieldPath: spec.forProvider.username
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels

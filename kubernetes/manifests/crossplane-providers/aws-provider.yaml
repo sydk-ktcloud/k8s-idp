@@ -1,0 +1,67 @@
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: aws-config
+spec:
+  deploymentTemplate:
+    metadata:
+      labels:
+        team: platform
+        owner: team-platform
+        cost-center: internal-platform
+        env: prod
+        system: infra
+        service: crossplane-aws
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-ec2
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-ec2:v1
+  runtimeConfigRef:
+    name: aws-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-s3
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-s3:v1
+  runtimeConfigRef:
+    name: aws-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-eks
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-eks:v1
+  runtimeConfigRef:
+    name: aws-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-rds
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-rds:v1
+  runtimeConfigRef:
+    name: aws-config
+---
+# ProviderConfig: aws-credentials Secret 참조
+# kubectl create secret generic aws-credentials -n crossplane-system \
+#   --from-literal=credentials="[default]
+# aws_access_key_id=AKIAIOSFODNN7EXAMPLE
+# aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: aws-credentials
+      key: credentials

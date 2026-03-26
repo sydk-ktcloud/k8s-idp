@@ -1,0 +1,325 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-infrastructure-template
+  title: AWS 인프라 프로비저닝
+  description: AWS 리소스(EC2, S3, EKS, RDS)를 프로비저닝합니다
+  tags:
+    - aws
+    - infrastructure
+spec:
+  owner: user:guest
+  type: resource
+
+  parameters:
+    - title: 기본 정보
+      required:
+        - componentName
+      properties:
+        componentName:
+          title: 리소스 이름
+          type: string
+          description: "리소스를 구분할 영문 이름 (소문자와 하이픈만 사용, 예: my-server-01)"
+          ui:field: EntityNamePicker
+          ui:autofocus: true
+
+    - title: 리소스 유형 선택
+      required:
+        - resourceType
+      properties:
+        resourceType:
+          title: 리소스 유형
+          type: string
+          enum:
+            - ec2instance
+            - s3bucket
+            - ekscluster
+            - rdsdatabase
+          enumNames:
+            - "EC2 서버 – 애플리케이션을 실행할 VM 서버"
+            - "S3 버킷 – 파일·이미지·동영상 저장소"
+            - "EKS 클러스터 – 컨테이너 실행 환경 (Kubernetes)"
+            - "RDS – 관계형 데이터베이스 (PostgreSQL / MySQL)"
+          description: 생성할 AWS 리소스 유형을 선택하세요
+          default: ec2instance
+
+    - title: EC2 서버 설정
+      required:
+        - ec2InstanceType
+        - ec2Region
+        - ec2DiskSize
+      properties:
+        ec2InstanceType:
+          title: 서버 크기
+          type: string
+          default: t3.medium
+          enum:
+            - t3.small
+            - t3.medium
+            - t3.xlarge
+          enumNames:
+            - "소형 (2 vCPU · 2 GB RAM – 개발/테스트용)"
+            - "중형 (2 vCPU · 4 GB RAM – 일반 서비스용)  ← 권장"
+            - "대형 (4 vCPU · 16 GB RAM – 고성능용)"
+          description: 서버 규모를 선택하세요.
+        ec2Region:
+          title: 서버 위치 (리전)
+          type: string
+          default: us-east-1
+          enum:
+            - us-east-1
+            - ap-northeast-2
+            - us-west-2
+            - eu-west-1
+          enumNames:
+            - "미국 동부 (버지니아)  ← 권장"
+            - "한국 (서울)"
+            - "미국 서부 (오레곤)"
+            - "유럽 (아일랜드)"
+          description: 서버가 위치할 AWS 리전입니다.
+        ec2DiskSize:
+          title: 저장 공간
+          type: number
+          default: 50
+          enum:
+            - 20
+            - 50
+            - 100
+            - 200
+          enumNames:
+            - "20 GB – 가벼운 앱"
+            - "50 GB – 일반 앱  ← 권장"
+            - "100 GB – 대용량 앱"
+            - "200 GB – 빅데이터/ML용"
+          description: 서버 루트 볼륨 크기입니다.
+      visible: ${{ parameters.resourceType === 'ec2instance' }}
+
+    - title: S3 버킷 설정
+      required:
+        - s3Region
+        - s3Versioning
+        - s3AccessControl
+      properties:
+        s3Region:
+          title: 저장 위치 (리전)
+          type: string
+          default: us-east-1
+          enum:
+            - us-east-1
+            - ap-northeast-2
+            - us-west-2
+            - eu-west-1
+          enumNames:
+            - "미국 동부 (버지니아)  ← 권장"
+            - "한국 (서울)"
+            - "미국 서부 (오레곤)"
+            - "유럽 (아일랜드)"
+          description: 파일이 저장될 AWS 리전입니다.
+        s3Versioning:
+          title: 이전 버전 보관
+          type: boolean
+          default: false
+          description: 켜면 파일을 덮어쓰거나 삭제해도 이전 버전으로 복구할 수 있습니다.
+        s3AccessControl:
+          title: 접근 제어
+          type: string
+          default: private
+          enum:
+            - private
+            - public-read
+          enumNames:
+            - "비공개 (private)  ← 권장"
+            - "공개 읽기 (public-read) – 정적 웹사이트 호스팅용"
+          description: 버킷 접근 권한 설정입니다.
+      visible: ${{ parameters.resourceType === 's3bucket' }}
+
+    - title: EKS 클러스터 설정
+      required:
+        - eksRegion
+        - eksNodeCount
+        - eksInstanceType
+        - eksRoleArn
+        - eksNodeRoleArn
+        - eksSubnetIds
+      properties:
+        eksRegion:
+          title: 클러스터 위치 (리전)
+          type: string
+          default: us-east-1
+          enum:
+            - us-east-1
+            - ap-northeast-2
+            - us-west-2
+            - eu-west-1
+          enumNames:
+            - "미국 동부 (버지니아)  ← 권장"
+            - "한국 (서울)"
+            - "미국 서부 (오레곤)"
+            - "유럽 (아일랜드)"
+          description: 클러스터가 위치할 AWS 리전입니다.
+        eksNodeCount:
+          title: 서버 노드 수
+          type: number
+          default: 3
+          enum:
+            - 1
+            - 3
+            - 5
+          enumNames:
+            - "1개 (테스트/개발용)"
+            - "3개 (기본 운영용)  ← 권장"
+            - "5개 (고가용성)"
+          description: 워커 노드 수입니다.
+        eksInstanceType:
+          title: 노드 서버 크기
+          type: string
+          default: t3.medium
+          enum:
+            - t3.small
+            - t3.medium
+            - t3.xlarge
+          enumNames:
+            - "소형 (t3.small)"
+            - "중형 (t3.medium)  ← 권장"
+            - "대형 (t3.xlarge)"
+          description: 각 워커 노드의 EC2 인스턴스 타입입니다.
+        eksRoleArn:
+          title: EKS 클러스터 IAM Role ARN
+          type: string
+          description: "EKS 클러스터용 사전 생성된 IAM Role ARN (예: arn:aws:iam::123456789:role/eks-cluster-role)"
+        eksNodeRoleArn:
+          title: EKS 노드 IAM Role ARN
+          type: string
+          description: "EKS 노드 그룹용 사전 생성된 IAM Role ARN (예: arn:aws:iam::123456789:role/eks-node-role)"
+        eksSubnetIds:
+          title: 서브넷 ID 목록
+          type: string
+          description: "EKS 클러스터에 사용할 서브넷 ID 목록 (쉼표로 구분, 예: subnet-aaa,subnet-bbb)"
+      visible: ${{ parameters.resourceType === 'ekscluster' }}
+
+    - title: RDS 데이터베이스 설정
+      required:
+        - rdsEngine
+        - rdsInstanceClass
+        - rdsRegion
+        - rdsDiskSize
+      properties:
+        rdsEngine:
+          title: 데이터베이스 종류
+          type: string
+          default: postgres
+          enum:
+            - postgres
+            - mysql
+          enumNames:
+            - "PostgreSQL 15  ← 권장"
+            - "MySQL 8.0"
+          description: 사용할 데이터베이스 엔진입니다.
+        rdsInstanceClass:
+          title: DB 서버 크기
+          type: string
+          default: db.t3.medium
+          enum:
+            - db.t3.small
+            - db.t3.medium
+            - db.t3.large
+          enumNames:
+            - "소형 (db.t3.small – 개발/테스트용)"
+            - "중형 (db.t3.medium – 일반 서비스용)  ← 권장"
+            - "대형 (db.t3.large – 고성능 서비스용)"
+          description: 데이터베이스 서버의 사양입니다.
+        rdsRegion:
+          title: DB 위치 (리전)
+          type: string
+          default: us-east-1
+          enum:
+            - us-east-1
+            - ap-northeast-2
+            - us-west-2
+            - eu-west-1
+          enumNames:
+            - "미국 동부 (버지니아)  ← 권장"
+            - "한국 (서울)"
+            - "미국 서부 (오레곤)"
+            - "유럽 (아일랜드)"
+          description: 데이터베이스 서버가 위치할 리전입니다.
+        rdsDiskSize:
+          title: DB 저장 공간
+          type: number
+          default: 20
+          enum:
+            - 20
+            - 50
+            - 100
+            - 200
+          enumNames:
+            - "20 GB – 소규모 앱  ← 권장"
+            - "50 GB – 중규모 앱"
+            - "100 GB – 대규모 앱"
+            - "200 GB – 빅데이터용"
+          description: 데이터베이스 스토리지 크기입니다.
+      visible: ${{ parameters.resourceType === 'rdsdatabase' }}
+
+    - title: 저장소 설정
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: 저장소 위치
+          type: string
+          description: Pull Request를 생성할 저장소
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: 템플릿 가져오기
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          componentName: ${{ parameters.componentName }}
+          namespace: default
+          resourceType: ${{ parameters.resourceType }}
+          ec2InstanceType: ${{ parameters.ec2InstanceType }}
+          ec2Region: ${{ parameters.ec2Region }}
+          ec2DiskSize: ${{ parameters.ec2DiskSize }}
+          s3Region: ${{ parameters.s3Region }}
+          s3Versioning: ${{ parameters.s3Versioning }}
+          s3AccessControl: ${{ parameters.s3AccessControl }}
+          eksRegion: ${{ parameters.eksRegion }}
+          eksNodeCount: ${{ parameters.eksNodeCount }}
+          eksInstanceType: ${{ parameters.eksInstanceType }}
+          eksRoleArn: ${{ parameters.eksRoleArn }}
+          eksNodeRoleArn: ${{ parameters.eksNodeRoleArn }}
+          eksSubnetIds: ${{ parameters.eksSubnetIds }}
+          rdsEngine: ${{ parameters.rdsEngine }}
+          rdsInstanceClass: ${{ parameters.rdsInstanceClass }}
+          rdsRegion: ${{ parameters.rdsRegion }}
+          rdsDiskSize: ${{ parameters.rdsDiskSize }}
+
+    - id: publish
+      name: Pull Request 생성
+      action: publish:github
+      input:
+        description: "AWS 인프라 리소스: ${{ parameters.componentName }} ( ${{ parameters.resourceType }} )"
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: 'main'
+        targetPath: apps/${{ parameters.componentName }}
+
+    - id: register
+      name: 카탈로그 등록
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Pull Request
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: 카탈로그에서 열기
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

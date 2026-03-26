@@ -1,0 +1,63 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xs3bucket.k8s-idp.example.org
+  labels:
+    provider: aws
+    resource: s3
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XS3Bucket
+  resources:
+    - name: s3-bucket
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        spec:
+          forProvider:
+            region: us-east-1
+            tags:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              managed-by: crossplane
+              resource-type: s3-bucket
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels
+    - name: s3-bucket-versioning
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketVersioning
+        spec:
+          forProvider:
+            region: us-east-1
+            versioningConfiguration:
+              - status: Suspended
+            bucketSelector:
+              matchControllerRef: true
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.region
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.versioning
+            strategy: string
+            string:
+              fmt: "%t"
+          toFieldPath: spec.forProvider.versioningConfiguration[0].status
+          transforms:
+            - type: map
+              map:
+                "true": Enabled
+                "false": Suspended

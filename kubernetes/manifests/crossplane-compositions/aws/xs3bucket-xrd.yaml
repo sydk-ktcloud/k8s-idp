@@ -1,0 +1,45 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xs3buckets.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XS3Bucket
+    plural: xs3buckets
+    singular: xs3bucket
+  claimNames:
+    kind: S3Bucket
+    plural: s3buckets
+    singular: s3bucket
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the S3 bucket (globally unique)
+                region:
+                  type: string
+                  description: AWS region
+                  default: us-east-1
+                versioning:
+                  type: boolean
+                  description: Enable versioning
+                  default: false
+                accessControl:
+                  type: string
+                  description: Bucket ACL (private or public-read)
+                  default: private
+                  enum:
+                    - private
+                    - public-read
+              required:
+                - name

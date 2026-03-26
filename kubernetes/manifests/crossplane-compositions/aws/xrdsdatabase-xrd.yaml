@@ -1,0 +1,61 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xrdsdatabases.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XRDSDatabase
+    plural: xrdsdatabases
+    singular: xrdsdatabase
+  claimNames:
+    kind: RDSDatabase
+    plural: rdsdatabases
+    singular: rdsdatabase
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the RDS instance
+                region:
+                  type: string
+                  description: AWS region
+                  default: us-east-1
+                engine:
+                  type: string
+                  description: Database engine (postgres or mysql)
+                  default: postgres
+                  enum:
+                    - postgres
+                    - mysql
+                engineVersion:
+                  type: string
+                  description: Engine version
+                  default: "15.4"
+                instanceClass:
+                  type: string
+                  description: DB instance class
+                  default: db.t3.medium
+                diskSize:
+                  type: integer
+                  description: Storage size in GB
+                  default: 20
+                dbName:
+                  type: string
+                  description: Initial database name
+                  default: appdb
+                username:
+                  type: string
+                  description: Master username
+                  default: admin
+              required:
+                - name

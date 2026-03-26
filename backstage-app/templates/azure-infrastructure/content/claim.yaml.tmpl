@@ -1,0 +1,50 @@
+{% if resourceType == 'azurevm' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureVM
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  vmSize: {{ vmSize }}
+  location: {{ vmLocation }}
+  diskSizeGb: {{ vmDiskSizeGb }}
+  resourceGroupName: {{ resourceGroupName }}
+{% elif resourceType == 'azureblobstorage' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureBlobStorage
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  location: {{ blobLocation }}
+  replication: {{ blobReplication }}
+  resourceGroupName: {{ resourceGroupName }}
+{% elif resourceType == 'akscluster' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AKSCluster
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  location: {{ aksLocation }}
+  nodeCount: {{ aksNodeCount }}
+  vmSize: {{ aksVmSize }}
+  dnsPrefix: {{ aksDnsPrefix }}
+  resourceGroupName: {{ resourceGroupName }}
+{% elif resourceType == 'azuredatabase' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureDatabase
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  engine: {{ dbEngine }}
+  skuName: {{ dbSkuName }}
+  location: {{ dbLocation }}
+  storageMb: {{ dbStorageMb }}
+  resourceGroupName: {{ resourceGroupName }}
+{% endif -%}

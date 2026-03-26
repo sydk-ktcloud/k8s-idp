@@ -1,0 +1,52 @@
+{% if resourceType == 'ec2instance' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  instanceType: {{ ec2InstanceType }}
+  region: {{ ec2Region }}
+  diskSize: {{ ec2DiskSize }}
+{% elif resourceType == 's3bucket' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: S3Bucket
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  region: {{ s3Region }}
+  versioning: {{ s3Versioning }}
+  accessControl: {{ s3AccessControl }}
+{% elif resourceType == 'ekscluster' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EKSCluster
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  region: {{ eksRegion }}
+  nodeCount: {{ eksNodeCount }}
+  instanceType: {{ eksInstanceType }}
+  roleArn: {{ eksRoleArn }}
+  nodeRoleArn: {{ eksNodeRoleArn }}
+  subnetIds:
+{% for subnetId in eksSubnetIds.split(',') %}
+    - {{ subnetId.strip() }}
+{% endfor %}
+{% elif resourceType == 'rdsdatabase' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: RDSDatabase
+metadata:
+  name: {{ componentName }}
+  namespace: {{ namespace }}
+spec:
+  name: {{ componentName }}
+  engine: {{ rdsEngine }}
+  instanceClass: {{ rdsInstanceClass }}
+  region: {{ rdsRegion }}
+  diskSize: {{ rdsDiskSize }}
+{% endif -%}

@@ -98,6 +98,18 @@ catalog:
       rules:
         - allow: [Template]
 
+    # AWS infrastructure template - AWS 리소스 프로비저닝
+    - type: file
+      target: ../../templates/aws-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Azure infrastructure template - Azure 리소스 프로비저닝
+    - type: file
+      target: ../../templates/azure-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
+
     # Service template - 서비스 생성
     - type: file
       target: ../../templates/service/template.yaml

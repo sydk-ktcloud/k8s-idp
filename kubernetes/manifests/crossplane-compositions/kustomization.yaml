@@ -20,3 +20,21 @@ resources:
   - xpubsub-composition.yaml
   - xcache-xrd.yaml
   - xcache-composition.yaml
+  # AWS XRDs and Compositions
+  - aws/xec2instance-xrd.yaml
+  - aws/xec2instance-composition.yaml
+  - aws/xs3bucket-xrd.yaml
+  - aws/xs3bucket-composition.yaml
+  - aws/xekscluster-xrd.yaml
+  - aws/xekscluster-composition.yaml
+  - aws/xrdsdatabase-xrd.yaml
+  - aws/xrdsdatabase-composition.yaml
+  # Azure XRDs and Compositions
+  - azure/xazurevm-xrd.yaml
+  - azure/xazurevm-composition.yaml
+  - azure/xazureblobstorage-xrd.yaml
+  - azure/xazureblobstorage-composition.yaml
+  - azure/xakscluster-xrd.yaml
+  - azure/xakscluster-composition.yaml
+  - azure/xazuredatabase-xrd.yaml
+  - azure/xazuredatabase-composition.yaml
