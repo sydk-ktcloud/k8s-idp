@@ -17,6 +17,20 @@ spec:
     helm:
       valuesObject:
         loki:
+          podLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: loki
+          serviceLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: loki
           auth_enabled: false
           commonConfig:
             replication_factor: 1
@@ -48,9 +62,29 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 10
+
+        lokiCanary:
+          enabled: true
+          podLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: loki
+
         deploymentMode: SingleBinary
+
         singleBinary:
           replicas: 1
+          service:
+            labels:
+              team: platform
+              owner: team-sre
+              cost-center: internal-platform
+              env: prod
+              system: observability
+              service: loki
           resources:
             limits:
               cpu: 200m

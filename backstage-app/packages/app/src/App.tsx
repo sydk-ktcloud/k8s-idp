@@ -22,6 +22,7 @@ import { apis } from './apis';
 import { entityPage } from './components/catalog/EntityPage';
 import { Root } from './components/Root';
 import { HomePage } from './components/home/HomePage';
+import { ProvisioningDashboard } from './components/dashboard/ProvisioningDashboard';
 
 import {
   AlertDisplay,
@@ -96,6 +97,7 @@ const routes = (
       }
     />
     <Route path="/settings" element={<UserSettingsPage />} />
+    <Route path="/dashboard" element={<ProvisioningDashboard />} />
   </FlatRoutes>
 );
 

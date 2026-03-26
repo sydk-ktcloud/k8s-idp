@@ -82,6 +82,8 @@ kind: Deployment
 metadata:
   name: backstage-postgresql
   namespace: backstage
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   replicas: 1
   selector:
@@ -91,6 +93,13 @@ spec:
     metadata:
       labels:
         app: backstage-postgresql
+        team: platform
+        owner: team-platform
+        cost-center: internal-platform
+        env: prod
+        system: platform
+        service: backstage-postgresql
+
     spec:
       containers:
       - name: postgresql
@@ -160,6 +169,8 @@ kind: Deployment
 metadata:
   name: backstage-backend
   namespace: backstage
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   replicas: 1
   selector:
@@ -169,6 +180,13 @@ spec:
     metadata:
       labels:
         app: backstage-backend
+        team: platform
+        owner: team-platform
+        cost-center: internal-platform
+        env: prod
+        system: platform
+        service: backstage-backend
+
     spec:
       serviceAccountName: backstage
       containers:

@@ -16,6 +16,15 @@ spec:
         kind: Cluster
         spec:
           forProvider:
+            labels:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              service: gcp-cluster
+              managed-by: crossplane
+              resource-type: cluster
             location: us-central1
             network: projects/sydk-ktcloud/global/networks/default
             initialNodeCount: 3
@@ -44,3 +53,5 @@ spec:
           toFieldPath: spec.forProvider.nodeConfig[0].machineType
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        - fromFieldPath: metadata.labels
+          toFieldPath: spec.forProvider.labels

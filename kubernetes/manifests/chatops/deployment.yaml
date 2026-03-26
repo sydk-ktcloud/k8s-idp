@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatops-bot
+  namespace: chatops
+  labels:
+    app: chatops-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatops-bot
+  template:
+    metadata:
+      labels:
+        app: chatops-bot
+    spec:
+      serviceAccountName: chatops-bot
+      containers:
+      - name: chatops-app
+        image: kylekim1223/chatops-bot:latest
+        imagePullPolicy: Always
+        env:
+        - name: AZURE_OPENAI_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: chatops-bot-secret
+              key: AZURE_OPENAI_ENDPOINT
+        - name: AZURE_OPENAI_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chatops-bot-secret
+              key: AZURE_OPENAI_KEY
+        - name: AZURE_OPENAI_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: chatops-bot-secret
+              key: AZURE_OPENAI_MODEL
+        - name: DISCORD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: chatops-bot-secret
+              key: DISCORD_TOKEN
+        - name: PROMETHEUS_URL
+          valueFrom:
+            secretKeyRef:
+              name: chatops-bot-secret
+              key: PROMETHEUS_URL

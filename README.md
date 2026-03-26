@@ -1,70 +1,135 @@
 # K8S-IDP: Kubernetes Internal Developer Platform
 
-Kubernetes 기반 내부 개발자 플랫폼 인프라 설정 저장소입니다.
+Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입니다.
 
 ## 개요
 
 이 저장소는 다음 구성요소의 Infrastructure as Code (IaC)를 포함합니다:
 
-- **VM 인프라**: KVM/libvirt 기반 가상머신
-- **Kubernetes 클러스터**: kubeadm + Cilium CNI
-- **VPN**: Headscale (self-hosted Tailscale)
-- **SSO**: Dex (예정)
-- **시크릿 관리**: Vault (예정)
-- **GitOps**: ArgoCD (예정)
+### 플랫폼 레이어
+
+| 레이어 | 컴포넌트 | 상태 | 설명 |
+|--------|----------|------|------|
+| **인프라** | VM (KVM/libvirt) | ✅ 배포됨 | 4VM: 1 CP + 3 Workers |
+| **네트워크** | Cilium CNI + Hubble | ✅ 배포됨 | eBPF 기반 네트워킹 + 관찰가능성 |
+| **VPN** | Headscale + Headplane | ✅ 배포됨 | Self-hosted Tailscale + Web UI |
+| **SSO** | Dex OIDC | ✅ 배포됨 | 7명 사용자, 다중 서비스 연동 |
+| **GitOps** | ArgoCD | ✅ 배포됨 | Application of Apps 패턴 |
+| **시크릿** | Vault | 🔄 구성됨 | HA Raft 구성, 배포 대기 |
+| **저장소** | Longhorn + MinIO | ✅ 배포됨 | 블록 스토리지 + 오브젝트 스토리지 |
+| **관찰가능성** | Prometheus + Grafana + LGTM | ✅ 배포됨 | Metrics, Logs, Traces |
+
+### 개발자 플랫폼
+
+| 컴포넌트 | 상태 | 설명 |
+|----------|------|------|
+| **Backstage** | ✅ 배포됨 | 개발자 포털, 서비스 카탈로그, 셀프서비스 |
+| **Crossplane** | ✅ 배포됨 | 클라우드 리소스 프로비저닝 (GCP) |
+| **GKE Burst** | ✅ 배포됨 | 온프레미스 부하 초과 시 GKE로 자동 확장 |
+| **ChatOps** | ✅ 배포됨 | Discord 기반 K8s 관리 봇 |
+| **Kubecost** | ✅ 배포됨 | 비용 모니터링 및 최적화 |
 
 ## 아키텍처
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Host Server                               │
-│                   (32C / 128GB / 2TB)                        │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                    KVM / libvirt                     │    │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │    │
-│  │  │ k8s-cp  │ │ k8s-w1  │ │ k8s-w2  │ │ k8s-w3  │   │    │
-│  │  │ 4C/16GB │ │ 8C/32GB │ │ 8C/32GB │ │ 8C/32GB │   │    │
-│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘   │    │
-│  └───────┼───────────┼───────────┼───────────┼─────────┘    │
-│          │           │           │           │               │
-│          └───────────┴─────┬─────┴───────────┘               │
-│                            │                                 │
-│                    Kubernetes Cluster                        │
-│                            │                                 │
-│  ┌─────────────────────────┴─────────────────────────────┐  │
-│  │                    Headscale                           │  │
-│  │              (VPN / Mesh Network)                      │  │
-│  └────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          Host Server (32C/128GB/2TB)                     │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                         KVM / libvirt                              │  │
+│  │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐            │  │
+│  │   │ k8s-cp  │  │ k8s-w1  │  │ k8s-w2  │  │ k8s-w3  │            │  │
+│  │   │ 4C/16GB │  │ 8C/32GB │  │ 8C/32GB │  │ 8C/32GB │            │  │
+│  │   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘            │  │
+│  └────────┼────────────┼────────────┼────────────┼──────────────────┘  │
+│           └────────────┴─────┬──────┴────────────┘                      │
+│                              │                                          │
+│  ┌───────────────────────────┴───────────────────────────────────────┐  │
+│  │                    Kubernetes Cluster (v1.32.0)                    │  │
+│  │  ┌──────────────────────────────────────────────────────────────┐ │  │
+│  │  │                      Platform Services                        │ │  │
+│  │  │  ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌───────┐ │ │  │
+│  │  │  │ ArgoCD  │ │  Dex    │ │ Backstage│ │Crossplane│ │Vault  │ │ │  │
+│  │  │  │ (GitOps)│ │ (SSO)   │ │ (Portal) │ │ (IaC)   │ │(Secret)│ │ │  │
+│  │  │  └─────────┘ └─────────┘ └──────────┘ └─────────┘ └───────┘ │ │  │
+│  │  └──────────────────────────────────────────────────────────────┘ │  │
+│  │  ┌──────────────────────────────────────────────────────────────┐ │  │
+│  │  │                    Observability Stack                        │ │  │
+│  │  │  ┌───────────┐ ┌─────────┐ ┌──────┐ ┌───────┐ ┌───────────┐ │ │  │
+│  │  │  │ Prometheus│ │ Grafana │ │ Loki │ │ Tempo │ │   Alloy   │ │ │  │
+│  │  │  └───────────┘ └─────────┘ └──────┘ └───────┘ └───────────┘ │ │  │
+│  │  └──────────────────────────────────────────────────────────────┘ │  │
+│  │  ┌──────────────────────────────────────────────────────────────┐ │  │
+│  │  │                      Storage Layer                            │ │  │
+│  │  │  ┌────────────┐                    ┌─────────┐               │ │  │
+│  │  │  │  Longhorn  │                    │  MinIO  │               │ │  │
+│  │  │  │ (Block)    │                    │ (Object)│               │ │  │
+│  │  │  └────────────┘                    └─────────┘               │ │  │
+│  │  └──────────────────────────────────────────────────────────────┘ │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                              │                                          │
+│  ┌───────────────────────────┴───────────────────────────────────────┐  │
+│  │                    Headscale (VPN / Mesh Network)                  │  │
+│  │                         + Headplane (Web UI)                       │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 디렉토리 구조
 
 ```
 k8s-idp/
-├── infrastructure/           # 인프라 설정
-│   ├── libvirt/             # VM 생성 스크립트
-│   │   ├── vm-setup.sh
-│   │   └── cloud-init/
-│   ├── headscale/           # VPN 설정
-│   │   ├── config.yaml
-│   │   └── acl_policy.hujson
-│   └── kubernetes/          # K8s 초기 설정
-│       ├── kubeadm-config.yaml
-│       └── cilium-values.yaml
-├── kubernetes/              # K8s 매니페스트
-│   ├── namespaces/
-│   ├── helm-releases/
-│   │   ├── dex/
-│   │   ├── vault/
-│   │   └── argocd/
-│   └── kustomize/
-├── scripts/                 # 설치 스크립트
-│   ├── setup-vm.sh
-│   ├── setup-k8s.sh
-│   └── setup-headscale.sh
-├── docs/                    # 문서
-│   └── remote-access-guide.md
+├── infrastructure/               # 인프라 설정
+│   ├── libvirt/                 # VM 생성 (vm-setup.sh, cloud-init)
+│   ├── kubernetes/              # K8s 초기 설정 (kubeadm, cilium)
+│   ├── headscale/               # VPN 서버 설정
+│   └── headplane/               # VPN 관리 Web UI
+├── security/                    # 보안 구성
+│   └── vault/                   # Vault HA 설정 (helm, docs)
+├── kubernetes/                  # K8s 매니페스트
+│   ├── namespaces/              # Namespace 정의
+│   ├── helm-releases/           # Helm 차트 배포
+│   │   ├── argocd/             # ArgoCD GitOps
+│   │   ├── backstage/          # 개발자 포털
+│   │   ├── crossplane/         # 클라우드 프로비저닝
+│   │   ├── dex/                # SSO/OIDC
+│   │   ├── grafana/            # 시각화
+│   │   ├── kubecost/           # 비용 관리
+│   │   ├── longhorn/           # 스토리지
+│   │   ├── prometheus/         # 메트릭
+│   │   └── vault/              # 시크릿 (계획)
+│   ├── manifests/               # K8s 매니페스트
+│   │   ├── argocd-rbac/        # ArgoCD 권한
+│   │   ├── backstage-custom/   # Backstage 커스텀
+│   │   ├── cert-manager/       # 인증서 관리
+│   │   ├── cilium/             # CNI/Hubble 설정
+│   │   ├── crossplane-compositions/  # XRD/Composition (8종, GKE Burst 포함)
+│   │   └── crossplane-providers/     # GCP Provider
+│   ├── argocd-apps/             # ArgoCD Application 정의
+│   ├── network-policies/        # Zero Trust 네트워크 정책
+│   ├── observability/           # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
+│   └── storage/                 # 스토리지 (Longhorn, MinIO)
+├── apps/                        # Backstage Scaffolder 생성 리소스
+│   ├── .argocd/                 # ApplicationSet (자동 감지)
+│   └── gke-burst/               # GKE Burst Cluster Claim
+├── backstage-app/               # Backstage 개발자 포털
+│   ├── packages/
+│   │   ├── app/                # Frontend (React)
+│   │   └── backend/            # Backend (Node.js)
+│   └── templates/              # Scaffolder 템플릿
+├── chatops-app/                 # Discord ChatOps 봇
+│   ├── commands/               # 슬래시 커맨드
+│   └── services/               # K8s/OpenAI 연동
+├── scripts/                     # 설치 스크립트
+│   ├── setup-k8s.sh            # K8s 클러스터 설치
+│   ├── setup-headscale.sh      # VPN 서버 설정
+│   ├── enable-hubble-ui.sh     # Hubble UI 활성화
+│   ├── apply-network-policies.sh # Zero Trust 정책 적용
+│   └── setup-github-runner.sh  # GitHub Actions Runner
+├── kubeconfig/                  # 팀별 Kubeconfig
+├── docs/                        # 문서
+│   ├── remote-access-guide.md  # 원격 접속 가이드
+│   ├── k8s-access-guide.md     # K8s 접근 가이드
+│   └── hubble-install-guide.md # Hubble 설치 가이드
 └── README.md
 ```
 
@@ -77,11 +142,133 @@ k8s-idp/
 | k8s-w2 | 192.168.122.136 | 100.64.0.4 | Worker |
 | k8s-w3 | 192.168.122.194 | 100.64.0.3 | Worker |
 
+### Namespaces
+
+| Namespace | 용도 |
+|-----------|------|
+| `auth` | Dex OIDC |
+| `gitops` | ArgoCD |
+| `backstage` | 개발자 포털 |
+| `crossplane-system` | 클라우드 프로비저닝 |
+| `monitoring` | Prometheus, Grafana, LGTM |
+| `kubecost` | 비용 모니터링 |
+| `longhorn-system` | 분산 스토리지 |
+| `vault` | 시크릿 관리 (계획) |
+| `minio-storage` | 오브젝트 스토리지 |
+| `kube-system` | Cilium CNI, Hubble |
+
+## 애플리케이션
+
+### 1. Backstage (개발자 포털)
+
+**목적**: 서비스 카탈로그, 문서화, 셀프서비스 프로비저닝
+
+**주요 기능**:
+- 서비스 카탈로그 (Catalog)
+- 기술 문서 (TechDocs)
+- 셀프서비스 템플릿 (Scaffolder)
+- Kubernetes 리소스 조회
+- Crossplane 기반 GCP 리소스 프로비저닝
+
+**기술 스택**: Backstage v1.49.0, React, Node.js 22
+
+### 2. ChatOps (Discord 봇)
+
+**목적**: Discord 기반 Kubernetes 운영 자동화
+
+**주요 기능**:
+- `/pods` - 문제 파드 조회
+- `/allpods` - 전체 파드 조회
+- `/logs` - 파드 로그 확인
+- `/analyze` - AI 로그 분석 (OpenAI)
+- `/status` - 시스템 상태 확인
+
+**기술 스택**: Discord.js, Kubernetes Client, OpenAI API
+
+### 3. Crossplane Compositions
+
+**목적**: 개발자 셀프서비스 클라우드 리소스 프로비저닝
+
+**지원 리소스**:
+| 타입 | XRD | GCP 리소스 |
+|------|-----|------------|
+| VM | XGCPInstance | Compute Engine |
+| Storage | XBucket | Cloud Storage |
+| Database | XDatabase | Cloud SQL |
+| Cluster | XCluster | GKE |
+| Cache | XCache | Memorystore |
+| Messaging | XPubSub | Pub/Sub |
+| WebApp | XWebApp | 통합 웹앱 |
+| **Burst Cluster** | **XClusterBurst** | **GKE (온프레미스 burst 확장용)** |
+
+### 4. GKE Burst 확장
+
+**목적**: 온프레미스 클러스터 부하 초과 시 GKE로 워크로드 burst 확장
+
+**동작 방식**:
+1. `ClusterBurst` Claim 생성 → Crossplane이 GKE 클러스터 자동 프로비저닝
+2. Cluster + NodePool (autoscaling 0~5) 구성
+3. 연결 정보(`kubeconfig`)가 `default/gke-burst-kubeconfig` Secret에 자동 저장
+
+**리소스 구성**:
+- **XRD**: `xclusterbursts.k8s-idp.example.org`
+- **Composition**: `xclusterburst.gcp.k8s-idp.example.org`
+- **Claim**: `apps/gke-burst/claim.yaml`
+- **GKE 클러스터**: `k8s-idp-burst` (asia-northeast3, e2-standard-2, preemptible)
+
+**kubeconfig 획득**:
+```bash
+# Crossplane이 자동 생성한 Secret에서 추출
+kubectl get secret gke-burst-kubeconfig -n default \
+  -o jsonpath='{.data.kubeconfig}' | base64 -d > gke-burst-kubeconfig.yaml
+
+# 또는 gcloud로 직접 획득
+KUBECONFIG=kubeconfig/gke-burst \
+  gcloud container clusters get-credentials k8s-idp-burst \
+  --project=sydk-ktcloud --region=asia-northeast3
+```
+
+## SSO 구성 (Dex)
+
+### 사용자 계정
+
+| 사용자 | 이메일 | 역할 |
+|--------|--------|------|
+| admin | admin@k8s.local | 관리자 |
+| platform | platform@k8s.local | Platform Lead |
+| gitops | gitops@k8s.local | GitOps Engineer |
+| finops | finops@k8s.local | FinOps Engineer |
+| security | security@k8s.local | Security Engineer |
+| sre | sre@k8s.local | SRE / Observability |
+| ai | ai@k8s.local | AI / ChatOps Engineer |
+
+### 연동 서비스
+
+- ArgoCD (GitOps)
+- Grafana (관찰가능성)
+- Backstage (개발자 포털)
+- kubectl (oidc-login)
+
+## 보안
+
+### 네트워크 정책 (Zero Trust)
+
+- 기본 거부 (Default Deny All)
+- Namespace 간 통신 제어
+- 서비스별 세분화된 정책
+
+### 팀별 접근 권한
+
+| 팀 | Role | 권한 |
+|----|------|------|
+| Admin, Platform, GitOps, Security, SRE | cluster-admin | 전체 접근 |
+| FinOps, AI | view | 읽기 전용 |
+
 ## 빠른 시작
 
 ### 1. VM 생성
 ```bash
-./scripts/setup-vm.sh
+./infrastructure/libvirt/vm-setup.sh
 ```
 
 ### 2. Kubernetes 설치
@@ -89,18 +276,37 @@ k8s-idp/
 ./scripts/setup-k8s.sh
 ```
 
-### 3. Headscale 연결
+### 3. VPN 연결
 ```bash
 ./scripts/setup-headscale.sh
+```
+
+### 4. 플랫폼 배포 (ArgoCD)
+```bash
+kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 ```
 
 ## 문서
 
 - [원격 접속 가이드](docs/remote-access-guide.md)
+- [Kubernetes 접근 가이드](docs/k8s-access-guide.md)
+- [Hubble 설치 가이드](docs/hubble-install-guide.md)
+- [Vault 설치 가이드](security/vault/docs/vault-install.md)
+- [Dex README](kubernetes/helm-releases/dex/README.md)
+- [네트워크 정책 통신 매트릭스](kubernetes/network-policies/COMMUNICATION-MATRIX.md)
+
+## 로드맵
+
+- [ ] Vault HA 배포
+- [ ] Backstage 한국어 UI 완성
+- [ ] 추가 Crossplane Compositions
+- [ ] CI/CD 파이프라인 템플릿
+- [x] GKE Burst 클러스터 Crossplane 자동 프로비저닝
+- [ ] GKE Burst 자동 트리거 (HPA/KEDA 연동)
 
 ## 팀원
 
-- **관리자**: Headscale 서버 관리, Pre-auth key 발급
+- **관리자**: Headscale 서버 관리, Pre-auth key 발급, Dex 사용자 관리
 
 ## 라이선스
 

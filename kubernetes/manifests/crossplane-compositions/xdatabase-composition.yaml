@@ -16,6 +16,15 @@ spec:
         kind: DatabaseInstance
         spec:
           forProvider:
+            labels:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              service: gcp-database
+              managed-by: crossplane
+              resource-type: database
             region: us-central1
             databaseVersion: POSTGRES_15
             settings:
@@ -43,3 +52,5 @@ spec:
           toFieldPath: spec.forProvider.settings[0].availabilityType
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        - fromFieldPath: metadata.labels
+          toFieldPath: spec.forProvider.labels

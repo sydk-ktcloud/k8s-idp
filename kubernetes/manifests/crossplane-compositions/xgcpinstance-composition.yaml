@@ -16,6 +16,15 @@ spec:
         kind: Instance
         spec:
           forProvider:
+            labels:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              service: gcp-instance
+              managed-by: crossplane
+              resource-type: instance
             machineType: e2-medium
             zone: us-central1-a
             bootDisk:
@@ -43,3 +52,5 @@ spec:
           toFieldPath: spec.forProvider.bootDisk.initializeParams.size
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        - fromFieldPath: metadata.labels
+          toFieldPath: spec.forProvider.labels

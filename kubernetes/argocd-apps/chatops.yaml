@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chatops
+  namespace: gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+    targetRevision: HEAD
+    path: kubernetes/manifests/chatops
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chatops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
