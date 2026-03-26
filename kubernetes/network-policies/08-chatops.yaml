@@ -1,0 +1,52 @@
+# ChatOps Bot NetworkPolicy
+# 봇은 외부(Discord/Azure OpenAI)로 나가고, 인바운드 없음
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chatops-allow
+  namespace: chatops
+spec:
+  podSelector:
+    matchLabels:
+      app: chatops-bot
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []  # 인바운드 없음 (Discord webhook은 봇이 폴링)
+  egress:
+    # DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Discord API + Azure OpenAI (외부 HTTPS)
+    - ports:
+        - protocol: TCP
+          port: 443
+      to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+    # Prometheus (메트릭 조회)
+    - ports:
+        - protocol: TCP
+          port: 9090
+      to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+    # Kubernetes API (RBAC pod/namespace 조회)
+    - ports:
+        - protocol: TCP
+          port: 6443
+        - protocol: TCP
+          port: 443
+      to:
+        - ipBlock:
+            cidr: 10.0.0.0/8

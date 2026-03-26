@@ -10,3 +10,5 @@ resources:
   - 05-kubecost.yaml
   - 06-longhorn.yaml
   - 07-cilium-hubble.yaml
+  - 08-chatops.yaml
+  - 09-trip-app.yaml

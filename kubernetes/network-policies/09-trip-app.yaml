@@ -1,0 +1,150 @@
+# Trip App NetworkPolicy
+# frontend(main/cart/payment): NodePort 인바운드, DNS만 egress
+# backend: DB(5432), Alloy OTLP(4317) egress
+# db: backend에서만 인바운드
+
+---
+# Frontend - Main
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-frontend-allow
+  namespace: trip-app
+spec:
+  podSelector:
+    matchLabels:
+      app: trip-main
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Frontend - Cart
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-cart-allow
+  namespace: trip-app
+spec:
+  podSelector:
+    matchLabels:
+      app: trip-cart
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Frontend - Payment
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-payment-allow
+  namespace: trip-app
+spec:
+  podSelector:
+    matchLabels:
+      app: trip-payment
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Backend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-backend-allow
+  namespace: trip-app
+spec:
+  podSelector:
+    matchLabels:
+      app: trip-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # PostgreSQL DB
+    - ports:
+        - protocol: TCP
+          port: 5432
+      to:
+        - podSelector:
+            matchLabels:
+              app: trip-db
+    # Alloy OTLP (트레이싱)
+    - ports:
+        - protocol: TCP
+          port: 4317
+      to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+
+---
+# PostgreSQL DB
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-db-allow
+  namespace: trip-app
+spec:
+  podSelector:
+    matchLabels:
+      app: trip-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 5432
+      from:
+        - podSelector:
+            matchLabels:
+              app: trip-backend
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

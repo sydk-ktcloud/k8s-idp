@@ -54,14 +54,37 @@ metadata:
   name: tailscale
   namespace: kube-system
 ---
+# Secrets 접근은 kube-system 네임스페이스로 범위 제한
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: tailscale
+  name: tailscale-secrets
+  namespace: kube-system
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["create", "get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale-secrets
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tailscale-secrets
+subjects:
+  - kind: ServiceAccount
+    name: tailscale
+    namespace: kube-system
+---
+# Nodes는 cluster-scoped 리소스이므로 ClusterRole 유지
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tailscale-nodes
+rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch"]
@@ -69,11 +92,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: tailscale
+  name: tailscale-nodes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: tailscale
+  name: tailscale-nodes
 subjects:
   - kind: ServiceAccount
     name: tailscale
