@@ -24,3 +24,12 @@ spec:
         serviceMonitor:
           enabled: true
           namespace: monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trivy-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
