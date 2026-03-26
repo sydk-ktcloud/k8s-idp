@@ -7,7 +7,7 @@ kind: ServiceAccount
 metadata:
   name: backstage
   namespace: backstage
-automountServiceAccountToken: true
+automountServiceAccountToken: false
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -16,7 +16,7 @@ metadata:
   name: backstage-read-crossplane
 rules:
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps", "secrets", "namespaces", "persistentvolumeclaims", "events"]
+    resources: ["pods", "services", "configmaps", "namespaces", "persistentvolumeclaims", "events"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]

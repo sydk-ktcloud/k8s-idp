@@ -4,6 +4,7 @@ kind: ServiceAccount
 metadata:
   name: chatops-bot
   namespace: chatops
+automountServiceAccountToken: false
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
