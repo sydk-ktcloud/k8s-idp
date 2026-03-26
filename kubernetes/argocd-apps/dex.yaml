@@ -12,7 +12,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/kubecost
+    path: kubernetes/helm-releases/dex
     directory:
       recurse: true
   destination:
