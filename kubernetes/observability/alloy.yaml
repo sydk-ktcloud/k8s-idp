@@ -76,14 +76,14 @@ spec:
                 stage.json {
                   expressions = {
                     level   = "level",
-                    traceID = "traceID",
+                    trace_id = "trace_id",
                   }
                 }
 
                 stage.labels {
                   values = {
                     level   = "level",
-                    traceID = "traceID",
+                    trace_id = "trace_id",
                   }
                 }
               }
@@ -115,6 +115,7 @@ spec:
                   }
                 }
               }
+             
           resources:
             requests:
               cpu: 100m

@@ -338,3 +338,13 @@ spec:
         values:
           - prometheus
           - alloy
+  egress:
+  - toEntities:
+    - kube-apiserver
+  - toEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: tempo
+    toPorts:
+    - ports:
+      - port: "4317"
+        protocol: TCP
