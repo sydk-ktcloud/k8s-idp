@@ -17,6 +17,14 @@ kind: Deployment
 metadata:
   name: trip-main
   namespace: trip-app
+  labels:
+    app: trip-main
+    team: platform
+    owner: team-appdev
+    cost-center: internal-platform
+    env: prod
+    system: trip-app
+    service: trip-main
 spec:
   replicas: 1
   selector:
@@ -26,6 +34,12 @@ spec:
     metadata:
       labels:
         app: trip-main
+        team: platform
+        owner: team-appdev
+        cost-center: internal-platform
+        env: prod
+        system: trip-app
+        service: trip-main
     spec:
       containers:
       - name: trip-main

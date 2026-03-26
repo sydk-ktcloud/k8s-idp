@@ -5,6 +5,12 @@ metadata:
   namespace: chatops
   labels:
     app: chatops-bot
+    team: platform
+    owner: team-aiops
+    cost-center: internal-platform
+    env: prod
+    system: chatops
+    service: chatops-bot
 spec:
   replicas: 1
   selector:
@@ -14,6 +20,12 @@ spec:
     metadata:
       labels:
         app: chatops-bot
+        team: platform
+        owner: team-aiops
+        cost-center: internal-platform
+        env: prod
+        system: chatops
+        service: chatops-bot
     spec:
       serviceAccountName: chatops-bot
       containers:

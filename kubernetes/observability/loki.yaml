@@ -62,7 +62,6 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 10
-
         lokiCanary:
           enabled: true
           podLabels:
@@ -72,9 +71,7 @@ spec:
             env: prod
             system: observability
             service: loki
-
         deploymentMode: SingleBinary
-
         singleBinary:
           replicas: 1
           service:
@@ -114,4 +111,3 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
-
