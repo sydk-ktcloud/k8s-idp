@@ -1,3 +1,4 @@
+
 # Git Ignore for k8s-idp
 
 # Dependencies (never commit!)
@@ -52,3 +53,8 @@ kubeconfig/kubeconfig-*
 kubeconfig/gke-burst
 kubeconfig/gke_gcloud_auth_plugin_cache
 !kubeconfig/README.md
+=======
+node_modules/
+.env
+.DS_Store
+
