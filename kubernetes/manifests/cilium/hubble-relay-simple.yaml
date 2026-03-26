@@ -39,7 +39,7 @@ spec:
         - serve
         - --dial-timeout=5s
         - --peer-service=hubble-peer.kube-system.svc.cluster.local:443
-        - --tls-client-ca-files=/var/lib/cilium/tls/hubble-ca/ca.crt
+        - --tls-hubble-server-ca-files=/var/lib/cilium/tls/hubble-ca/ca.crt
         ports:
         - containerPort: 4245
           name: grpc
