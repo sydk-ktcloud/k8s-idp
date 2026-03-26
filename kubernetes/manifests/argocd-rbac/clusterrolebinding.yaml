@@ -1,5 +1,6 @@
-# ArgoCD Application Controller Cluster Admin RoleBinding
-# Required for ArgoCD to manage all cluster resources
+# ArgoCD Application Controller ClusterRoleBinding
+# cluster-admin 대신 전용 ClusterRole(argocd-application-controller) 사용
+# escalate/impersonate 권한 제외로 권한 상승 공격 차단
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -10,7 +11,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: argocd-application-controller
 subjects:
   - kind: ServiceAccount
     name: argocd-application-controller

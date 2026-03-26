@@ -1,0 +1,102 @@
+# ArgoCD Application Controller - 전용 ClusterRole
+# cluster-admin 대신 사용. escalate/impersonate 제외하여 권한 상승 차단
+#
+# 부여 권한:
+#   - 모든 리소스에 대한 CRUD (escalate/impersonate 제외)
+#   - RBAC 리소스: escalate/impersonate/bind 제외
+#
+# 제외 권한:
+#   - escalate: 자신보다 높은 권한의 Role 생성 불가
+#   - impersonate: 다른 SA/User 사칭 불가
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-application-controller
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/component: application-controller
+rules:
+  # 일반 리소스 - 전체 CRUD
+  - apiGroups:
+      - ""
+      - apps
+      - batch
+      - autoscaling
+      - networking.k8s.io
+      - storage.k8s.io
+      - policy
+      - extensions
+      - coordination.k8s.io
+      - discovery.k8s.io
+      - events.k8s.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # API 확장 (CRD 등)
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # RBAC - escalate/impersonate 명시적 제외
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+      - clusterroles
+      - clusterrolebindings
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection", "bind"]
+
+  # Helm, ArgoCD 관련 CRD 그룹
+  - apiGroups:
+      - argoproj.io
+      - app.k8s.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # Cert-Manager
+  - apiGroups:
+      - cert-manager.io
+      - acme.cert-manager.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # External Secrets
+  - apiGroups:
+      - external-secrets.io
+      - generators.external-secrets.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # Crossplane
+  - apiGroups:
+      - apiextensions.crossplane.io
+      - pkg.crossplane.io
+      - k8s-idp.example.org
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # Cilium
+  - apiGroups:
+      - cilium.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # Vault Operator (Bank-Vaults)
+  - apiGroups:
+      - vault.banzaicloud.com
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # Monitoring (Prometheus Operator)
+  - apiGroups:
+      - monitoring.coreos.com
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # Non-resource URLs (health check 등)
+  - nonResourceURLs: ["*"]
+    verbs: ["get"]
