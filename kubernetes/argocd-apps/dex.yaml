@@ -10,11 +10,16 @@ metadata:
     app.kubernetes.io/component: sso
 spec:
   project: default
-  source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/dex
-    directory:
-      recurse: true
+  sources:
+    - repoURL: https://charts.dexidp.io
+      chart: dex
+      targetRevision: 0.19.1
+      helm:
+        valuesFiles:
+          - $values/kubernetes/helm-releases/dex/values.yaml
+    - repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: auth
