@@ -17,6 +17,14 @@ kind: Deployment
 metadata:
   name: trip-cart
   namespace: trip-app
+  labels:
+    app: trip-cart
+    team: platform
+    owner: team-appdev
+    cost-center: internal-platform
+    env: prod
+    system: trip-app
+    service: trip-cart
 spec:
   replicas: 1
   selector:

@@ -16,6 +16,14 @@ kind: Deployment
 metadata:
   name: trip-db
   namespace: trip-app
+  labels:
+    app: trip-db
+    team: platform
+    owner: team-appdev
+    cost-center: internal-platform
+    env: prod
+    system: trip-app
+    service: trip-db
 spec:
   replicas: 1
   selector:

@@ -17,6 +17,14 @@ kind: Deployment
 metadata:
   name: trip-payment
   namespace: trip-app
+  labels:
+    app: trip-payment
+    team: platform
+    owner: team-appdev
+    cost-center: internal-platform
+    env: prod
+    system: trip-app
+    service: trip-payment
 spec:
   replicas: 1
   selector:
