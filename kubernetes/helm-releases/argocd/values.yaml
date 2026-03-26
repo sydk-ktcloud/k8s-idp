@@ -12,6 +12,7 @@ global:
 configs:
   cm:
     url: http://100.64.0.1:30081
+    accounts.ci: login
     oidc.config: |
       name: Dex
       issuer: http://100.64.0.1:30556
@@ -26,6 +27,7 @@ configs:
   rbac:
     policy.default: role:readonly
     policy.csv: |
+      # OIDC 사용자 역할 매핑
       g, admin@k8s.local, role:admin
       g, platform@k8s.local, role:admin
       g, gitops@k8s.local, role:admin
@@ -33,6 +35,12 @@ configs:
       g, security@k8s.local, role:admin
       g, sre@k8s.local, role:admin
       g, ai@k8s.local, role:readonly
+      # 로컬 admin 계정 명시적 매핑 (ArgoCD v3 필수)
+      g, admin, role:admin
+      # CI/CD 전용 로컬 계정
+      p, role:ci, applications, sync, */*, allow
+      p, role:ci, applications, get, */*, allow
+      g, ci, role:ci
 
 # Server configuration
 server:
