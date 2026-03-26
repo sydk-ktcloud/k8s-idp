@@ -76,14 +76,14 @@ spec:
                 stage.json {
                   expressions = {
                     level   = "level",
-                    traceID = "trace_id",
+                    trace_id = "trace_id",
                   }
                 }
 
                 stage.labels {
                   values = {
                     level   = "level",
-                    traceID = "trace_id",
+                    trace_id = "trace_id",
                   }
                 }
               }

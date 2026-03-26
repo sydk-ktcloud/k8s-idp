@@ -20,7 +20,7 @@ spec:
           auth_enabled: false
           commonConfig:
             replication_factor: 1
-          compactor:                          # 추가
+          compactor:                          
             retention_enabled: true
             delete_request_store: filesystem
           limits_config:
@@ -52,12 +52,12 @@ spec:
         singleBinary:
           replicas: 1
           resources:
-           limits:
-            cpu: 200m
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 512Mi
+            limits:
+              cpu: 200m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
           persistence:
             enabled: true
             storageClass: longhorn

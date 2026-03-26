@@ -341,8 +341,6 @@ spec:
   egress:
   - toEntities:
     - kube-apiserver
-    - host
-    - remote-node
   - toEndpoints:
     - matchLabels:
         app.kubernetes.io/name: tempo
