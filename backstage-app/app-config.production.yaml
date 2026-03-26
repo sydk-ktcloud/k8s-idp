@@ -70,9 +70,21 @@ catalog:
       rules:
         - allow: [Template]
 
+    # AWS service wizard - 질문 기반 AWS 인프라 구성 마법사
+    - type: file
+      target: ./templates/aws-service-wizard/template.yaml
+      rules:
+        - allow: [Template]
+
     # Infrastructure-only template - GCP 리소스 프로비저닝
     - type: file
       target: ./templates/infrastructure-only/template.yaml
+      rules:
+        - allow: [Template]
+
+    # AWS infrastructure template - AWS 리소스 프로비저닝
+    - type: file
+      target: ./templates/aws-infrastructure/template.yaml
       rules:
         - allow: [Template]
 

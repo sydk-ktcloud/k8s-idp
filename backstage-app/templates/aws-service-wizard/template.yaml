@@ -1,0 +1,124 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-service-wizard
+  title: "AWS 서비스 환경 구성 마법사"
+  description: "3가지 질문으로 AWS 인프라를 자동으로 구성합니다"
+  tags:
+    - wizard
+    - recommended
+    - aws
+    - beginner
+spec:
+  owner: user:guest
+  type: service
+
+  parameters:
+    # ── Step 1: 어떤 서비스인가요? ─────────────────────────────
+    - title: "어떤 서비스를 만드시나요?"
+      required:
+        - serviceType
+      properties:
+        serviceType:
+          title: 서비스 유형
+          type: string
+          default: web-api
+          enum:
+            - web-api
+            - file-service
+            - container-app
+            - data-processing
+          enumNames:
+            - "🌐 웹 API 서버  –  REST API, GraphQL 백엔드 (EC2 + RDS 자동 생성)"
+            - "🗄️ 파일 저장 서비스  –  이미지, 영상, 문서 저장 (S3 버킷 자동 생성)"
+            - "📦 컨테이너 앱  –  Docker 컨테이너 배포 (EC2 Docker 호스트 자동 생성)"
+            - "📊 데이터 처리  –  배치 작업, ETL, ML (고성능 EC2 자동 생성)"
+
+    # ── Step 2: 어떤 규모인가요? ───────────────────────────────
+    - title: "어느 정도 규모의 서비스인가요?"
+      required:
+        - scale
+      properties:
+        scale:
+          title: 서비스 규모
+          type: string
+          default: standard
+          enum:
+            - dev
+            - standard
+            - large
+          enumNames:
+            - "👤 개발 / 테스트용  –  나 혼자 또는 팀 내부용  (월 ~$30)"
+            - "👥 일반 서비스용  –  수십~수백 명 사용  (월 ~$80)  ← 권장"
+            - "👥👥 대규모 서비스용  –  수천 명 이상  (월 ~$250)"
+
+    # ── Step 3: 서비스 이름 ────────────────────────────────────
+    - title: "서비스 이름을 정해주세요"
+      required:
+        - componentName
+      properties:
+        componentName:
+          title: 서비스 이름
+          type: string
+          description: "영문 소문자와 하이픈만 사용 (예: my-api-server)"
+          ui:field: EntityNamePicker
+          ui:autofocus: true
+        description:
+          title: 서비스 설명
+          type: string
+          description: "이 서비스가 무엇을 하는지 간단히 설명해주세요"
+          default: "AWS에서 운영되는 서비스"
+
+    # ── Step 4: 저장소 설정 ────────────────────────────────────
+    - title: "저장소를 선택해주세요"
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: 저장소 위치
+          type: string
+          description: Pull Request를 생성할 저장소
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: 인프라 구성 생성
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          componentName: ${{ parameters.componentName }}
+          description: ${{ parameters.description }}
+          namespace: default
+          serviceType: ${{ parameters.serviceType }}
+          scale: ${{ parameters.scale }}
+          destination:
+            owner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+            repo: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
+
+    - id: publish
+      name: Pull Request 생성
+      action: publish:github
+      input:
+        description: "AWS 인프라: ${{ parameters.componentName }} (${{ parameters.serviceType }} / ${{ parameters.scale }})"
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: 'main'
+        targetPath: apps/${{ parameters.componentName }}
+
+    - id: register
+      name: 카탈로그 등록
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Pull Request
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: 카탈로그에서 열기
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

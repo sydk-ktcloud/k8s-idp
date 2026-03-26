@@ -80,9 +80,15 @@ catalog:
       rules:
         - allow: [Template]
 
-    # Service wizard template - 질문 기반 인프라 구성 마법사
+    # Service wizard template - 질문 기반 GCP 인프라 구성 마법사
     - type: file
       target: ../../templates/service-wizard/template.yaml
+      rules:
+        - allow: [Template]
+
+    # AWS service wizard - 질문 기반 AWS 인프라 구성 마법사
+    - type: file
+      target: ../../templates/aws-service-wizard/template.yaml
       rules:
         - allow: [Template]
 

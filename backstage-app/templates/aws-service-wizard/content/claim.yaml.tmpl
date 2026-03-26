@@ -1,0 +1,116 @@
+{% if values.serviceType === 'web-api' %}
+# ── 웹 API 서버: EC2 + RDS ──────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ values.componentName }}-vm
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}-vm
+  region: ap-northeast-2
+  {%- if values.scale === 'dev' %}
+  instanceType: t3.small
+  diskSize: 30
+  {%- elif values.scale === 'standard' %}
+  instanceType: t3.medium
+  diskSize: 50
+  {%- else %}
+  instanceType: t3.xlarge
+  diskSize: 100
+  {%- endif %}
+---
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: RDSDatabase
+metadata:
+  name: {{ values.componentName }}-db
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}-db
+  engine: postgres
+  region: ap-northeast-2
+  {%- if values.scale === 'dev' %}
+  instanceClass: db.t3.small
+  diskSize: 20
+  {%- elif values.scale === 'standard' %}
+  instanceClass: db.t3.medium
+  diskSize: 50
+  {%- else %}
+  instanceClass: db.t3.large
+  diskSize: 100
+  {%- endif %}
+
+{% elif values.serviceType === 'file-service' %}
+# ── 파일 저장 서비스: S3 버킷 ────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: S3Bucket
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  region: ap-northeast-2
+  accessControl: private
+  {%- if values.scale === 'dev' %}
+  versioning: false
+  {%- else %}
+  versioning: true
+  {%- endif %}
+
+{% elif values.serviceType === 'container-app' %}
+# ── 컨테이너 앱: EC2 Docker 호스트 ──────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  region: ap-northeast-2
+  {%- if values.scale === 'dev' %}
+  instanceType: t3.medium
+  diskSize: 50
+  {%- elif values.scale === 'standard' %}
+  instanceType: t3.xlarge
+  diskSize: 100
+  {%- else %}
+  instanceType: m5.2xlarge
+  diskSize: 200
+  {%- endif %}
+
+{% elif values.serviceType === 'data-processing' %}
+# ── 데이터 처리: 고성능 EC2 ──────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  name: {{ values.componentName }}
+  region: ap-northeast-2
+  {%- if values.scale === 'dev' %}
+  instanceType: t3.xlarge
+  diskSize: 100
+  {%- elif values.scale === 'standard' %}
+  instanceType: m5.2xlarge
+  diskSize: 200
+  {%- else %}
+  instanceType: m5.4xlarge
+  diskSize: 500
+  {%- endif %}
+
+{% endif %}
