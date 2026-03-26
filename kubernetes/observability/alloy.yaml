@@ -124,13 +124,13 @@ spec:
               memory: 512Mi
         controller:
           type: daemonset
-        podLabels:
-          team: platform
-          owner: team-sre
-          cost-center: internal-platform
-          env: prod
-          system: observability
-          service: alloy
+          podLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: alloy
         clustering:
           enabled: true
   destination:
