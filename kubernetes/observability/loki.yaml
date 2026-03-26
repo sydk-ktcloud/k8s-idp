@@ -53,10 +53,6 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 10
-<<<<<<< HEAD
-
-=======
->>>>>>> 87748b44bebaa34152c3726b6c426e9f4e690012
         lokiCanary:
           enabled: true
           podLabels:
@@ -66,12 +62,7 @@ spec:
             env: prod
             system: observability
             service: loki
-<<<<<<< HEAD
-
-=======
->>>>>>> 87748b44bebaa34152c3726b6c426e9f4e690012
         deploymentMode: SingleBinary
-
         singleBinary:
           replicas: 1
           service:
