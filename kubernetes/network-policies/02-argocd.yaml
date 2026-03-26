@@ -1,6 +1,17 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: default-deny-all
+  namespace: gitops
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: argocd-allow
   namespace: gitops
 spec:
@@ -9,25 +20,28 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # 네임스페이스 내 pod 간 통신 허용 (app-controller ↔ repo-server ↔ server 등)
+    - from:
+        - podSelector: {}
+    # NodePort를 통한 외부 UI/API 접근 (port 8080)
     - from: []
       ports:
         - protocol: TCP
           port: 8080
   egress:
+    # 네임스페이스 내 pod 간 통신 허용
     - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: argocd-redis
-      ports:
-        - protocol: TCP
-          port: 6379
+        - podSelector: {}
+    # DNS
     - to:
-        - podSelector:
+        - namespaceSelector: {}
+          podSelector:
             matchLabels:
-              app.kubernetes.io/name: argocd-repo-server
+              k8s-app: kube-dns
       ports:
-        - protocol: TCP
-          port: 8081
+        - protocol: UDP
+          port: 53
+    # Dex OIDC (auth 네임스페이스)
     - to:
         - namespaceSelector:
             matchLabels:
@@ -38,20 +52,28 @@ spec:
       ports:
         - protocol: TCP
           port: 5556
+    # Kubernetes API server (pre-DNAT ClusterIP 범위)
     - to:
-        - namespaceSelector: {}
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
+        - ipBlock:
+            cidr: 10.96.0.0/12
       ports:
-        - protocol: UDP
-          port: 53
+        - protocol: TCP
+          port: 443
+    # Kubernetes API server (post-DNAT: control plane 노드 IP)
+    - to:
+        - ipBlock:
+            cidr: 192.168.122.109/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    # 외부 트래픽 (GitHub, Helm repos 등) - private IP 제외
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
             except:
-              - 10.244.0.0/16
+              - 10.0.0.0/8
               - 192.168.0.0/16
+              - 172.16.0.0/12
       ports:
         - protocol: TCP
           port: 443
