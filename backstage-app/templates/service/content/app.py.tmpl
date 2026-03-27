@@ -6,9 +6,9 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     return jsonify({
-        'message': 'Hello from {{ name }}!',
-        'service': '{{ name }}',
-        'description': '{{ description }}'
+        'message': 'Hello from {{ values.name }}!',
+        'service': '{{ values.name }}',
+        'description': '{{ values.description }}'
     })
 
 @app.route('/health')

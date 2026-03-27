@@ -1,12 +1,12 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: {{ componentName }}
-  description: "Azure 인프라 리소스: {{ resourceType }}"
+  name: {{ values.componentName }}
+  description: "Azure 인프라 리소스: {{ values.resourceType }}"
   tags:
     - infrastructure
     - azure
-    - {{ resourceType }}
+    - {{ values.resourceType }}
   annotations:
     github.com/project-slug: sydk-ktcloud/k8s-idp
 spec:
@@ -19,19 +19,19 @@ spec:
     - url: https://portal.azure.com
       title: Azure Portal
       icon: cloud
-{% if resourceType == 'azurevm' -%}
+{% if values.resourceType == 'azurevm' -%}
     - url: https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Compute%2FvirtualMachines
       title: Virtual Machines
       icon: compute
-{% elif resourceType == 'azureblobstorage' -%}
+{% elif values.resourceType == 'azureblobstorage' -%}
     - url: https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Storage%2FstorageAccounts
       title: Storage Accounts
       icon: storage
-{% elif resourceType == 'akscluster' -%}
+{% elif values.resourceType == 'akscluster' -%}
     - url: https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.ContainerService%2FmanagedClusters
       title: AKS Clusters
       icon: kubernetes
-{% elif resourceType == 'azuredatabase' -%}
+{% elif values.resourceType == 'azuredatabase' -%}
     - url: https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.DBforPostgreSQL%2FflexibleServers
       title: Azure Database
       icon: database

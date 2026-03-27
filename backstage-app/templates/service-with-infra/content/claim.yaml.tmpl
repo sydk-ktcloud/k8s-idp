@@ -1,47 +1,47 @@
-{% if resourceType == 'database' -%}
+{% if values.resourceType == 'database' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Database
 metadata:
-  name: {{ name }}
-  namespace: {{ namespace }}
+  name: {{ values.name }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ name }}
-  databaseVersion: {{ databaseVersion }}
-  tier: {{ tier }}
-  region: {{ dbRegion }}
-  diskSize: {{ dbDiskSize }}
-{% elif resourceType == 'bucket' -%}
+  name: {{ values.name }}
+  databaseVersion: {{ values.databaseVersion }}
+  tier: {{ values.tier }}
+  region: {{ values.dbRegion }}
+  diskSize: {{ values.dbDiskSize }}
+{% elif values.resourceType == 'bucket' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Bucket
 metadata:
-  name: {{ name }}
-  namespace: {{ namespace }}
+  name: {{ values.name }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ name }}
-  location: {{ location }}
-  storageClass: {{ storageClass }}
+  name: {{ values.name }}
+  location: {{ values.location }}
+  storageClass: {{ values.storageClass }}
   versioning: false
-{% elif resourceType == 'gcpinstance' -%}
+{% elif values.resourceType == 'gcpinstance' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: GCPInstance
 metadata:
-  name: {{ name }}
-  namespace: {{ namespace }}
+  name: {{ values.name }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ name }}
-  machineType: {{ machineType }}
-  region: {{ vmRegion }}
-  zone: {{ zone }}
-  diskSize: {{ vmDiskSize }}
-{% elif resourceType == 'cluster' -%}
+  name: {{ values.name }}
+  machineType: {{ values.machineType }}
+  region: {{ values.vmRegion }}
+  zone: {{ values.zone }}
+  diskSize: {{ values.vmDiskSize }}
+{% elif values.resourceType == 'cluster' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Cluster
 metadata:
-  name: {{ name }}
-  namespace: {{ namespace }}
+  name: {{ values.name }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ name }}
-  location: {{ clusterLocation }}
-  nodeCount: {{ nodeCount }}
-  machineType: {{ nodeMachineType }}
+  name: {{ values.name }}
+  location: {{ values.clusterLocation }}
+  nodeCount: {{ values.nodeCount }}
+  machineType: {{ values.nodeMachineType }}
 {% endif -%}

@@ -128,11 +128,16 @@ k8s-idp/
 │   ├── packages/
 │   │   ├── app/                # Frontend (React)
 │   │   └── backend/            # Backend (Node.js)
-│   └── templates/              # Scaffolder 템플릿
-│       ├── aws-service-wizard/ # AWS 인프라 마법사 (초보자용)
-│       ├── aws-infrastructure/ # AWS 직접 구성 (숙련자용)
-│       ├── azure-service-wizard/ # Azure 인프라 마법사 (초보자용)
-│       └── azure-infrastructure/ # Azure 직접 구성 (숙련자용)
+│   └── templates/              # Scaffolder 템플릿 (Nunjucks {{ values.* }} 문법)
+│       ├── service-wizard/         # GCP 마법사 (초보자용)
+│       ├── aws-service-wizard/     # AWS 마법사 (초보자용)
+│       ├── azure-service-wizard/   # Azure 마법사 (초보자용)
+│       ├── simple-server/          # 멀티 클라우드 VM 빠른 시작
+│       ├── infrastructure-only/    # GCP 직접 구성 (숙련자용)
+│       ├── aws-infrastructure/     # AWS 직접 구성 (숙련자용)
+│       ├── azure-infrastructure/   # Azure 직접 구성 (숙련자용)
+│       ├── service/                # 서비스 컴포넌트 생성
+│       └── service-with-infra/     # 서비스 + GCP 인프라 묶음
 ├── chatops-app/                 # Discord ChatOps 봇
 │   ├── commands/               # 슬래시 커맨드
 │   └── services/               # K8s/OpenAI 연동
@@ -191,16 +196,19 @@ k8s-idp/
 **Scaffolder 템플릿**:
 | 템플릿 | 대상 | 특징 |
 |--------|------|------|
-| `gcp-service-wizard` | GCP VM/GCS/GKE/SQL | 3문항 마법사, 초보자 권장 |
-| `aws-service-wizard` | AWS EC2/S3/RDS | 3문항 마법사, 초보자 권장 |
-| `azure-service-wizard` | Azure VM/Blob/PostgreSQL | 3문항 마법사, 초보자 권장 |
-| `infrastructure-only` | GCP 직접 구성 | 숙련자용 세부 설정 |
-| `aws-infrastructure` | AWS 직접 구성 | 숙련자용 세부 설정 |
-| `azure-infrastructure` | Azure 직접 구성 | 숙련자용 세부 설정 |
-| `service` | 서비스 컴포넌트 | 코드 저장소 + 카탈로그 등록 |
+| `service-wizard` | GCP VM/GCS/GKE/SQL | 3문항 마법사, GCP 초보자 권장 |
+| `aws-service-wizard` | AWS EC2/S3/RDS | 3문항 마법사, AWS 초보자 권장 |
+| `azure-service-wizard` | Azure VM/Blob/AKS/PostgreSQL | 3문항 마법사, Azure 초보자 권장 |
+| `simple-server-template` | GCP/AWS/Azure 서버 | 3가지 선택만으로 VM 즉시 생성 |
+| `infrastructure-only-template` | GCP 직접 구성 | 숙련자용 GCP 세부 설정 |
+| `aws-infrastructure-template` | AWS 직접 구성 | 숙련자용 AWS 세부 설정 |
+| `azure-infrastructure-template` | Azure 직접 구성 | 숙련자용 Azure 세부 설정 |
+| `service-template` | 서비스 컴포넌트 | 코드 저장소 + 카탈로그 등록 |
 | `service-with-infra` | 서비스 + GCP 인프라 | 서비스 + 인프라 묶음 |
 
 > **마법사 패턴**: 서비스 유형(web-api/file-service/container-app/data-processing)과 규모(dev/standard/large) 선택만으로 Crossplane Claim이 자동 생성됩니다.
+
+> **템플릿 문법**: 모든 템플릿 파일(`.tmpl`)은 Backstage Scaffolder의 Nunjucks 문법을 사용하며, 파라미터는 `{{ values.paramName }}` 형식으로 참조합니다.
 
 **기술 스택**: Backstage v1.49.0, React, Node.js 22
 
@@ -714,6 +722,7 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 - [x] AWS Crossplane Provider 연동 (EC2/S3/EKS/RDS)
 - [x] Azure Crossplane Provider 연동 (VM/Blob/AKS/PostgreSQL)
 - [x] 멀티 클라우드 Backstage 마법사 템플릿 (GCP/AWS/Azure)
+- [x] Backstage Scaffolder 템플릿 일관성 정비 (values.* prefix 통일, tags 추가)
 - [x] 플랫폼 서비스 HA 구성 (replicas:3 + PDB + Anti-Affinity)
 - [x] MinIO Distributed Mode (4-node Erasure Coding)
 - [ ] Backstage HPA 활성화 (CPU/Memory 기반 자동 스케일링)

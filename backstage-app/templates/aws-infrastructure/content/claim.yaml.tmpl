@@ -1,52 +1,52 @@
-{% if resourceType == 'ec2instance' -%}
+{% if values.resourceType == 'ec2instance' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: EC2Instance
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  instanceType: {{ ec2InstanceType }}
-  region: {{ ec2Region }}
-  diskSize: {{ ec2DiskSize }}
-{% elif resourceType == 's3bucket' -%}
+  name: {{ values.componentName }}
+  instanceType: {{ values.ec2InstanceType }}
+  region: {{ values.ec2Region }}
+  diskSize: {{ values.ec2DiskSize }}
+{% elif values.resourceType == 's3bucket' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: S3Bucket
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  region: {{ s3Region }}
-  versioning: {{ s3Versioning }}
-  accessControl: {{ s3AccessControl }}
-{% elif resourceType == 'ekscluster' -%}
+  name: {{ values.componentName }}
+  region: {{ values.s3Region }}
+  versioning: {{ values.s3Versioning }}
+  accessControl: {{ values.s3AccessControl }}
+{% elif values.resourceType == 'ekscluster' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: EKSCluster
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  region: {{ eksRegion }}
-  nodeCount: {{ eksNodeCount }}
-  instanceType: {{ eksInstanceType }}
-  roleArn: {{ eksRoleArn }}
-  nodeRoleArn: {{ eksNodeRoleArn }}
+  name: {{ values.componentName }}
+  region: {{ values.eksRegion }}
+  nodeCount: {{ values.eksNodeCount }}
+  instanceType: {{ values.eksInstanceType }}
+  roleArn: {{ values.eksRoleArn }}
+  nodeRoleArn: {{ values.eksNodeRoleArn }}
   subnetIds:
-{% for subnetId in eksSubnetIds.split(',') %}
+{% for subnetId in values.eksSubnetIds.split(',') %}
     - {{ subnetId.strip() }}
 {% endfor %}
-{% elif resourceType == 'rdsdatabase' -%}
+{% elif values.resourceType == 'rdsdatabase' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: RDSDatabase
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  engine: {{ rdsEngine }}
-  instanceClass: {{ rdsInstanceClass }}
-  region: {{ rdsRegion }}
-  diskSize: {{ rdsDiskSize }}
+  name: {{ values.componentName }}
+  engine: {{ values.rdsEngine }}
+  instanceClass: {{ values.rdsInstanceClass }}
+  region: {{ values.rdsRegion }}
+  diskSize: {{ values.rdsDiskSize }}
 {% endif -%}
