@@ -58,6 +58,15 @@ spec:
   runtimeConfigRef:
     name: azure-config
 ---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-network
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-network:v1
+  runtimeConfigRef:
+    name: azure-config
+---
 # ProviderConfig: azure-credentials Secret 참조 (Service Principal JSON)
 # az ad sp create-for-rbac --sdk-auth > azure-sp.json
 # kubectl create secret generic azure-credentials -n crossplane-system \

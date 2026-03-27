@@ -1,0 +1,128 @@
+{% if values.serviceType === 'web-api' %}
+# ── 웹 API 서버: Azure VM + PostgreSQL ──────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureVM
+metadata:
+  name: {{ values.componentName }}-vm
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  resourceGroupName: {{ values.resourceGroupName }}
+  location: koreacentral
+  {%- if values.scale === 'dev' %}
+  vmSize: Standard_B2s
+  diskSizeGb: 30
+  {%- elif values.scale === 'standard' %}
+  vmSize: Standard_D2s_v3
+  diskSizeGb: 50
+  {%- else %}
+  vmSize: Standard_D4s_v3
+  diskSizeGb: 100
+  {%- endif %}
+  adminUsername: azureuser
+  providerConfigRef:
+    name: default
+---
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureDatabase
+metadata:
+  name: {{ values.componentName }}-db
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  resourceGroupName: {{ values.resourceGroupName }}
+  location: koreacentral
+  engine: postgresql
+  {%- if values.scale === 'dev' %}
+  skuName: B_Standard_B1ms
+  storageMb: 20480
+  {%- elif values.scale === 'standard' %}
+  skuName: GP_Standard_D2s_v3
+  storageMb: 51200
+  {%- else %}
+  skuName: GP_Standard_D4s_v3
+  storageMb: 102400
+  {%- endif %}
+  providerConfigRef:
+    name: default
+
+{% elif values.serviceType === 'file-service' %}
+# ── 파일 저장 서비스: Azure Blob Storage ─────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureBlobStorage
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  resourceGroupName: {{ values.resourceGroupName }}
+  location: koreacentral
+  {%- if values.scale === 'dev' %}
+  replication: LRS
+  {%- else %}
+  replication: GRS
+  {%- endif %}
+  providerConfigRef:
+    name: default
+
+{% elif values.serviceType === 'container-app' %}
+# ── 컨테이너 앱: Azure VM Docker 호스트 ─────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureVM
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  resourceGroupName: {{ values.resourceGroupName }}
+  location: koreacentral
+  {%- if values.scale === 'dev' %}
+  vmSize: Standard_D2s_v3
+  diskSizeGb: 50
+  {%- elif values.scale === 'standard' %}
+  vmSize: Standard_D4s_v3
+  diskSizeGb: 100
+  {%- else %}
+  vmSize: Standard_D8s_v3
+  diskSizeGb: 200
+  {%- endif %}
+  adminUsername: azureuser
+  providerConfigRef:
+    name: default
+
+{% elif values.serviceType === 'data-processing' %}
+# ── 데이터 처리: 고성능 Azure VM ─────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureVM
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/scale: "{{ values.scale }}"
+spec:
+  resourceGroupName: {{ values.resourceGroupName }}
+  location: koreacentral
+  {%- if values.scale === 'dev' %}
+  vmSize: Standard_D4s_v3
+  diskSizeGb: 100
+  {%- elif values.scale === 'standard' %}
+  vmSize: Standard_D8s_v3
+  diskSizeGb: 200
+  {%- else %}
+  vmSize: Standard_D16s_v3
+  diskSizeGb: 500
+  {%- endif %}
+  adminUsername: azureuser
+  providerConfigRef:
+    name: default
+
+{% endif %}

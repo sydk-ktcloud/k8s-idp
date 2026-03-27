@@ -110,6 +110,12 @@ catalog:
       rules:
         - allow: [Template]
 
+    # Azure service wizard - 초보자용 Azure 인프라 마법사
+    - type: file
+      target: ../../templates/azure-service-wizard/template.yaml
+      rules:
+        - allow: [Template]
+
     # Azure infrastructure template - Azure 리소스 프로비저닝
     - type: file
       target: ../../templates/azure-infrastructure/template.yaml
