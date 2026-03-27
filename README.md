@@ -251,18 +251,102 @@ KUBECONFIG=kubeconfig/gke-burst \
 
 ## 보안
 
-### 네트워크 정책 (Zero Trust)
+### RBAC 최소 권한 원칙
 
-- 기본 거부 (Default Deny All)
-- Namespace 간 통신 제어
-- 서비스별 세분화된 정책
+#### ArgoCD
+- `cluster-admin` 대신 전용 `ClusterRole(argocd-application-controller)` 사용
+- `escalate` / `impersonate` 권한 명시적 제외 → 권한 상승 공격 차단
+- 파일: `kubernetes/manifests/argocd-rbac/`
 
-### 팀별 접근 권한
+#### Backstage
+- ClusterRole: `namespaces`, Crossplane XRD/Claims 읽기만 허용
+- 네임스페이스 리소스(pods, services, deployments 등)는 각 namespace Role로 분리
+  - 적용 대상: `trip-app`, `chatops`, `monitoring`, `backstage`
+- `secrets` 클러스터 전체 읽기 권한 제거
+- `automountServiceAccountToken: false`
+- 파일: `kubernetes/manifests/backstage-custom/backstage.yaml`
 
-| 팀 | Role | 권한 |
+#### ChatOps 봇
+- 클러스터 전체 pod 조회 ClusterRoleBinding 제거
+- namespaces 읽기는 ClusterRole 유지 (cluster-scoped 리소스)
+- pods/log 접근은 네임스페이스별 RoleBinding으로 제한
+  - 적용 대상: `trip-app`, `chatops`, `monitoring`, `backstage`
+- `automountServiceAccountToken: false`
+- 파일: `kubernetes/manifests/chatops/rbac.yaml`
+
+#### Tailscale
+- 클러스터 전체 Secrets 접근 ClusterRole 제거
+- `kube-system` 네임스페이스 Role로 축소 + `resourceNames`로 특정 Secret만 허용
+- nodes 읽기는 ClusterRole 유지 (cluster-scoped 리소스)
+- 파일: `kubernetes/manifests/vpn/tailscale-daemonset.yaml`
+
+---
+
+### NetworkPolicy (Zero Trust)
+
+모든 네임스페이스에 `default-deny-all` 기반으로 필요한 통신만 명시적으로 허용합니다.
+
+| 네임스페이스 | 정책 파일 | 주요 허용 트래픽 |
+|---|---|---|
+| `gitops` | `02-argocd.yaml` | 내부 컴포넌트 통신, Dex OIDC, k8s API, GitHub/Helm |
+| `auth` | `01-dex.yaml` | ArgoCD/Backstage/Grafana → Dex, LDAP 등 |
+| `backstage` | `04-backstage.yaml` | DB 내부 통신, k8s API, 외부 443 |
+| `monitoring` | `03-monitoring.yaml` | 전 네임스페이스 메트릭 scrape, Grafana UI |
+| `chatops` | `08-chatops.yaml` | Discord + Azure OpenAI (443 외부), Prometheus, k8s API |
+| `trip-app` | `09-trip-app.yaml` | 서비스 간 통신 (frontend→backend→DB), NodePort ingress |
+| `kube-system` | `07-cilium-hubble.yaml` | Hubble 관찰가능성 |
+| `longhorn-system` | `06-longhorn.yaml` | 스토리지 내부 통신 |
+
+**Cilium 특이사항**: `kube-apiserver` reserved identity는 표준 `ipBlock`으로 매칭 불가.
+`CiliumNetworkPolicy + toEntities: kube-apiserver`로 처리 (`02-argocd.yaml`).
+
+---
+
+### Pod Security Admission (PSA)
+
+표준 Kubernetes PSA로 워크로드 보안 수준을 관리합니다.
+
+| 네임스페이스 | enforce | audit | warn |
+|---|---|---|---|
+| `backstage` | baseline | restricted | restricted |
+| `chatops` | baseline | restricted | restricted |
+| `trip-app` | baseline | restricted | restricted |
+| `gitops`, `auth`, `monitoring` | baseline | baseline | baseline |
+
+- `enforce: baseline` — 기존 워크로드 영향 최소화
+- `audit/warn: restricted` — 위반 사항 가시성 확보 (배포는 차단하지 않음)
+- 파일: `kubernetes/namespaces/core.yaml`
+
+---
+
+### Resource 제한 (LimitRange)
+
+리소스 무제한 소비 방지를 위한 기본값 설정.
+
+| 네임스페이스 | 파일 | default request | default limit |
+|---|---|---|---|
+| `trip-app` | `manifests/trip-app/resource-management.yaml` | cpu: 100m / memory: 128Mi | cpu: 500m / memory: 512Mi |
+
+---
+
+### 취약점 스캐닝 (Trivy Operator)
+
+클러스터 내 지속적 보안 감사를 위해 Trivy Operator를 배포합니다.
+
+- **VulnerabilityReport**: 컨테이너 이미지 CVE 스캔
+- **ConfigAuditReport**: RBAC 과다 권한, resource limits 미설정, latest 태그 사용 탐지
+- **RbacAssessmentReport**: ServiceAccount 권한 과다 리포트
+- Grafana 대시보드 연동 가능
+- 파일: `kubernetes/argocd-apps/trivy-operator.yaml`
+
+---
+
+### 팀별 접근 권한 (ArgoCD + kubectl)
+
+| 팀 | ArgoCD Role | kubectl 권한 |
 |----|------|------|
-| Admin, Platform, GitOps, Security, SRE | cluster-admin | 전체 접근 |
-| FinOps, AI | view | 읽기 전용 |
+| Admin, Platform, GitOps, Security, SRE | role:admin | cluster-admin |
+| FinOps, AI | role:readonly | view |
 
 ## 빠른 시작
 
