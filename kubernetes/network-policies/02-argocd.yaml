@@ -41,7 +41,7 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-    # Dex OIDC (auth 네임스페이스)
+    # Dex OIDC - 내부 서비스 (auth 네임스페이스 직접)
     - to:
         - namespaceSelector:
             matchLabels:
@@ -52,6 +52,14 @@ spec:
       ports:
         - protocol: TCP
           port: 5556
+    # Dex OIDC - argocd-cm issuer가 100.64.0.1:30556 NodePort URL을 사용
+    # argocd-server가 토큰 검증 시 외부 NodePort로 접근 필요
+    - to:
+        - ipBlock:
+            cidr: 100.64.0.0/10  # Tailscale CGNAT 범위
+      ports:
+        - protocol: TCP
+          port: 30556
     # Kubernetes API server: CiliumNetworkPolicy(argocd-kube-apiserver-egress)로 처리
     # Cilium reserved identity "kube-apiserver"는 표준 ipBlock으로 매칭 불가 → CNP 필요
     # 외부 트래픽 (GitHub, Helm repos 등) - private IP 제외
