@@ -97,6 +97,19 @@ rules:
     resources: ["*"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
 
+  # Trivy Operator
+  - apiGroups:
+      - aquasecurity.github.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
+  # Crossplane upbound providers (GCP/AWS/Azure 등 신규 그룹 대응)
+  # escalate/impersonate는 verbs에 없으므로 권한 상승 불가
+  - apiGroups:
+      - "*"
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
   # Non-resource URLs (health check 등)
   - nonResourceURLs: ["*"]
     verbs: ["get"]
