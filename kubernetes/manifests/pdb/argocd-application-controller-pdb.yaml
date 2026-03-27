@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: argocd-application-controller-pdb
+  namespace: gitops
+  labels:
+    app.kubernetes.io/name: argocd-application-controller
+    app.kubernetes.io/component: controller
+    team: platform
+    system: gitops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-application-controller

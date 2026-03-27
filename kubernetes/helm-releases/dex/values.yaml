@@ -16,7 +16,7 @@ podLabels:
   system: auth
   service: dex
 
-replicaCount: 1
+replicaCount: 3
 
 # GitHub OAuth credentials from Kubernetes Secret
 envFrom:
@@ -121,12 +121,6 @@ config:
       - code
     skipApprovalScreen: true
 
-# Environment variables for GitHub OAuth
-# Use envFrom from secret dex-github-secret
-envFrom:
-  - secretRef:
-      name: dex-github-secret
-
 # Resources
 resources:
   limits:
@@ -136,10 +130,31 @@ resources:
     cpu: 100m
     memory: 64Mi
 
+# Pod Disruption Budget - managed via kubernetes/manifests/pdb/dex-pdb.yaml
+podDisruptionBudget:
+  enabled: false
+
 # Node selector (optional)
 nodeSelector: {}
 tolerations: []
-affinity: {}
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: dex
+          topologyKey: kubernetes.io/hostname
+
+# Topology spread constraints for HA
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: dex
 
 # Service account
 serviceAccount:

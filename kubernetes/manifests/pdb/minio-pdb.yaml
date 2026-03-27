@@ -1,0 +1,16 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: minio-pdb
+  namespace: minio-storage
+  labels:
+    app: minio
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/component: object-storage
+    team: platform
+    system: storage
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: minio

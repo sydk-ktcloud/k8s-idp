@@ -309,7 +309,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Replace=true
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: backstage-backend
@@ -326,6 +326,15 @@ spec:
 
     spec:
       serviceAccountName: backstage
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: backstage-backend
+                topologyKey: kubernetes.io/hostname
       containers:
       - name: backstage
         image: kylekim1223/backstage-backend:latest
