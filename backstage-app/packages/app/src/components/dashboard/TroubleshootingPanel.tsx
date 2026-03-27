@@ -204,17 +204,16 @@ export const TroubleshootingPanel = ({
                 );
               }
               return (
-                <Button
-                  key={action.label}
-                  component={Link}
-                  to={action.url}
-                  size="small"
-                  variant="contained"
-                  startIcon={icon}
-                  className={btnClass}
-                >
-                  {action.label}
-                </Button>
+                <Link key={action.label} to={action.url} style={{ textDecoration: 'none' }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={icon}
+                    className={btnClass}
+                  >
+                    {action.label}
+                  </Button>
+                </Link>
               );
             })}
           </Box>
