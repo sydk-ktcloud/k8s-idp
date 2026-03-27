@@ -118,7 +118,7 @@ export const TroubleshootingPanel = ({
   const classes = useStyles();
   const guide: TroubleshootingGuide = errorCategory
     ? GUIDES[errorCategory]
-    : GUIDES['UNKNOWN'];
+    : GUIDES.UNKNOWN;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -171,21 +171,14 @@ export const TroubleshootingPanel = ({
           <Box display="flex" flexWrap="wrap">
             {guide.actions.map(action => {
               const isExternal = action.url.startsWith('http');
-              const btnClass = `${classes.actionBtn} ${
-                action.variant === 'primary'
-                  ? classes.actionBtnPrimary
-                  : action.variant === 'contact'
-                  ? classes.actionBtnContact
-                  : ''
-              }`;
-              const icon =
-                action.variant === 'contact' ? (
-                  <ContactSupportIcon />
-                ) : isExternal ? (
-                  <OpenInNewIcon />
-                ) : (
-                  <CheckCircleOutlineIcon />
-                );
+              let extraClass = '';
+              if (action.variant === 'primary') extraClass = classes.actionBtnPrimary;
+              else if (action.variant === 'contact') extraClass = classes.actionBtnContact;
+              const btnClass = `${classes.actionBtn} ${extraClass}`;
+
+              let icon = <CheckCircleOutlineIcon />;
+              if (action.variant === 'contact') icon = <ContactSupportIcon />;
+              else if (isExternal) icon = <OpenInNewIcon />;
               if (isExternal) {
                 return (
                   <Button
