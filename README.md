@@ -24,7 +24,7 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 | 컴포넌트 | 상태 | 설명 |
 |----------|------|------|
 | **Backstage** | ✅ 배포됨 | 개발자 포털, 서비스 카탈로그, 셀프서비스 |
-| **Crossplane** | ✅ 배포됨 | 클라우드 리소스 프로비저닝 (GCP) |
+| **Crossplane** | ✅ 배포됨 | 클라우드 리소스 프로비저닝 (GCP / AWS / Azure) |
 | **GKE Burst** | ✅ 배포됨 | 온프레미스 부하 초과 시 GKE로 자동 확장 |
 | **ChatOps** | ✅ 배포됨 | Discord 기반 K8s 관리 봇 |
 | **Kubecost** | ✅ 배포됨 | 비용 모니터링 및 최적화 |
@@ -102,8 +102,10 @@ k8s-idp/
 │   │   ├── backstage-custom/   # Backstage 커스텀
 │   │   ├── cert-manager/       # 인증서 관리
 │   │   ├── cilium/             # CNI/Hubble 설정
-│   │   ├── crossplane-compositions/  # XRD/Composition (8종, GKE Burst 포함)
-│   │   └── crossplane-providers/     # GCP Provider
+│   │   ├── crossplane-compositions/  # XRD/Composition (GCP 8종, AWS 4종, Azure 4종)
+│   │   │   ├── aws/            # EC2Instance, S3Bucket, EKSCluster, RDSDatabase
+│   │   │   └── azure/          # AzureVM, AzureBlobStorage, AKSCluster, AzureDatabase
+│   │   └── crossplane-providers/     # GCP / AWS / Azure Provider
 │   ├── argocd-apps/             # ArgoCD Application 정의
 │   ├── network-policies/        # Zero Trust 네트워크 정책
 │   ├── observability/           # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
@@ -116,6 +118,10 @@ k8s-idp/
 │   │   ├── app/                # Frontend (React)
 │   │   └── backend/            # Backend (Node.js)
 │   └── templates/              # Scaffolder 템플릿
+│       ├── aws-service-wizard/ # AWS 인프라 마법사 (초보자용)
+│       ├── aws-infrastructure/ # AWS 직접 구성 (숙련자용)
+│       ├── azure-service-wizard/ # Azure 인프라 마법사 (초보자용)
+│       └── azure-infrastructure/ # Azure 직접 구성 (숙련자용)
 ├── chatops-app/                 # Discord ChatOps 봇
 │   ├── commands/               # 슬래시 커맨드
 │   └── services/               # K8s/OpenAI 연동
@@ -168,7 +174,21 @@ k8s-idp/
 - 기술 문서 (TechDocs)
 - 셀프서비스 템플릿 (Scaffolder)
 - Kubernetes 리소스 조회
-- Crossplane 기반 GCP 리소스 프로비저닝
+- Crossplane 기반 멀티 클라우드 리소스 프로비저닝 (GCP / AWS / Azure)
+
+**Scaffolder 템플릿**:
+| 템플릿 | 대상 | 특징 |
+|--------|------|------|
+| `gcp-service-wizard` | GCP VM/GCS/GKE/SQL | 3문항 마법사, 초보자 권장 |
+| `aws-service-wizard` | AWS EC2/S3/RDS | 3문항 마법사, 초보자 권장 |
+| `azure-service-wizard` | Azure VM/Blob/PostgreSQL | 3문항 마법사, 초보자 권장 |
+| `infrastructure-only` | GCP 직접 구성 | 숙련자용 세부 설정 |
+| `aws-infrastructure` | AWS 직접 구성 | 숙련자용 세부 설정 |
+| `azure-infrastructure` | Azure 직접 구성 | 숙련자용 세부 설정 |
+| `service` | 서비스 컴포넌트 | 코드 저장소 + 카탈로그 등록 |
+| `service-with-infra` | 서비스 + GCP 인프라 | 서비스 + 인프라 묶음 |
+
+> **마법사 패턴**: 서비스 유형(web-api/file-service/container-app/data-processing)과 규모(dev/standard/large) 선택만으로 Crossplane Claim이 자동 생성됩니다.
 
 **기술 스택**: Backstage v1.49.0, React, Node.js 22
 
@@ -185,11 +205,11 @@ k8s-idp/
 
 **기술 스택**: Discord.js, Kubernetes Client, OpenAI API
 
-### 3. Crossplane Compositions
+### 3. Crossplane Compositions (멀티 클라우드)
 
-**목적**: 개발자 셀프서비스 클라우드 리소스 프로비저닝
+**목적**: 개발자 셀프서비스 클라우드 리소스 프로비저닝 (GCP / AWS / Azure)
 
-**지원 리소스**:
+#### GCP
 | 타입 | XRD | GCP 리소스 |
 |------|-----|------------|
 | VM | XGCPInstance | Compute Engine |
@@ -200,6 +220,22 @@ k8s-idp/
 | Messaging | XPubSub | Pub/Sub |
 | WebApp | XWebApp | 통합 웹앱 |
 | **Burst Cluster** | **XClusterBurst** | **GKE (온프레미스 burst 확장용)** |
+
+#### AWS
+| 타입 | XRD | AWS 리소스 |
+|------|-----|------------|
+| VM | XEC2Instance | EC2 Instance |
+| Storage | XS3Bucket | S3 Bucket + BucketVersioning |
+| Database | XRDSDatabase | RDS Instance (postgres/mysql) |
+| Cluster | XEKSCluster | EKS Cluster + NodeGroup |
+
+#### Azure
+| 타입 | XRD | Azure 리소스 |
+|------|-----|--------------|
+| VM | XAzureVM | Linux Virtual Machine + NetworkInterface |
+| Storage | XAzureBlobStorage | Storage Account + Container |
+| Database | XAzureDatabase | PostgreSQL/MySQL Flexible Server |
+| Cluster | XAKSCluster | AKS Kubernetes Cluster |
 
 ### 4. GKE Burst 확장
 
@@ -383,10 +419,12 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 
 - [ ] Vault HA 배포
 - [ ] Backstage 한국어 UI 완성
-- [ ] 추가 Crossplane Compositions
 - [ ] CI/CD 파이프라인 템플릿
 - [x] GKE Burst 클러스터 Crossplane 자동 프로비저닝
 - [ ] GKE Burst 자동 트리거 (HPA/KEDA 연동)
+- [x] AWS Crossplane Provider 연동 (EC2/S3/EKS/RDS)
+- [x] Azure Crossplane Provider 연동 (VM/Blob/AKS/PostgreSQL)
+- [x] 멀티 클라우드 Backstage 마법사 템플릿 (GCP/AWS/Azure)
 
 ## 팀원
 
