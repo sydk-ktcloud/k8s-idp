@@ -1,0 +1,96 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backup-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: longhorn.backup
+    interval: 1m
+    rules:
+    - alert: LonghornVolumeBackupFailed
+      expr: longhorn_backup_state{state="Error"} == 1
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Longhorn 볼륨 백업 실패: {{ $labels.volume }}"
+        description: "MinIO 백업이 5분 이상 Error 상태입니다."
+
+    - alert: LonghornBackupTargetUnreachable
+      expr: longhorn_backup_target_reachable == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Longhorn 백업 타겟(MinIO)에 접근 불가"
+        description: "MinIO S3 백업 타겟이 2분 이상 응답하지 않습니다."
+
+    - alert: LonghornNodeStorageLow
+      expr: longhorn_node_storage_usage_bytes / longhorn_node_storage_capacity_bytes > 0.80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Longhorn 노드 {{ $labels.node }} 스토리지 사용률 80% 초과"
+        description: "현재 사용률: {{ $value | humanizePercentage }}"
+
+    - alert: LonghornVolumeActualSizeHigh
+      expr: longhorn_volume_actual_size_bytes / longhorn_volume_capacity_bytes > 0.85
+      for: 10m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Longhorn 볼륨 {{ $labels.volume }} 용량 85% 초과"
+        description: "볼륨 확장 또는 데이터 정리가 필요합니다."
+
+  - name: velero.backup
+    interval: 5m
+    rules:
+    - alert: VeleroBackupFailed
+      expr: velero_backup_failure_total > 0
+      for: 0m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Velero 백업 실패: {{ $labels.schedule }}"
+        description: "클러스터 상태 백업이 실패했습니다. 즉시 확인이 필요합니다."
+
+    - alert: VeleroBackupMissing
+      expr: time() - velero_backup_last_successful_timestamp > 90000
+      for: 0m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Velero 백업이 25시간 이상 성공하지 않았습니다"
+        description: "일일 백업 스케줄 (01:00)이 정상 실행되지 않았습니다."
+
+  - name: loki.health
+    rules:
+    - alert: LokiIngestionRateHigh
+      expr: rate(loki_ingester_streams_created_total[5m]) > 1000
+      for: 10m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Loki 로그 수집 속도가 비정상적으로 높습니다"
+        description: "현재 초당 스트림 생성 수: {{ $value }}"
+
+    - alert: LokiStorageNearFull
+      expr: kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"storage-loki.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"storage-loki.*"} > 0.85
+      for: 10m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Loki PVC 용량 85% 초과"
+        description: "Loki WAL/인덱스 PVC 용량을 확인하세요."

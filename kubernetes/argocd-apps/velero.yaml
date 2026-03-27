@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: velero
+  namespace: gitops
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/component: backup
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+    path: kubernetes/helm-releases/velero
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: velero
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bucket-init
+  namespace: minio-storage
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mc
+        image: minio/mc:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "MinIO 연결 설정 중..."
+          mc alias set local http://minio.minio-storage:9000 \
+            "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+
+          echo "버킷 초기화 중..."
+          mc mb --ignore-existing local/longhorn-backups
+          mc mb --ignore-existing local/velero
+          mc mb --ignore-existing local/loki-chunks
+          mc mb --ignore-existing local/tempo-traces
+
+          echo "버전 관리 활성화 중..."
+          mc version enable local/longhorn-backups
+          mc version enable local/loki-chunks
+
+          echo "버킷 목록:"
+          mc ls local/
+          echo "완료."
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: MINIO_ROOT_USER
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: MINIO_ROOT_PASSWORD
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi

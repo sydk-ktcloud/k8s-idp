@@ -86,3 +86,20 @@ datasources:
         url: http://tempo.monitoring:3200
         access: proxy
         uid: tempo
+
+# 백업 & 스토리지 대시보드 프로바이더
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: backup
+      orgId: 1
+      folder: 'Backup & Storage'
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/backup
+
+dashboardsConfigMaps:
+  backup: "grafana-backup-dashboard"

@@ -28,8 +28,8 @@ longhornUI:
 
 # Default settings
 defaultSettings:
-  backupTarget: ""
-  backupTargetCredentialSecret: ""
+  backupTarget: "s3://longhorn-backups@us-east-1/"
+  backupTargetCredentialSecret: "longhorn-backup-target-secret"
   allowRecurringJobWhileVolumeDetached: false
   createDefaultDiskLabeledNodes: false
   defaultDataPath: /var/lib/longhorn/
@@ -64,8 +64,8 @@ defaultSettings:
   storageNetwork: ""
   deletingConfirmationFlag: false
   engineReplicaTimeout: 8
-  snapshotDataIntegrity: disabled
+  snapshotDataIntegrity: fast-check
   failedBackupTTL: 1440
   restoreVolumeRecurringJobs: false
-  recurringSuccessfulJobsHistoryLimit: 1
-  recurringFailedJobsHistoryLimit: 1
+  recurringSuccessfulJobsHistoryLimit: 3
+  recurringFailedJobsHistoryLimit: 3

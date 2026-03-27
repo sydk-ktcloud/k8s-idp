@@ -1,3 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  namespace: minio-storage
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,52 +30,71 @@ spec:
     spec:
       containers:
       - name: minio
-        image: minio/minio:RELEASE
+        image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+        args:
+        - server
+        - /data
+        - --console-address
+        - ":9001"
         env:
         - name: MINIO_ROOT_USER
-          value: "admin"
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: MINIO_ROOT_USER
         - name: MINIO_ROOT_PASSWORD
-          value: "K8sCluster@2026"
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: MINIO_ROOT_PASSWORD
         ports:
         - containerPort: 9000
-          name: data
+          name: s3-api
+        - containerPort: 9001
+          name: console
         volumeMounts:
         - mountPath: /data
-        - mountPath: /console
-          name: console
-          readOnly: true
+          name: data
         resources:
           requests:
             memory: 256Mi
             cpu: 100m
-        volumeMounts:
-        - mountPath: /data
-          name: data
+          limits:
+            memory: 1Gi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 10
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: minio-data
-status: Bound
-volume:
-  capacity: 50Gi
-  accessModes:
-  - ReadWriteOnce
-  storageClassName: longhorn
 ---
+# ClusterIP 서비스 - 인-클러스터 S3 API 접근용 (minio.minio-storage:9000)
 apiVersion: v1
 kind: Service
 metadata:
-  name: minio-console
+  name: minio
   namespace: minio-storage
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
-    - port: 9000
-      targetPort: 9000
-      nodePort: 30900
+  - port: 9000
+    targetPort: 9000
+    name: s3-api
   selector:
     app: minio
 ---
+# NodePort 서비스 - 외부 S3 API 접근용
 apiVersion: v1
 kind: Service
 metadata:
@@ -71,8 +103,25 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - port: 9000
-      targetPort: 9000
-      nodePort: 30900
+  - port: 9000
+    targetPort: 9000
+    nodePort: 30900
+    name: s3-api
+  selector:
+    app: minio
+---
+# NodePort 서비스 - MinIO 콘솔 UI 접근용
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-console
+  namespace: minio-storage
+spec:
+  type: NodePort
+  ports:
+  - port: 9001
+    targetPort: 9001
+    nodePort: 30901
+    name: console
   selector:
     app: minio

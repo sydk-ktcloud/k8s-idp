@@ -98,11 +98,16 @@ kube-state-metrics:
       enabled: true
       http:
         honorLabels: true
-<<<<<<< HEAD
-        
-=======
+# 추가 스크레이프 설정 (MinIO 메트릭)
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+    - job_name: 'minio'
+      static_configs:
+      - targets: ['minio.minio-storage:9000']
+      metrics_path: /minio/v2/metrics/cluster
+      scheme: http
 
->>>>>>> 87748b44bebaa34152c3726b6c426e9f4e690012
 # Prometheus Operator
 prometheusOperator:
   resources:

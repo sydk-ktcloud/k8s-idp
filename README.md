@@ -18,6 +18,7 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 | **시크릿** | Vault | 🔄 구성됨 | HA Raft 구성, 배포 대기 |
 | **저장소** | Longhorn + MinIO | ✅ 배포됨 | 블록 스토리지 + 오브젝트 스토리지 |
 | **관찰가능성** | Prometheus + Grafana + LGTM | ✅ 배포됨 | Metrics, Logs, Traces |
+| **백업** | Longhorn Backup + Velero | ✅ 배포됨 | PV 백업 + 클러스터 상태 백업 |
 
 ### 개발자 플랫폼
 
@@ -160,7 +161,8 @@ k8s-idp/
 | `kubecost` | 비용 모니터링 |
 | `longhorn-system` | 분산 스토리지 |
 | `vault` | 시크릿 관리 (계획) |
-| `minio-storage` | 오브젝트 스토리지 |
+| `minio-storage` | 오브젝트 스토리지 + 백업 S3 허브 |
+| `velero` | 클러스터 상태 백업 |
 | `kube-system` | Cilium CNI, Hubble |
 
 ## 애플리케이션
@@ -383,6 +385,174 @@ KUBECONFIG=kubeconfig/gke-burst \
 |----|------|------|
 | Admin, Platform, GitOps, Security, SRE | role:admin | cluster-admin |
 | FinOps, AI | role:readonly | view |
+
+## 로깅 전략
+
+클러스터의 모든 관측 신호는 **LGTM 스택**을 통해 단일 Grafana 대시보드로 통합됩니다.
+
+### 로깅 스택 구성
+
+```
+애플리케이션 파드
+      │ stdout/stderr
+      ▼
+  Alloy (DaemonSet)  ──── OTLP 트레이스 ────▶  Tempo
+      │                                        (분산 추적)
+      │ Loki Push API
+      ▼
+    Loki                  Prometheus  ◀──── 전 네임스페이스 스크레이프
+  (로그 집계)             (메트릭 수집)
+      │                       │
+      └───────────┬───────────┘
+                  ▼
+               Grafana
+           (통합 시각화 + 알림)
+```
+
+| 컴포넌트 | 역할 | 보존 기간 | 스토리지 |
+|----------|------|-----------|----------|
+| **Prometheus** | 메트릭 수집 (30s 간격) | 15일 / 45GiB | 50Gi Longhorn |
+| **Loki** | 로그 집계 | 30일 | 10Gi Longhorn + MinIO S3 |
+| **Tempo** | 분산 트레이스 | 7일 | 10Gi Longhorn + MinIO S3 |
+| **Alloy** | 로그·트레이스 수집 에이전트 | - | DaemonSet (상태 없음) |
+| **Grafana** | 시각화 + 알림 | - | 1Gi Longhorn |
+
+### 로그 수집 방식
+
+- **Alloy DaemonSet**: 모든 노드에 배포되어 파드의 `stdout`/`stderr`를 자동 수집
+- **JSON 파싱**: `level`, `trace_id` 필드를 자동 추출하여 Loki 레이블로 저장
+- **TraceID 연동**: Loki 로그에서 TraceID를 추출해 Grafana에서 Tempo 트레이스로 바로 이동 가능
+
+### Loki S3 이중 스키마 (마이그레이션)
+
+Loki는 기존 `filesystem` 스키마와 신규 `S3` 스키마를 병행 운영합니다.
+
+| 기간 | 스토리지 | 비고 |
+|------|----------|------|
+| 2024-01-01 ~ 2026-04-06 | Longhorn PVC (filesystem) | 기존 데이터, 자연 만료 대기 |
+| 2026-04-07 ~ | MinIO S3 (`loki-chunks` 버킷) | 신규 데이터 |
+
+---
+
+## 백업 전략
+
+### 아키텍처
+
+MinIO를 내부 S3 허브로 활용하여 외부 클라우드 의존 없이 모든 백업을 단일 오브젝트 스토리지로 집중합니다.
+
+```
+┌───────────────────────────────────────────────────────────┐
+│            MinIO (minio-storage, S3 Hub)                   │
+│  longhorn-backups │ velero │ loki-chunks │ tempo-traces    │
+└──────────┬────────────────────────────────────────────────┘
+           │ S3 API (minio.minio-storage:9000)
+   ┌───────┼──────────────────────┬─────────────┐
+   │       │                      │             │
+Longhorn  Velero                Loki         Tempo
+(PV 백업) (클러스터 상태 백업)  (로그 청크)  (트레이스)
+```
+
+### Longhorn PV 백업
+
+Longhorn은 MinIO를 S3 백업 타겟으로 사용하여 클러스터 내 모든 PV를 자동 백업합니다.
+
+| 작업 | 스케줄 | 보존 개수 | 설명 |
+|------|--------|-----------|------|
+| **스냅샷** | 매일 02:00 | 7개 | 로컬 스냅샷 (MinIO 독립적) |
+| **백업** | 매일 03:00 | 14개 | MinIO `longhorn-backups` 버킷으로 전송 |
+
+**백업 대상 PV 목록 (총 ~295Gi)**
+
+| 컴포넌트 | 크기 | 네임스페이스 |
+|----------|------|-------------|
+| Prometheus | 50Gi | monitoring |
+| Kubecost (aggregator DB) | 128Gi | kubecost |
+| Kubecost (localStore) | 32Gi | kubecost |
+| MinIO | 50Gi | minio-storage |
+| Loki | 10Gi | monitoring |
+| Tempo | 10Gi | monitoring |
+| AlertManager | 5Gi | monitoring |
+| Kubecost (finops agent) | 8Gi | kubecost |
+| Kubecost (cloudCost) | 1Gi | kubecost |
+| Grafana | 1Gi | monitoring |
+
+관련 파일:
+- `kubernetes/helm-releases/longhorn/values.yaml` — `backupTarget`, `snapshotDataIntegrity` 설정
+- `kubernetes/storage/longhorn-backup-secret.yaml` — S3 자격증명 (longhorn-system)
+- `kubernetes/storage/longhorn-recurringjobs.yaml` — RecurringJob 스케줄 정의
+
+### Velero 클러스터 상태 백업
+
+Velero는 Kubernetes 리소스(Deployment, ConfigMap, Secret, PV 등)를 MinIO에 백업합니다.
+
+| 항목 | 값 |
+|------|----|
+| 스케줄 | 매일 01:00 |
+| 보존 기간 | 14일 (336h) |
+| 백업 범위 | 전체 네임스페이스 (`velero` 제외) |
+| 저장 위치 | MinIO `velero` 버킷 |
+
+```bash
+# 백업 상태 확인
+kubectl get backups -n velero
+
+# 수동 백업 실행
+velero backup create manual-$(date +%Y%m%d) --include-namespaces='*'
+
+# 복구
+velero restore create --from-backup <backup-name>
+```
+
+관련 파일:
+- `kubernetes/argocd-apps/velero.yaml` — ArgoCD Application
+- `kubernetes/helm-releases/velero/values.yaml` — 스케줄, 백업 대상, MinIO 설정
+
+### MinIO 내구성
+
+MinIO의 데이터 자체는 Longhorn PVC(2-replica) 위에 저장됩니다. Longhorn 로컬 스냅샷은 MinIO와 독립적으로 동작하므로 MinIO 장애 시에도 스냅샷을 통한 복구가 가능합니다.
+
+> **한계**: 현재 구성은 클러스터 전체 소실에 대한 완전한 보호를 제공하지 않습니다. 완전한 DR(Disaster Recovery)을 위해서는 MinIO → 외부 S3(AWS/GCS)로의 `rclone sync` 추가가 권장됩니다.
+
+### MinIO 버킷 구성
+
+| 버킷 | 사용처 | 버전 관리 |
+|------|--------|-----------|
+| `longhorn-backups` | Longhorn PV 백업 | ✅ 활성화 |
+| `velero` | Velero 클러스터 백업 | - |
+| `loki-chunks` | Loki 로그 청크 | ✅ 활성화 |
+| `tempo-traces` | Tempo 트레이스 블록 | - |
+
+### 자격증명 관리
+
+모든 백업 자격증명은 Kubernetes Secret으로 관리되며, Git에는 `REPLACE_ME` 플레이스홀더만 저장됩니다.
+
+| Secret | 네임스페이스 | 용도 |
+|--------|-------------|------|
+| `minio-credentials` | minio-storage | MinIO 루트 계정 |
+| `longhorn-backup-target-secret` | longhorn-system | Longhorn → MinIO S3 |
+| `velero-credentials` | velero | Velero → MinIO S3 |
+| `loki-minio-credentials` | monitoring | Loki → MinIO S3 |
+| `tempo-minio-credentials` | monitoring | Tempo → MinIO S3 |
+
+> Vault 구성 완료 후 각 Secret을 `ExternalSecret`으로 교체할 예정입니다.
+
+### 백업 모니터링 및 알림
+
+Grafana에서 **"Backup & Storage"** 폴더 아래 통합 대시보드를 제공합니다.
+
+**알림 규칙** (`kubernetes/helm-releases/prometheus/backup-alerts.yaml`):
+
+| 알림 | 심각도 | 조건 |
+|------|--------|------|
+| `LonghornVolumeBackupFailed` | critical | Longhorn 백업 Error 상태 5분 지속 |
+| `LonghornBackupTargetUnreachable` | critical | MinIO 백업 타겟 2분 이상 응답 없음 |
+| `LonghornNodeStorageLow` | warning | 노드 스토리지 사용률 80% 초과 |
+| `LonghornVolumeActualSizeHigh` | warning | 볼륨 용량 사용률 85% 초과 |
+| `VeleroBackupFailed` | critical | Velero 백업 실패 |
+| `VeleroBackupMissing` | warning | 25시간 이상 성공한 백업 없음 |
+| `LokiIngestionRateHigh` | warning | Loki 로그 수집 속도 비정상 |
+
+---
 
 ## 빠른 시작
 
