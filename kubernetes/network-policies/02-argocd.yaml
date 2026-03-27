@@ -52,20 +52,8 @@ spec:
       ports:
         - protocol: TCP
           port: 5556
-    # Kubernetes API server (pre-DNAT ClusterIP 범위)
-    - to:
-        - ipBlock:
-            cidr: 10.96.0.0/12
-      ports:
-        - protocol: TCP
-          port: 443
-    # Kubernetes API server (post-DNAT: control plane 노드 IP)
-    - to:
-        - ipBlock:
-            cidr: 192.168.122.109/32
-      ports:
-        - protocol: TCP
-          port: 6443
+    # Kubernetes API server: CiliumNetworkPolicy(argocd-kube-apiserver-egress)로 처리
+    # Cilium reserved identity "kube-apiserver"는 표준 ipBlock으로 매칭 불가 → CNP 필요
     # 외부 트래픽 (GitHub, Helm repos 등) - private IP 제외
     - to:
         - ipBlock:
@@ -79,3 +67,17 @@ spec:
           port: 443
         - protocol: TCP
           port: 22
+---
+# Cilium reserved identity "kube-apiserver"는 표준 NetworkPolicy ipBlock으로 매칭 불가.
+# argocd 모든 pod → kube-apiserver 접근 허용
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: argocd-kube-apiserver-egress
+  namespace: gitops
+spec:
+  endpointSelector:
+    matchLabels: {}
+  egress:
+  - toEntities:
+    - kube-apiserver
