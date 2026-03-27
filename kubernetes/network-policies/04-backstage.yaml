@@ -23,6 +23,7 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
+    # Dex OIDC 내부 서비스 (pod 직접)
     - to:
         - namespaceSelector:
             matchLabels:
@@ -33,6 +34,13 @@ spec:
       ports:
         - protocol: TCP
           port: 5556
+    # Dex OIDC - app-config의 metadataUrl이 NodePort(100.64.0.1:30556) 사용
+    - to:
+        - ipBlock:
+            cidr: 100.64.0.0/10  # Tailscale CGNAT 범위
+      ports:
+        - protocol: TCP
+          port: 30556
     - to:
         - namespaceSelector: {}
       ports:
