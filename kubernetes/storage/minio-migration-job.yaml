@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-data-migration
+  namespace: minio-storage
+  labels:
+    app: minio-migration
+spec:
+  template:
+    metadata:
+      labels:
+        app: minio-migration
+    spec:
+    containers:
+    - name: mc
+      image: minio/mc:RELEASE.2024-01-16T16-07-38Z
+      command:
+        - /bin/sh
+        - -c
+        - "mirror
+        - /data
+        - http://minio.minio-storage:9000
+        - /backup
+        - /data-0
+        - http://minio.minio-storage:9000/minio/health/ready
+        - /data-1
+        - /data-2
+        - http://minio.minio-storage:9000/minio/health/ready
+        - /data-2
+        - /data-3
+      env:
+        - name: MC_HOST_minio
+          value: minio.minio-storage
+        - name: MC_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: MINIO_ROOT_USER
+        - name: MC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: MINIO_ROOT_PASSWORD
+    restartPolicy:
+      OnFailure: 3
+    backoffLimit: 5
