@@ -38,7 +38,7 @@ import AutoFixHighIcon from '@material-ui/icons/Stars';
 const CLOUD_ACCENT: Record<string, string> = {
   gcp:   '#4285F4',
   aws:   '#FF9900',
-  azure: '#0078D4',
+  azure: '#43a047',
 };
 
 const useStyles = makeStyles((theme: Theme) =>

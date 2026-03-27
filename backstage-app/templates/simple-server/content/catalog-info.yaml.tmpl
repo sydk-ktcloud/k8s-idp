@@ -1,11 +1,11 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: {{ componentName }}
-  description: "GCP 서버: {{ componentName }}"
+  name: {{ values.componentName }}
+  description: "{{ values.cloudProvider | upper }} 서버: {{ values.componentName }}"
   tags:
     - server
-    - gcp
+    - {{ values.cloudProvider }}
   annotations:
     github.com/project-slug: sydk-ktcloud/k8s-idp
 spec:
@@ -13,6 +13,16 @@ spec:
   lifecycle: experimental
   owner: user:guest
   links:
+    {% if values.cloudProvider === 'aws' %}
+    - url: https://ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Instances
+      title: AWS Console (EC2 확인)
+      icon: cloud
+    {% elif values.cloudProvider === 'azure' %}
+    - url: https://portal.azure.com/#browse/Microsoft.Compute%2FvirtualMachines
+      title: Azure Portal (VM 확인)
+      icon: cloud
+    {% else %}
     - url: https://console.cloud.google.com/compute/instances
       title: Google Cloud Console (서버 확인)
       icon: cloud
+    {% endif %}

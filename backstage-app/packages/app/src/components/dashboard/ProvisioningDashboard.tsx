@@ -42,7 +42,7 @@ import type { ErrorCategory } from './troubleshootingGuides';
 const CLOUD_COLORS = {
   GCP: { bg: '#e8f0fe', color: '#1a73e8', border: '#4285F4' },
   AWS: { bg: '#fff3e0', color: '#e65100', border: '#FF9900' },
-  Azure: { bg: '#e3f2fd', color: '#0277bd', border: '#0078D4' },
+  Azure: { bg: '#e8f5e9', color: '#2e7d32', border: '#43a047' },
 };
 
 const useStyles = makeStyles((theme: Theme) =>
