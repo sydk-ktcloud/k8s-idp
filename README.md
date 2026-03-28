@@ -12,6 +12,7 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 |--------|----------|------|------|
 | **인프라** | VM (KVM/libvirt) | ✅ 배포됨 | 4VM: 1 CP + 3 Workers |
 | **네트워크** | Cilium CNI + Hubble | ✅ 배포됨 | eBPF 기반 네트워킹 + 관찰가능성 |
+| **서비스 메시** | Istio Ambient Mesh | ✅ 배포됨 | mTLS 암호화, Sidecar 없음 |
 | **VPN** | Headscale + Headplane | ✅ 배포됨 | Self-hosted Tailscale + Web UI |
 | **SSO** | Dex OIDC | ✅ 배포됨 | 7명 사용자, 다중 서비스 연동 |
 | **GitOps** | ArgoCD | ✅ 배포됨 | Application of Apps 패턴 |
@@ -32,6 +33,63 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 
 ## 아키텍처
 
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          Host Server (32C/128GB/2TB)                         │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                           KVM / libvirt                                  ││
+│  │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                   ││
+│  │   │ k8s-cp  │  │ k8s-w1  │  │ k8s-w2  │  │ k8s-w3  │                   ││
+│  │   │ 4C/16GB │  │ 8C/32GB │  │ 8C/32GB │  │ 8C/32GB │                   ││
+│  │   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘                   ││
+│  └────────┼────────────┼────────────┼────────────┼─────────────────────────┘│
+│           └────────────┴─────┬──────┴────────────┘                           │
+│                              │ (3 Worker Nodes = HA 분산 배치)               │
+│  ┌───────────────────────────┴─────────────────────────────────────────────┐│
+│  │                    Kubernetes Cluster (v1.32.0)                          ││
+│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
+│  │  │              Service Mesh Layer (Istio Ambient Mesh)               │ ││
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐│ ││
+│  │  │  │   istiod    │  │   ztunnel   │  │   HBONE mTLS Tunneling      ││ ││
+│  │  │  │ (Control    │  │ (Node-level │  │   (Port 15008)              ││ ││
+│  │  │  │  Plane)     │  │  L4 Proxy)  │  │   모든 서비스 간 암호화       ││ ││
+│  │  │  └─────────────┘  └─────────────┘  └─────────────────────────────┘│ ││
+│  │  └────────────────────────────────────────────────────────────────────┘ ││
+│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
+│  │  │          Platform Services  [replicas:3, PDB, anti-affinity]       │ ││
+│  │  │  ┌──────────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────┐       │ ││
+│  │  │  │    ArgoCD    │ │   Dex    │ │Backstage │ │  Crossplane │       │ ││
+│  │  │  │server  ×3    │ │   ×3     │ │backend×3 │ │  (IaC)      │       │ ││
+│  │  │  │controller×3  │ │+redis-ha │ │+HPA      │ │             │       │ ││
+│  │  │  │repoServer×3  │ │  ×3      │ │          │ │             │       │ ││
+│  │  │  └──────────────┘ └──────────┘ └──────────┘ └─────────────┘       │ ││
+│  │  │  PodDisruptionBudgets: argocd-server, argocd-controller,           │ ││
+│  │  │                        argocd-repo-server, dex, backstage-backend  │ ││
+│  │  └────────────────────────────────────────────────────────────────────┘ ││
+│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
+│  │  │                    Observability Stack                              │ ││
+│  │  │  ┌───────────┐ ┌─────────┐ ┌──────┐ ┌───────┐ ┌───────────┐       │ ││
+│  │  │  │ Prometheus│ │ Grafana │ │ Loki │ │ Tempo │ │   Alloy   │       │ ││
+│  │  │  └───────────┘ └─────────┘ └──────┘ └───────┘ └───────────┘       │ ││
+│  │  └────────────────────────────────────────────────────────────────────┘ ││
+│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
+│  │  │              Storage Layer  [Distributed HA]                        │ ││
+│  │  │  ┌────────────┐         ┌──────────────────────────────────┐       │ ││
+│  │  │  │  Longhorn  │         │  MinIO Distributed (×4 StatefulSet│       │ ││
+│  │  │  │ (Block)    │         │  Erasure Coding, PDB minAvail:2) │       │ ││
+│  │  │  └────────────┘         └──────────────────────────────────┘       │ ││
+│  │  └────────────────────────────────────────────────────────────────────┘ ││
+│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
+│  │  │           GKE Burst  [KEDA + Tailscale VPN]                         │ ││
+│  │  │  온프레미스 부하 초과 시 GKE 클러스터로 워크로드 자동 확장              │ ││
+│  │  └────────────────────────────────────────────────────────────────────┘ ││
+│  └───────────────────────────────────────────────────────────────────────────┘│
+│                              │                                              │
+│  ┌───────────────────────────┴───────────────────────────────────────────┐  │
+│  │                    Headscale (VPN / Mesh Network)                      │  │
+│  │                         + Headplane (Web UI)                            │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                          Host Server (32C/128GB/2TB)                     │
@@ -112,7 +170,8 @@ k8s-idp/
 │   │   ├── cert-manager/       # 인증서 관리
 │   │   ├── cilium/             # CNI/Hubble 설정
 │   │   ├── pdb/                # PodDisruptionBudget (서비스별 HA 보호)
-│   │   ├── gke-burst/          # GKE Burst 클러스터 매니페스트 (KEDA, Tailscale)
+│   │   ├── gke-burst/            # GKE Burst 클러스터 매니페스트 (KEDA, Tailscale)
+│   │   ├── istio-ambient/       # Istio Ambient Mesh (mTLS, NetworkPolicy)
 │   │   ├── crossplane-compositions/  # XRD/Composition (GCP 8종, AWS 4종, Azure 4종)
 │   │   │   ├── aws/            # EC2Instance, S3Bucket, EKSCluster, RDSDatabase
 │   │   │   └── azure/          # AzureVM, AzureBlobStorage, AKSCluster, AzureDatabase
@@ -168,6 +227,7 @@ k8s-idp/
 
 | Namespace | 용도 |
 |-----------|------|
+| `istio-system` | Istio Ambient Mesh (istiod, ztunnel) |
 | `auth` | Dex OIDC |
 | `gitops` | ArgoCD |
 | `backstage` | 개발자 포털 |
@@ -358,6 +418,99 @@ KUBECONFIG=kubeconfig/gke-burst \
 
 ---
 
+### Istio Ambient Mesh (mTLS)
+
+모든 서비스 간 트래픽은 Istio Ambient Mesh를 통해 mTLS로 암호화됩니다.
+
+#### 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Istio Ambient Mesh                                │
+│                                                                          │
+│  ┌─────────────┐     ┌─────────────────────────────────────────────┐    │
+│  │   istiod    │     │              ztunnel (per-node)               │    │
+│  │ (Control    │────▶│  ┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐  │    │
+│  │  Plane)     │     │  │Node 1 │  │Node 2 │  │Node 3 │  │Node 4 │  │    │
+│  └─────────────┘     │  └───┬───┘  └───┬───┘  └───┬───┘  └───┬───┘  │    │
+│                       │      │          │          │          │      │    │
+│                       └──────┼──────────┼──────────┼──────────┼──────┘    │
+│                              │          │          │          │           │
+│  ┌───────────────────────────┴──────────┴──────────┴──────────┴──────┐    │
+│  │                    HBONE mTLS Tunnel (Port 15008)                  │    │
+│  │         모든 서비스 간 트래픽 자동 암호화 (Sidecar 없음)            │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+│  Pod A ──▶ ztunnel ──▶ HBONE Tunnel ──▶ ztunnel ──▶ Pod B               │
+│         (L4 mTLS)         (암호화)         (L4 mTLS)                      │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### mTLS 상태 (네임스페이스별)
+
+| 네임스페이스 | mTLS 모드 | 비고 |
+|-------------|-----------|------|
+| `trip-app` | STRICT | 완전 mTLS 강제 |
+| `backstage` | STRICT | 완전 mTLS 강제 |
+| `chatops` | STRICT | 완전 mTLS 강제 |
+| `gitops` | STRICT | ArgoCD 포함 |
+| `auth` | STRICT | Dex 포함 |
+| `monitoring` | PERMISSIVE | 메트릭 수집 호환성 |
+
+#### 설정 파일
+
+| 파일 | 설명 |
+|------|------|
+| `kubernetes/manifests/istio-ambient/allow-ambient-hostprobes.yaml` | kubelet health probe 허용 |
+| `kubernetes/manifests/istio-ambient/peer-authentication.yaml` | STRICT mTLS 정책 |
+| `kubernetes/manifests/istio-ambient/istio-ambient-hbone.yaml` | HBONE 터널 (Port 15008) 허용 |
+| `infrastructure/kubernetes/cilium-istio-patch.yaml` | Cilium Istio 호환성 설정 |
+
+#### 주요 설정값
+
+```yaml
+# Cilium Istio 호환성 (infrastructure/kubernetes/cilium-istio-patch.yaml)
+cni-exclusive: "false"
+bpf-lb-sock-hostns-only: "true"
+```
+
+#### 해결한 이슈들
+
+| 이슈 | 원인 | 해결 방안 |
+|------|------|----------|
+| **클러스터 DNS 전체 불능** | 잘못된 CiliumClusterwideNetworkPolicy | namespace-scoped 정책으로 교체 |
+| **HBONE mTLS 터널 차단** | Port 15088 미허용 | 각 namespace에 `istio-ambient-hbone` NetworkPolicy 추가 |
+| **kubelet health probe 인터셉션** | Istio 1.29 INPOD 모드 이슈 | 특정 파드에 `istio.io/dataplane-mode: none` 적용 |
+
+#### Health Probe 예외 파드
+
+Istio 1.29 INPOD 모드의 알려진 이슈로 인해 다음 파드들은 ambient mesh에서 제외:
+
+| 네임스페이스 | 파드 |
+|-------------|------|
+| `monitoring` | prometheus-kube-state-metrics, alertmanager |
+| `monitoring` | loki-chunks-cache, loki-results-cache |
+| `auth` | dex |
+| `gitops` | argocd-notifications-controller |
+
+#### 검증 명령어
+
+```bash
+# mTLS 상태 확인
+istioctl authn tls-check
+
+# ztunnel 로그에서 mTLS 확인
+kubectl logs -n istio-system -l app=ztunnel | grep "connection_security_policy"
+
+# 특정 네임스페이스 mTLS 활성화
+kubectl label namespace <namespace> istio.io/dataplane-mode=ambient
+
+# mTLS 비활성화 (롤백)
+kubectl label namespace <namespace> istio.io/dataplane-mode-
+```
+
+---
+
 ### Pod Security Admission (PSA)
 
 표준 Kubernetes PSA로 워크로드 보안 수준을 관리합니다.
@@ -375,7 +528,56 @@ KUBECONFIG=kubeconfig/gke-burst \
 
 ---
 
-### Resource 제한 (LimitRange)
+### Istio Ambient Mesh (mTLS)
+
+모든 서비스 간 트래픽은 Istio Ambient Mesh를 통해 mTLS로 암호화됩니다.
+
+#### 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Istio Ambient Mesh                                │
+│                                                                          │
+│  ┌─────────────┐     ┌─────────────────────────────────────────────┐    │
+│  │   istiod    │     │              ztunnel (per-node)               │    │
+│  │ (Control    │────▶│  ┌───────┐  ┌───────┐  ┌───────┐  │    │
+│  │  Plane)     │     │  │Node 1 │  │Node 2 │  │Node 3 │  │Node 4 │  │    │
+│  └─────────────┘     │  └───────┘  └───────┘  └───────┘  │    │
+│                              │              HBONE mTLS Tunneling              │    │
+│                              │              (Port 15008)                     │    │
+│                              │              모든 서비스 간 암호화             │    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### mTLS 상태
+| 네임스페이스 | mTLS 모드 | 비고 |
+|------------|--------|------|
+| trip-app | STRICT | 완전 mTLS 강제 |
+| backstage | STRICT | 완전 mTLS 강제 |
+| chatops | STRICT | 완전 mTLS 강제 |
+| gitops | STRICT | ArgoCD 포함 |
+| auth | STRICT | Dex 포함 |
+| monitoring | PERMISSIVE | 메트릭 수집 호환성 |
+#### 해결한 이슈들
+| 이슈 | 원인 | 해결 방안 |
+|------|------|------|
+| **클러스터 DNS 전체 불량** | 잘못된 CiliumClusterwideNetworkPolicy | namespace-scoped 정책으로 교체 |
+| **HBONE mTLS 터널 차단** | NetworkPolicy에서 port 15008 미허용 | 각 namespace에 `istio-ambient-hbone` NetworkPolicy 추가 |
+| **kubelet health probe 인터셉션** | Istio 1.29 INPOD 모드 알려진 이슈 | 특정 파드에 `istio.io/dataplane-mode: none` 적용 |
+**Health Probe 예외 파드 목록:**
+- `monitoring/prometheus-kube-state-metrics`
+- `monitoring/alertmanager`
+- `monitoring/loki-chunks-cache`, `loki-results-cache`
+- `auth/dex`
+- `gitops/argocd-notifications-controller`
+#### 검증 명령어
+```bash
+# mTLS 상태 확인
+istioctl authn tls-check
+# ztunnel 로그에서 mTLS 확인
+kubectl logs -n istio-system -l app=ztunnel | grep "connection_security_policy"
+```
+---
 
 리소스 무제한 소비 방지를 위한 기본값 설정.
 
