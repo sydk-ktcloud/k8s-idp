@@ -456,6 +456,22 @@ data:
           rules:
             - allow: [Template]
         - type: file
+          target: ./templates/aws-service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/azure-service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/aws-infrastructure/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/azure-infrastructure/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
           target: ./templates/simple-server/template.yaml
           rules:
             - allow: [Template]
