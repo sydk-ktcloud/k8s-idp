@@ -31,12 +31,7 @@ spec:
   region: {{ values.eksRegion }}
   nodeCount: {{ values.eksNodeCount }}
   instanceType: {{ values.eksInstanceType }}
-  roleArn: {{ values.eksRoleArn }}
-  nodeRoleArn: {{ values.eksNodeRoleArn }}
-  subnetIds:
-{% for subnetId in values.eksSubnetIds.split(',') %}
-    - {{ subnetId.strip() }}
-{% endfor %}
+  # roleArn, nodeRoleArn, subnetIds — Crossplane EnvironmentConfig(aws-platform)에서 자동 주입
 {% elif values.resourceType == 'rdsdatabase' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: RDSDatabase

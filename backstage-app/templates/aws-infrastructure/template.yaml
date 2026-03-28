@@ -138,9 +138,6 @@ spec:
         - eksRegion
         - eksNodeCount
         - eksInstanceType
-        - eksRoleArn
-        - eksNodeRoleArn
-        - eksSubnetIds
       properties:
         eksRegion:
           title: 클러스터 위치 (리전)
@@ -183,18 +180,6 @@ spec:
             - "중형 (t3.medium)  ← 권장"
             - "대형 (t3.xlarge)"
           description: 각 워커 노드의 EC2 인스턴스 타입입니다.
-        eksRoleArn:
-          title: EKS 클러스터 IAM Role ARN
-          type: string
-          description: "EKS 클러스터용 사전 생성된 IAM Role ARN (예: arn:aws:iam::123456789:role/eks-cluster-role)"
-        eksNodeRoleArn:
-          title: EKS 노드 IAM Role ARN
-          type: string
-          description: "EKS 노드 그룹용 사전 생성된 IAM Role ARN (예: arn:aws:iam::123456789:role/eks-node-role)"
-        eksSubnetIds:
-          title: 서브넷 ID 목록
-          type: string
-          description: "EKS 클러스터에 사용할 서브넷 ID 목록 (쉼표로 구분, 예: subnet-aaa,subnet-bbb)"
       visible: ${{ parameters.resourceType === 'ekscluster' }}
 
     - title: RDS 데이터베이스 설정
@@ -292,9 +277,6 @@ spec:
           eksRegion: ${{ parameters.eksRegion }}
           eksNodeCount: ${{ parameters.eksNodeCount }}
           eksInstanceType: ${{ parameters.eksInstanceType }}
-          eksRoleArn: ${{ parameters.eksRoleArn }}
-          eksNodeRoleArn: ${{ parameters.eksNodeRoleArn }}
-          eksSubnetIds: ${{ parameters.eksSubnetIds }}
           rdsEngine: ${{ parameters.rdsEngine }}
           rdsInstanceClass: ${{ parameters.rdsInstanceClass }}
           rdsRegion: ${{ parameters.rdsRegion }}

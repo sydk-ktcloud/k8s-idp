@@ -9,6 +9,15 @@ spec:
   compositeTypeRef:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XEKSCluster
+
+  # ── EnvironmentConfig: 플랫폼 팀이 관리하는 계정 수준 기본값 ──
+  # IAM Role ARN, Subnet ID 등을 개발자가 몰라도 됩니다.
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: aws-platform
+
   resources:
     - name: eks-cluster
       base:
@@ -31,14 +40,36 @@ spec:
           providerConfigRef:
             name: default
       patches:
+        # region
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
-        - fromFieldPath: spec.roleArn
+        # roleArn: EnvironmentConfig 기본값 → spec.roleArn으로 재정의 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: clusterRoleArn
           toFieldPath: spec.forProvider.roleArn
-        - fromFieldPath: spec.subnetIds
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.roleArn
+          toFieldPath: spec.forProvider.roleArn
+          policy:
+            fromFieldPath: Optional
+        # subnetIds: EnvironmentConfig 3개 서브넷 → spec.subnetIds로 재정의 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: subnetId1
+          toFieldPath: spec.forProvider.vpcConfig[0].subnetIds[0]
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: subnetId2
+          toFieldPath: spec.forProvider.vpcConfig[0].subnetIds[1]
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: subnetId3
+          toFieldPath: spec.forProvider.vpcConfig[0].subnetIds[2]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.subnetIds
           toFieldPath: spec.forProvider.vpcConfig[0].subnetIds
+          policy:
+            fromFieldPath: Optional
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+
     - name: eks-node-group
       base:
         apiVersion: eks.aws.upbound.io/v1beta1
@@ -64,12 +95,34 @@ spec:
           providerConfigRef:
             name: default
       patches:
+        # region
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
-        - fromFieldPath: spec.nodeRoleArn
+        # nodeRoleArn: EnvironmentConfig 기본값 → spec.nodeRoleArn으로 재정의 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: nodeRoleArn
           toFieldPath: spec.forProvider.nodeRoleArn
-        - fromFieldPath: spec.subnetIds
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.nodeRoleArn
+          toFieldPath: spec.forProvider.nodeRoleArn
+          policy:
+            fromFieldPath: Optional
+        # subnetIds: EnvironmentConfig 3개 서브넷 → spec.subnetIds로 재정의 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: subnetId1
+          toFieldPath: spec.forProvider.subnetIds[0]
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: subnetId2
+          toFieldPath: spec.forProvider.subnetIds[1]
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: subnetId3
+          toFieldPath: spec.forProvider.subnetIds[2]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.subnetIds
           toFieldPath: spec.forProvider.subnetIds
+          policy:
+            fromFieldPath: Optional
+        # scaling & instanceType
         - fromFieldPath: spec.nodeCount
           toFieldPath: spec.forProvider.scalingConfig[0].desiredSize
         - fromFieldPath: spec.instanceType

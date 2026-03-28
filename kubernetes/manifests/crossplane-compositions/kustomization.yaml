@@ -21,6 +21,7 @@ resources:
   - xcache-xrd.yaml
   - xcache-composition.yaml
   # AWS XRDs and Compositions
+  - aws/aws-platform-environment-config.yaml
   - aws/xec2instance-xrd.yaml
   - aws/xec2instance-composition.yaml
   - aws/xs3bucket-xrd.yaml
