@@ -98,10 +98,11 @@ spec:
             - "⚠️ 짧은 중단은 허용 (일반 서비스)  –  5분 이내 복구면 OK  ← 권장"
             - "🚨 절대 멈추면 안 됨 (결제·인증·핵심 API)  –  1분도 허용 안 됨"
 
-    # ── Step 5: 서비스 이름 ────────────────────────────────────
+    # ── Step 5: 서비스 이름 & 배포 위치 ──────────────────────────
     - title: "서비스 이름을 정해주세요"
       required:
         - componentName
+        - region
       properties:
         componentName:
           title: 서비스 이름
@@ -114,6 +115,31 @@ spec:
           type: string
           description: "이 서비스가 무엇을 하는지 간단히 설명해주세요"
           default: "AWS에서 운영되는 서비스"
+        region:
+          title: 서버 위치 (리전)
+          type: string
+          default: ap-northeast-2
+          description: >
+            서비스를 운영할 AWS 데이터센터 위치를 선택하세요.
+            사용자와 가까운 리전일수록 응답 속도가 빠릅니다.
+          enum:
+            - ap-northeast-2
+            - ap-northeast-1
+            - ap-southeast-1
+            - ap-southeast-2
+            - us-east-1
+            - us-west-2
+            - eu-west-1
+            - eu-central-1
+          enumNames:
+            - "🇰🇷 한국 서울 (ap-northeast-2)  ← 권장"
+            - "🇯🇵 일본 도쿄 (ap-northeast-1)"
+            - "🌏 싱가포르 (ap-southeast-1)"
+            - "🇦🇺 호주 시드니 (ap-southeast-2)"
+            - "🇺🇸 미국 버지니아 (us-east-1)"
+            - "🇺🇸 미국 오리건 (us-west-2)"
+            - "🇮🇪 아일랜드 (eu-west-1)"
+            - "🇩🇪 독일 프랑크푸르트 (eu-central-1)"
 
     # ── Step 6: 저장소 설정 ────────────────────────────────────
     - title: "저장소를 선택해주세요"
@@ -143,6 +169,7 @@ spec:
           userCount: ${{ parameters.userCount }}
           trafficPattern: ${{ parameters.trafficPattern }}
           availability: ${{ parameters.availability }}
+          region: ${{ parameters.region }}
           destination:
             owner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
             repo: ${{ (parameters.repoUrl | parseRepoUrl).repo }}

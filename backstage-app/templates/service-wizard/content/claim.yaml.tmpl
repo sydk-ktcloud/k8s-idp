@@ -35,7 +35,7 @@ metadata:
 spec:
   name: {{ values.componentName }}
   environment: {{ scale }}
-  region: us-central1
+  region: {{ values.region }}
   dbEngine: POSTGRES_15
 
 {% elif values.serviceType === 'file-service' %}
@@ -74,7 +74,7 @@ metadata:
     k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
-  location: us-central1
+  location: {{ values.region }}
   {%- if scale === 'dev' %}
   nodeCount: 1
   machineType: e2-medium
@@ -128,8 +128,8 @@ metadata:
     k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
-  region: us-central1
-  zone: us-central1-a
+  region: {{ values.region }}
+  zone: {{ values.region }}-a
   {%- if scale === 'dev' %}
   machineType: e2-standard-4
   diskSize: 100

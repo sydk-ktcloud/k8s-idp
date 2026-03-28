@@ -98,11 +98,12 @@ spec:
             - "⚠️ 짧은 중단은 허용 (일반 서비스)  –  5분 이내 복구면 OK  ← 권장"
             - "🚨 절대 멈추면 안 됨 (결제·인증·핵심 API)  –  1분도 허용 안 됨"
 
-    # ── Step 5: 서비스 이름 ────────────────────────────────────
+    # ── Step 5: 서비스 이름 & 배포 위치 ──────────────────────────
     - title: "서비스 이름을 정해주세요"
       required:
         - componentName
         - resourceGroupName
+        - location
       properties:
         componentName:
           title: 서비스 이름
@@ -120,6 +121,31 @@ spec:
           type: string
           description: "리소스를 배포할 Azure 리소스 그룹 이름"
           default: "rg-platform"
+        location:
+          title: 서버 위치 (리전)
+          type: string
+          default: koreacentral
+          description: >
+            서비스를 운영할 Azure 데이터센터 위치를 선택하세요.
+            사용자와 가까운 리전일수록 응답 속도가 빠릅니다.
+          enum:
+            - koreacentral
+            - koreasouth
+            - japaneast
+            - japanwest
+            - southeastasia
+            - eastasia
+            - eastus
+            - westeurope
+          enumNames:
+            - "🇰🇷 한국 중부 (koreacentral)  ← 권장"
+            - "🇰🇷 한국 남부 (koreasouth)"
+            - "🇯🇵 일본 동부 (japaneast)"
+            - "🇯🇵 일본 서부 (japanwest)"
+            - "🌏 싱가포르 (southeastasia)"
+            - "🇨🇳 홍콩 (eastasia)"
+            - "🇺🇸 미국 동부 (eastus)"
+            - "🇪🇺 유럽 서부 (westeurope)"
 
     # ── Step 6: 저장소 설정 ────────────────────────────────────
     - title: "저장소를 선택해주세요"
@@ -150,6 +176,7 @@ spec:
           trafficPattern: ${{ parameters.trafficPattern }}
           availability: ${{ parameters.availability }}
           resourceGroupName: ${{ parameters.resourceGroupName }}
+          location: ${{ parameters.location }}
           destination:
             owner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
             repo: ${{ (parameters.repoUrl | parseRepoUrl).repo }}

@@ -29,12 +29,13 @@ spec:
                   description: 웹앱 이름
                 environment:
                   type: string
-                  description: "환경 (dev: 소형, standard: 중형, large: 대형)"
+                  description: "환경 (dev: 소형, standard: 중형, large: 대형, xlarge: 초대형)"
                   default: standard
                   enum:
                     - dev
                     - standard
                     - large
+                    - xlarge
                 region:
                   type: string
                   description: GCP 리전
