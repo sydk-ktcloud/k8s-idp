@@ -27,6 +27,10 @@ kind: WebApp
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -45,6 +49,8 @@ kind: Bucket
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -67,6 +73,8 @@ kind: Cluster
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -96,6 +104,8 @@ kind: PubSub
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -121,6 +131,8 @@ kind: GCPInstance
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"

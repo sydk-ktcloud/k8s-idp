@@ -40,3 +40,12 @@ spec:
                   default: e2-medium
               required:
                 - name
+            status:
+              type: object
+              properties:
+                clusterStatus:
+                  type: string
+                  description: "클러스터 상태 (RUNNING / PROVISIONING / ERROR)"
+                endpoint:
+                  type: string
+                  description: "Kubernetes API 서버 엔드포인트"

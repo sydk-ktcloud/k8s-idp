@@ -5,14 +5,35 @@ metadata:
   description: "{{ values.description }}"
   annotations:
     backstage.io/source-location: url:https://github.com/{{ values.destination.owner }}/{{ values.destination.repo }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
   tags:
     - {{ values.serviceType }}
-    - {{ values.scale }}
+    - {{ values.userCount }}
     - aws
   links:
     - url: https://console.aws.amazon.com
       title: AWS Console
       icon: cloud
+    {% if values.serviceType === 'web-api' %}
+    - url: https://{{ values.region }}.console.aws.amazon.com/ec2/home?region={{ values.region }}#Instances
+      title: EC2 인스턴스 확인
+      icon: compute
+    - url: https://{{ values.region }}.console.aws.amazon.com/rds/home?region={{ values.region }}#databases
+      title: RDS DB 확인
+      icon: database
+    {% elif values.serviceType === 'file-service' %}
+    - url: https://s3.console.aws.amazon.com/s3/buckets
+      title: S3 버킷 확인
+      icon: storage
+    {% elif values.serviceType === 'container-app' %}
+    - url: https://{{ values.region }}.console.aws.amazon.com/ec2/home?region={{ values.region }}#Instances
+      title: EC2 Docker 호스트 확인
+      icon: compute
+    {% elif values.serviceType === 'data-processing' %}
+    - url: https://{{ values.region }}.console.aws.amazon.com/ec2/home?region={{ values.region }}#Instances
+      title: 고성능 EC2 확인
+      icon: compute
+    {% endif %}
 spec:
   type: service
   lifecycle: experimental

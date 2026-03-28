@@ -27,6 +27,8 @@ kind: AzureVM
 metadata:
   name: {{ values.componentName }}-vm
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -57,6 +59,8 @@ kind: AzureDatabase
 metadata:
   name: {{ values.componentName }}-db
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -89,6 +93,8 @@ kind: AzureBlobStorage
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -112,6 +118,8 @@ kind: AzureVM
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -144,6 +152,8 @@ kind: AzureVM
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"

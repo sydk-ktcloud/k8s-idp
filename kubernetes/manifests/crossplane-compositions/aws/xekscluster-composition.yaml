@@ -69,6 +69,17 @@ spec:
             fromFieldPath: Optional
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        # ── 클러스터 상태 → composite status 버블업 ────────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.status
+          toFieldPath: status.clusterStatus
+          policy:
+            fromFieldPath: Optional
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.endpoint
+          toFieldPath: status.endpoint
+          policy:
+            fromFieldPath: Optional
 
     - name: eks-node-group
       base:
@@ -127,3 +138,9 @@ spec:
           toFieldPath: spec.forProvider.scalingConfig[0].desiredSize
         - fromFieldPath: spec.instanceType
           toFieldPath: spec.forProvider.instanceTypes[0]
+        # ── 노드 그룹 상태 → composite status 버블업 ───────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.status
+          toFieldPath: status.nodeGroupStatus
+          policy:
+            fromFieldPath: Optional

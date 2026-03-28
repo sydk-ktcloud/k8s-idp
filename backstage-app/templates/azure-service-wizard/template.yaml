@@ -198,6 +198,22 @@ spec:
         catalogInfoPath: '/catalog-info.yaml'
 
   output:
+    text:
+      - title: "✅ 인프라 구성이 완료되었습니다!"
+        content: |
+          서비스 유형 **${{ parameters.serviceType }}** 에 맞는 Azure 인프라가 자동으로 설정되었습니다.
+
+          **다음 단계:**
+          1. 아래 Pull Request 링크에서 변경 내용을 확인하고 머지하세요
+          2. ArgoCD가 자동으로 Crossplane claim을 배포합니다 (약 1~2분)
+          3. Azure가 실제 리소스를 프로비저닝합니다 (약 5~15분)
+
+          **프로비저닝 상태 확인 방법:**
+          ```
+          kubectl get azurevm ${{ parameters.componentName }}-vm -n default
+          kubectl describe azurevm ${{ parameters.componentName }}-vm -n default
+          ```
+          리전: **${{ parameters.location }}** | Backstage 카탈로그에서 Kubernetes 플러그인으로 실시간 상태 확인 가능
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}

@@ -5,14 +5,35 @@ metadata:
   description: "{{ values.description }}"
   annotations:
     backstage.io/source-location: url:https://github.com/{{ values.destination.owner }}/{{ values.destination.repo }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
   tags:
     - {{ values.serviceType }}
-    - {{ values.scale }}
+    - {{ values.userCount }}
     - gcp
   links:
     - url: https://console.cloud.google.com
       title: Google Cloud Console
       icon: cloud
+    {% if values.serviceType === 'web-api' %}
+    - url: https://console.cloud.google.com/compute/instances
+      title: VM 인스턴스 확인
+      icon: compute
+    - url: https://console.cloud.google.com/sql/instances
+      title: Cloud SQL DB 확인
+      icon: database
+    {% elif values.serviceType === 'file-service' %}
+    - url: https://console.cloud.google.com/storage/browser
+      title: Cloud Storage 버킷 확인
+      icon: storage
+    {% elif values.serviceType === 'container-app' %}
+    - url: https://console.cloud.google.com/kubernetes/list
+      title: GKE 클러스터 확인
+      icon: kubernetes
+    {% elif values.serviceType === 'data-processing' %}
+    - url: https://console.cloud.google.com/compute/instances
+      title: 고성능 VM 확인
+      icon: compute
+    {% endif %}
 spec:
   type: service
   lifecycle: experimental

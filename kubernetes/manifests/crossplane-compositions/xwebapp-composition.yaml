@@ -79,6 +79,17 @@ spec:
                 standard: "50"
                 large: "100"
                 xlarge: "200"
+        # ── VM 상태 → composite status 버블업 ──────────────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.status
+          toFieldPath: status.vmStatus
+          policy:
+            fromFieldPath: Optional
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.networkInterface[0].accessConfig[0].natIp
+          toFieldPath: status.vmPublicIp
+          policy:
+            fromFieldPath: Optional
 
     # ── Cloud SQL 데이터베이스 ────────────────────────────────
     - name: database
@@ -134,3 +145,14 @@ spec:
                 standard: "50"
                 large: "100"
                 xlarge: "200"
+        # ── DB 상태 → composite status 버블업 ──────────────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.state
+          toFieldPath: status.dbStatus
+          policy:
+            fromFieldPath: Optional
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.connectionName
+          toFieldPath: status.dbConnectionName
+          policy:
+            fromFieldPath: Optional

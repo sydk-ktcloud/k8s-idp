@@ -53,5 +53,13 @@ spec:
               properties:
                 vmStatus:
                   type: string
+                  description: "VM 상태 (RUNNING / PROVISIONING / TERMINATED)"
                 dbStatus:
                   type: string
+                  description: "DB 상태 (RUNNABLE / PENDING_CREATE / FAILED)"
+                dbConnectionName:
+                  type: string
+                  description: "Cloud SQL 접속 식별자 (project:region:instance)"
+                vmPublicIp:
+                  type: string
+                  description: "VM 공인 IP 주소"

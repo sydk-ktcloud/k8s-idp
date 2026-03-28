@@ -51,3 +51,15 @@ spec:
                     type: string
               required:
                 - name
+            status:
+              type: object
+              properties:
+                clusterStatus:
+                  type: string
+                  description: "클러스터 상태 (ACTIVE / CREATING / DELETING / FAILED)"
+                endpoint:
+                  type: string
+                  description: "Kubernetes API 서버 엔드포인트"
+                nodeGroupStatus:
+                  type: string
+                  description: "노드 그룹 상태 (ACTIVE / CREATING / DEGRADED)"

@@ -27,6 +27,8 @@ kind: EC2Instance
 metadata:
   name: {{ values.componentName }}-vm
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -54,6 +56,8 @@ kind: RDSDatabase
 metadata:
   name: {{ values.componentName }}-db
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -84,6 +88,8 @@ kind: S3Bucket
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -106,6 +112,8 @@ kind: EC2Instance
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -135,6 +143,8 @@ kind: EC2Instance
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"

@@ -47,3 +47,12 @@ spec:
               required:
                 - name
                 - dnsPrefix
+            status:
+              type: object
+              properties:
+                provisioningState:
+                  type: string
+                  description: "프로비저닝 상태 (Succeeded / Creating / Updating / Failed)"
+                fqdn:
+                  type: string
+                  description: "AKS Kubernetes API 서버 FQDN"
