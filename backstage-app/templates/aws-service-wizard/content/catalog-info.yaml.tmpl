@@ -26,8 +26,8 @@ metadata:
       title: S3 버킷 확인
       icon: storage
     {% elif values.serviceType === 'container-app' %}
-    - url: https://{{ values.region }}.console.aws.amazon.com/ec2/home?region={{ values.region }}#Instances
-      title: EC2 Docker 호스트 확인
+    - url: https://{{ values.region }}.console.aws.amazon.com/eks/home?region={{ values.region }}#/clusters
+      title: EKS 클러스터 확인
       icon: compute
     {% elif values.serviceType === 'data-processing' %}
     - url: https://{{ values.region }}.console.aws.amazon.com/ec2/home?region={{ values.region }}#Instances

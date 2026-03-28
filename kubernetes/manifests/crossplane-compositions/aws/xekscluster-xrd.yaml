@@ -12,6 +12,9 @@ spec:
     kind: EKSCluster
     plural: eksclusters
     singular: ekscluster
+  # EKS kubeconfig가 자동으로 Kubernetes Secret에 저장됩니다
+  connectionSecretKeys:
+    - kubeconfig
   versions:
     - name: v1alpha1
       served: true

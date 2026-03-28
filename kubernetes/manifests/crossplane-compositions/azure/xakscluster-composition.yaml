@@ -54,8 +54,13 @@ spec:
           toFieldPath: spec.forProvider.resourceGroupName
           policy:
             fromFieldPath: Optional
+        # dnsPrefix: spec.dnsPrefix 지정 시 사용, 생략 시 spec.name에서 자동 파생
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.dnsPrefix
         - fromFieldPath: spec.dnsPrefix
           toFieldPath: spec.forProvider.dnsPrefix
+          policy:
+            fromFieldPath: Optional
         - fromFieldPath: spec.nodeCount
           toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
         - fromFieldPath: spec.vmSize

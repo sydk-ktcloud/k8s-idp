@@ -43,10 +43,9 @@ spec:
                   description: "Azure Resource Group name (생략 시 EnvironmentConfig azure-platform의 defaultResourceGroup 사용)"
                 dnsPrefix:
                   type: string
-                  description: DNS prefix for the AKS cluster
+                  description: "DNS prefix for the AKS cluster (생략 시 name에서 자동 파생)"
               required:
                 - name
-                - dnsPrefix
             status:
               type: object
               properties:

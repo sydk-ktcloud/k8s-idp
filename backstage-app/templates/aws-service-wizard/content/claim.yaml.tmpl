@@ -106,11 +106,11 @@ spec:
   {%- endif %}
 
 {% elif values.serviceType === 'container-app' %}
-# ── 컨테이너 앱: EC2 Docker 호스트 ──────────────────────────
+# ── 컨테이너 앱: EKS Kubernetes 클러스터 ────────────────────
 apiVersion: k8s-idp.example.org/v1alpha1
-kind: EC2Instance
+kind: EKSCluster
 metadata:
-  name: {{ values.componentName }}
+  name: {{ values.componentName }}-eks
   namespace: {{ values.namespace }}
   labels:
     backstage.io/kubernetes-id: {{ values.componentName }}
@@ -120,20 +120,20 @@ metadata:
     k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
     k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
-  name: {{ values.componentName }}
+  name: {{ values.componentName }}-eks
   region: {{ values.region }}
   {%- if scale === 'dev' %}
-  instanceType: t3.medium
-  diskSize: 50
+  nodeCount: 1
+  instanceType: t3.small
   {%- elif scale === 'standard' %}
-  instanceType: t3.xlarge
-  diskSize: 100
+  nodeCount: 3
+  instanceType: t3.medium
   {%- elif scale === 'large' %}
-  instanceType: m5.2xlarge
-  diskSize: 200
+  nodeCount: 5
+  instanceType: t3.xlarge
   {%- else %}
-  instanceType: m5.4xlarge
-  diskSize: 500
+  nodeCount: 10
+  instanceType: m5.2xlarge
   {%- endif %}
 
 {% elif values.serviceType === 'data-processing' %}

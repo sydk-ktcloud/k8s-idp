@@ -10,6 +10,9 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XEKSCluster
 
+  # EKS kubeconfig를 crossplane-system 네임스페이스에 Secret으로 자동 저장
+  writeConnectionSecretsToNamespace: crossplane-system
+
   # ── EnvironmentConfig: 플랫폼 팀이 관리하는 계정 수준 기본값 ──
   # IAM Role ARN, Subnet ID 등을 개발자가 몰라도 됩니다.
   environment:
@@ -24,6 +27,9 @@ spec:
         apiVersion: eks.aws.upbound.io/v1beta1
         kind: Cluster
         spec:
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+            name: placeholder
           forProvider:
             region: us-east-1
             roleArn: ""
@@ -69,6 +75,13 @@ spec:
             fromFieldPath: Optional
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        # kubeconfig Secret 이름: {uid}-eks-cluster-conn
+        - fromFieldPath: metadata.uid
+          toFieldPath: spec.writeConnectionSecretToRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-eks-cluster-conn"
         # ── 클러스터 상태 → composite status 버블업 ────────────
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.status
@@ -80,6 +93,9 @@ spec:
           toFieldPath: status.endpoint
           policy:
             fromFieldPath: Optional
+      connectionDetails:
+        - name: kubeconfig
+          fromConnectionSecretKey: kubeconfig
 
     - name: eks-node-group
       base:

@@ -31,7 +31,7 @@ spec:
           enumNames:
             - "🌐 웹 API 서버  –  REST API, GraphQL 백엔드 (EC2 + RDS 자동 생성)"
             - "🗄️ 파일 저장 서비스  –  이미지, 영상, 문서 저장 (S3 버킷 자동 생성)"
-            - "📦 컨테이너 앱  –  Docker 컨테이너 배포 (EC2 Docker 호스트 자동 생성)"
+            - "📦 컨테이너 앱  –  Kubernetes 기반 배포 (EKS 클러스터 자동 생성)"
             - "📊 데이터 처리  –  배치 작업, ETL, ML (고성능 EC2 자동 생성)"
 
     # ── Step 2: 동시 접속자 수 ──────────────────────────────────
@@ -203,8 +203,16 @@ spec:
 
           **프로비저닝 상태 확인 방법:**
           ```
-          kubectl get ec2instance ${{ parameters.componentName }} -n default
-          kubectl describe ec2instance ${{ parameters.componentName }} -n default
+          # web-api
+          kubectl get ec2instance ${{ parameters.componentName }}-vm -n default
+          kubectl get rdsdatabase ${{ parameters.componentName }}-db -n default
+
+          # container-app (EKS)
+          kubectl get ekscluster ${{ parameters.componentName }}-eks -n default
+          kubectl describe ekscluster ${{ parameters.componentName }}-eks -n default
+
+          # EKS kubeconfig (프로비저닝 완료 후)
+          kubectl get secret -n crossplane-system | grep ${{ parameters.componentName }}
           ```
           리전: **${{ parameters.region }}** | Backstage 카탈로그에서 Kubernetes 플러그인으로 실시간 상태 확인 가능
     links:

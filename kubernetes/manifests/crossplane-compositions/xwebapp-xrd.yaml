@@ -11,6 +11,10 @@ spec:
     kind: WebApp
     plural: webapps
     singular: webapp
+  # Cloud SQL 접속 정보가 자동으로 Kubernetes Secret에 저장됩니다
+  connectionSecretKeys:
+    - dbConnectionName
+    - dbPrivateIp
   versions:
     - name: v1alpha1
       served: true
