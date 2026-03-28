@@ -109,6 +109,12 @@ config:
         redirectURI: http://100.64.0.1:30556/callback
         orgs:
           - name: sydk-ktcloud
+            teams:
+              - platform
+              - sre
+              - developer
+              - security
+              - finops
 
   # Static password users (fallback)
   staticPasswords:

@@ -27,15 +27,14 @@ configs:
   rbac:
     policy.default: role:readonly
     policy.csv: |
-      # OIDC 사용자 역할 매핑
-      g, admin@k8s.local, role:admin
-      g, platform@k8s.local, role:admin
-      g, gitops@k8s.local, role:admin
-      g, finops@k8s.local, role:readonly
-      g, security@k8s.local, role:admin
-      g, sre@k8s.local, role:admin
-      g, ai@k8s.local, role:readonly
-      # 로컬 admin 계정 명시적 매핑 (ArgoCD v3 필수)
+      # GitHub teams (sydk-ktcloud org) → ArgoCD 역할 매핑
+      # Dex가 groups claim에 "sydk-ktcloud:<team>" 형식으로 포함
+      g, sydk-ktcloud:platform, role:admin
+      g, sydk-ktcloud:sre, role:admin
+      g, sydk-ktcloud:security, role:readonly
+      g, sydk-ktcloud:developer, role:readonly
+      g, sydk-ktcloud:finops, role:readonly
+      # 로컬 fallback (비상 접근용 - enablePasswordDB 비활성화 전까지 유지)
       g, admin, role:admin
       # CI/CD 전용 로컬 계정
       p, role:ci, applications, sync, */*, allow

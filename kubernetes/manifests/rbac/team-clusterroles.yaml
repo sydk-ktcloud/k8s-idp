@@ -1,0 +1,223 @@
+# GitHub OIDC 기반 팀별 Kubernetes RBAC
+# Dex → GitHub OIDC 인증 시 groups claim에 "sydk-ktcloud:<team>" 형식으로 팀 멤버십 포함
+# kubectl OIDC 인증(kubelogin) 사용 시 해당 그룹에 아래 ClusterRole이 자동 부여됨
+#
+# 팀별 권한 범위:
+#   platform  - 전체 읽기 + 앱/네임스페이스 관리 (secrets/RBAC 쓰기 제외 → GitOps로만)
+#   sre       - monitoring/gitops 네임스페이스 집중, exec/port-forward 허용
+#   security  - 전체 읽기 전용 (secrets 포함 audit 목적)
+#   finops    - 전체 읽기 (secrets 제외)
+#   developer - trip-app 네임스페이스 읽기/쓰기 (secrets 제외)
+
+---
+# ── platform 팀 ────────────────────────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team-platform
+  labels:
+    app.kubernetes.io/component: team-rbac
+rules:
+  # 전체 읽기
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # 일반 앱 리소스 쓰기 (배포, 서비스, 컨피그 등)
+  - apiGroups: ["", "apps", "batch", "autoscaling", "networking.k8s.io", "policy", "coordination.k8s.io"]
+    resources: ["*"]
+    verbs: ["create", "update", "patch", "delete"]
+  # CRD/Crossplane 쓰기 (플랫폼 인프라)
+  - apiGroups: ["apiextensions.k8s.io", "argoproj.io", "apiextensions.crossplane.io", "pkg.crossplane.io", "k8s-idp.example.org"]
+    resources: ["*"]
+    verbs: ["create", "update", "patch", "delete"]
+  # exec / port-forward 허용
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/portforward", "pods/attach"]
+    verbs: ["create"]
+  # secrets 읽기만 (쓰기는 ArgoCD/ESO 통해서만)
+  # RBAC 쓰기 제외 (권한 상승 차단 - GitOps로만)
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: team-platform
+  labels:
+    app.kubernetes.io/component: team-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: team-platform
+subjects:
+  - kind: Group
+    name: "sydk-ktcloud:platform"
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# ── sre 팀 ─────────────────────────────────────────────────────────────────────
+# monitoring, gitops 네임스페이스 집중 관리
+# 전체 읽기 + exec 허용 (장애 대응)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team-sre
+  labels:
+    app.kubernetes.io/component: team-rbac
+rules:
+  # 전체 클러스터 읽기
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # exec / port-forward (트러블슈팅)
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/portforward", "pods/attach"]
+    verbs: ["create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: team-sre
+  labels:
+    app.kubernetes.io/component: team-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: team-sre
+subjects:
+  - kind: Group
+    name: "sydk-ktcloud:sre"
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# SRE: monitoring, gitops 네임스페이스 쓰기 권한 (알림룰, 대시보드 등)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: team-sre-write
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: team-rbac
+rules:
+  - apiGroups: ["", "apps", "monitoring.coreos.com"]
+    resources: ["*"]
+    verbs: ["create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: team-sre-write
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: team-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: team-sre-write
+subjects:
+  - kind: Group
+    name: "sydk-ktcloud:sre"
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# ── security 팀 ────────────────────────────────────────────────────────────────
+# 전체 읽기 전용 (secrets 포함 - 감사/보안 검토 목적)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team-security
+  labels:
+    app.kubernetes.io/component: team-rbac
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: team-security
+  labels:
+    app.kubernetes.io/component: team-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: team-security
+subjects:
+  - kind: Group
+    name: "sydk-ktcloud:security"
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# ── finops 팀 ──────────────────────────────────────────────────────────────────
+# 전체 읽기 (secrets 제외 - 비용 분석 목적)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team-finops
+  labels:
+    app.kubernetes.io/component: team-rbac
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # secrets 명시적 제외
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: []
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: team-finops
+  labels:
+    app.kubernetes.io/component: team-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: team-finops
+subjects:
+  - kind: Group
+    name: "sydk-ktcloud:finops"
+    apiGroup: rbac.authorization.k8s.io
+
+---
+# ── developer 팀 ───────────────────────────────────────────────────────────────
+# trip-app 네임스페이스 읽기/쓰기 (secrets 제외)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: team-developer
+  namespace: trip-app
+  labels:
+    app.kubernetes.io/component: team-rbac
+rules:
+  - apiGroups: ["", "apps", "batch", "autoscaling", "networking.k8s.io"]
+    resources: ["pods", "services", "configmaps", "deployments", "replicasets",
+                "statefulsets", "daemonsets", "jobs", "cronjobs", "ingresses",
+                "horizontalpodautoscalers", "persistentvolumeclaims", "events",
+                "serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log", "pods/exec", "pods/portforward"]
+    verbs: ["get", "create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: team-developer
+  namespace: trip-app
+  labels:
+    app.kubernetes.io/component: team-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: team-developer
+subjects:
+  - kind: Group
+    name: "sydk-ktcloud:developer"
+    apiGroup: rbac.authorization.k8s.io
