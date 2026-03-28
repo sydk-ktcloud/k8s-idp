@@ -91,55 +91,6 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 │  └────────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          Host Server (32C/128GB/2TB)                     │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │                         KVM / libvirt                              │  │
-│  │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐            │  │
-│  │   │ k8s-cp  │  │ k8s-w1  │  │ k8s-w2  │  │ k8s-w3  │            │  │
-│  │   │ 4C/16GB │  │ 8C/32GB │  │ 8C/32GB │  │ 8C/32GB │            │  │
-│  │   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘            │  │
-│  └────────┼────────────┼────────────┼────────────┼──────────────────┘  │
-│           └────────────┴─────┬──────┴────────────┘                      │
-│                              │ (3 Worker Nodes = HA 분산 배치)           │
-│  ┌───────────────────────────┴───────────────────────────────────────┐  │
-│  │                    Kubernetes Cluster (v1.32.0)                    │  │
-│  │  ┌──────────────────────────────────────────────────────────────┐ │  │
-│  │  │            Platform Services  [replicas:3, PDB, anti-affinity]│ │  │
-│  │  │  ┌──────────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────┐ │ │  │
-│  │  │  │    ArgoCD    │ │   Dex    │ │Backstage │ │  Crossplane │ │ │  │
-│  │  │  │server  ×3    │ │   ×3     │ │backend×3 │ │  (IaC)      │ │ │  │
-│  │  │  │controller×3  │ │+redis-ha │ │+HPA      │ │             │ │ │  │
-│  │  │  │repoServer×3  │ │  ×3      │ │          │ │             │ │ │  │
-│  │  │  └──────────────┘ └──────────┘ └──────────┘ └─────────────┘ │ │  │
-│  │  │  PodDisruptionBudgets: argocd-server, argocd-controller,      │ │  │
-│  │  │                        argocd-repo-server, dex, backstage-backend│ │ │
-│  │  └──────────────────────────────────────────────────────────────┘ │  │
-│  │  ┌──────────────────────────────────────────────────────────────┐ │  │
-│  │  │                    Observability Stack                        │ │  │
-│  │  │  ┌───────────┐ ┌─────────┐ ┌──────┐ ┌───────┐ ┌───────────┐ │ │  │
-│  │  │  │ Prometheus│ │ Grafana │ │ Loki │ │ Tempo │ │   Alloy   │ │ │  │
-│  │  │  └───────────┘ └─────────┘ └──────┘ └───────┘ └───────────┘ │ │  │
-│  │  └──────────────────────────────────────────────────────────────┘ │  │
-│  │  ┌──────────────────────────────────────────────────────────────┐ │  │
-│  │  │              Storage Layer  [Distributed HA]                  │ │  │
-│  │  │  ┌────────────┐         ┌──────────────────────────────────┐  │ │  │
-│  │  │  │  Longhorn  │         │  MinIO Distributed (×4 StatefulSet│  │ │  │
-│  │  │  │ (Block)    │         │  Erasure Coding, PDB minAvail:2) │  │ │  │
-│  │  │  └────────────┘         └──────────────────────────────────┘  │ │  │
-│  │  └──────────────────────────────────────────────────────────────┘ │  │
-│  │  ┌──────────────────────────────────────────────────────────────┐ │  │
-│  │  │           GKE Burst  [KEDA + Tailscale VPN]                   │ │  │
-│  │  │  온프레미스 부하 초과 시 GKE 클러스터로 워크로드 자동 확장      │ │  │
-│  │  └──────────────────────────────────────────────────────────────┘ │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                              │                                          │
-│  ┌───────────────────────────┴───────────────────────────────────────┐  │
-│  │                    Headscale (VPN / Mesh Network)                  │  │
-│  │                         + Headplane (Web UI)                       │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
-```
 
 ## 디렉토리 구조
 
@@ -526,58 +477,7 @@ kubectl label namespace <namespace> istio.io/dataplane-mode-
 - `audit/warn: restricted` — 위반 사항 가시성 확보 (배포는 차단하지 않음)
 - 파일: `kubernetes/namespaces/core.yaml`
 
----
-
-### Istio Ambient Mesh (mTLS)
-
-모든 서비스 간 트래픽은 Istio Ambient Mesh를 통해 mTLS로 암호화됩니다.
-
-#### 아키텍처
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Istio Ambient Mesh                                │
-│                                                                          │
-│  ┌─────────────┐     ┌─────────────────────────────────────────────┐    │
-│  │   istiod    │     │              ztunnel (per-node)               │    │
-│  │ (Control    │────▶│  ┌───────┐  ┌───────┐  ┌───────┐  │    │
-│  │  Plane)     │     │  │Node 1 │  │Node 2 │  │Node 3 │  │Node 4 │  │    │
-│  └─────────────┘     │  └───────┘  └───────┘  └───────┘  │    │
-│                              │              HBONE mTLS Tunneling              │    │
-│                              │              (Port 15008)                     │    │
-│                              │              모든 서비스 간 암호화             │    │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-#### mTLS 상태
-| 네임스페이스 | mTLS 모드 | 비고 |
-|------------|--------|------|
-| trip-app | STRICT | 완전 mTLS 강제 |
-| backstage | STRICT | 완전 mTLS 강제 |
-| chatops | STRICT | 완전 mTLS 강제 |
-| gitops | STRICT | ArgoCD 포함 |
-| auth | STRICT | Dex 포함 |
-| monitoring | PERMISSIVE | 메트릭 수집 호환성 |
-#### 해결한 이슈들
-| 이슈 | 원인 | 해결 방안 |
-|------|------|------|
-| **클러스터 DNS 전체 불량** | 잘못된 CiliumClusterwideNetworkPolicy | namespace-scoped 정책으로 교체 |
-| **HBONE mTLS 터널 차단** | NetworkPolicy에서 port 15008 미허용 | 각 namespace에 `istio-ambient-hbone` NetworkPolicy 추가 |
-| **kubelet health probe 인터셉션** | Istio 1.29 INPOD 모드 알려진 이슈 | 특정 파드에 `istio.io/dataplane-mode: none` 적용 |
-**Health Probe 예외 파드 목록:**
-- `monitoring/prometheus-kube-state-metrics`
-- `monitoring/alertmanager`
-- `monitoring/loki-chunks-cache`, `loki-results-cache`
-- `auth/dex`
-- `gitops/argocd-notifications-controller`
-#### 검증 명령어
-```bash
-# mTLS 상태 확인
-istioctl authn tls-check
-# ztunnel 로그에서 mTLS 확인
-kubectl logs -n istio-system -l app=ztunnel | grep "connection_security_policy"
-```
----
+### Resource 제한 (LimitRange)
 
 리소스 무제한 소비 방지를 위한 기본값 설정.
 
@@ -723,14 +623,11 @@ metrics:
 > HPA 적용 파일: `kubernetes/manifests/backstage-custom/backstage.yaml` (파일 끝 섹션)
 
 ### MinIO Distributed Mode
-
-4-node StatefulSet + Erasure Coding으로 구성됩니다.
-
+4-node StatefulSet + Erasure Coding + HA 구성:
 ```
 minio-0 (k8s-w1)  minio-1 (k8s-w2)  minio-2 (k8s-w3)  minio-3 (k8s-w1)
     └─────────────────── Erasure Coding (N/2 내구성) ──────────────────┘
 ```
-
 - **required anti-affinity**: 각 파드가 서로 다른 노드에 배치
 - **PDB minAvailable:2**: 최소 2노드 유지 (quorum 보장)
 - **volumeClaimTemplates**: 파드별 독립 20Gi Longhorn PVC 자동 생성
