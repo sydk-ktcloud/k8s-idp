@@ -9,6 +9,14 @@ spec:
   compositeTypeRef:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XAzureBlobStorage
+
+  # ── EnvironmentConfig: Azure 플랫폼 기본값 ───────────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: azure-platform
+
   resources:
     - name: storage-account
       base:
@@ -33,8 +41,14 @@ spec:
       patches:
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
+        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultResourceGroup
+          toFieldPath: spec.forProvider.resourceGroupName
         - fromFieldPath: spec.resourceGroupName
           toFieldPath: spec.forProvider.resourceGroupName
+          policy:
+            fromFieldPath: Optional
         - fromFieldPath: spec.replication
           toFieldPath: spec.forProvider.accountReplicationType
         - fromFieldPath: metadata.labels

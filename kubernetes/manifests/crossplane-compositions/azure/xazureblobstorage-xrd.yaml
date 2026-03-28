@@ -40,7 +40,6 @@ spec:
                     - ZRS
                 resourceGroupName:
                   type: string
-                  description: Azure Resource Group name (pre-created)
+                  description: "Azure Resource Group name (생략 시 EnvironmentConfig azure-platform의 defaultResourceGroup 사용)"
               required:
                 - name
-                - resourceGroupName

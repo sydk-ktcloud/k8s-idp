@@ -9,6 +9,13 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XWebApp
 
+  # ── EnvironmentConfig: GCP 프로젝트 수준 기본값 ───────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: gcp-platform
+
   resources:
     # ── VM 서버 ──────────────────────────────────────────────
     - name: vm-instance
@@ -19,7 +26,7 @@ spec:
           providerConfigRef:
             name: default
           forProvider:
-            project: sydk-ktcloud
+            project: ""
             networkInterface:
               - accessConfig:
                   - networkTier: PREMIUM
@@ -30,6 +37,10 @@ spec:
               - http-server
               - https-server
       patches:
+        # project: EnvironmentConfig에서 자동 주입
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: projectId
+          toFieldPath: spec.forProvider.project
         # 이름: <webapp-name>-server
         - type: FromCompositeFieldPath
           fromFieldPath: spec.name

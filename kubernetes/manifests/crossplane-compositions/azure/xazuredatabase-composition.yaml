@@ -9,6 +9,14 @@ spec:
   compositeTypeRef:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XAzureDatabase
+
+  # ── EnvironmentConfig: Azure 플랫폼 기본값 ───────────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: azure-platform
+
   resources:
     - name: postgresql-flexible-server
       base:
@@ -39,8 +47,14 @@ spec:
       patches:
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
+        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultResourceGroup
+          toFieldPath: spec.forProvider.resourceGroupName
         - fromFieldPath: spec.resourceGroupName
           toFieldPath: spec.forProvider.resourceGroupName
+          policy:
+            fromFieldPath: Optional
         - fromFieldPath: spec.administratorLogin
           toFieldPath: spec.forProvider.administratorLogin
         - fromFieldPath: spec.skuName

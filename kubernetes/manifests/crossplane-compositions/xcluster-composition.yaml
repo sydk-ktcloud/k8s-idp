@@ -9,6 +9,14 @@ spec:
   compositeTypeRef:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XCluster
+
+  # ── EnvironmentConfig: GCP 프로젝트 수준 기본값 ───────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: gcp-platform
+
   resources:
     - name: gke-cluster
       base:
@@ -26,7 +34,7 @@ spec:
               managed-by: crossplane
               resource-type: cluster
             location: us-central1
-            network: projects/sydk-ktcloud/global/networks/default
+            network: ""
             initialNodeCount: 3
             nodeConfig:
               - machineType: e2-medium
@@ -41,12 +49,11 @@ spec:
       patches:
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
-        - fromFieldPath: spec.network
+        # network: EnvironmentConfig 기본값(defaultNetworkUrl) 사용
+        # spec.network(선택 필드)가 있으면 추후 CombineTransform으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultNetworkUrl
           toFieldPath: spec.forProvider.network
-          transforms:
-            - type: string
-              string:
-                fmt: "projects/sydk-ktcloud/global/networks/%s"
         - fromFieldPath: spec.nodeCount
           toFieldPath: spec.forProvider.initialNodeCount
         - fromFieldPath: spec.machineType

@@ -1,0 +1,24 @@
+# ── GCP 플랫폼 환경 설정 ─────────────────────────────────────────
+# 플랫폼 팀이 1회 설정하는 GCP 프로젝트 수준 값입니다.
+# Composition에서 하드코딩 대신 이 값을 참조합니다.
+#
+# 적용 방법:
+#   1. projectId를 실제 GCP 프로젝트 ID로 교체
+#   2. network/subnetwork URL도 프로젝트 ID에 맞게 수정
+#   3. kubectl apply -f gcp-platform-environment-config.yaml
+# ─────────────────────────────────────────────────────────────────
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: EnvironmentConfig
+metadata:
+  name: gcp-platform
+data:
+  # GCP 프로젝트 ID (Compute API에서 project 필드로 사용)
+  projectId: "sydk-ktcloud"
+
+  # 기본 VPC 네트워크 전체 URL
+  # 형식: projects/{projectId}/global/networks/{networkName}
+  defaultNetworkUrl: "projects/sydk-ktcloud/global/networks/default"
+
+  # 기본 서브네트워크 전체 URL (burst cluster용, asia-northeast3 기준)
+  # 형식: projects/{projectId}/regions/{region}/subnetworks/{subnetName}
+  defaultSubnetworkUrl: "projects/sydk-ktcloud/regions/asia-northeast3/subnetworks/default"
