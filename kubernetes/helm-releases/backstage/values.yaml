@@ -17,7 +17,7 @@ postgresql:
 # Frontend configuration
 frontend:
   enabled: true
-  replicaCount: 1
+  replicaCount: 3
   image:
     repository: martinaif/backstage-k8s-demo-frontend
     tag: test1
@@ -27,6 +27,23 @@ frontend:
     type: NodePort
     port: 80
     nodePort: 30070
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: backstage
+                app.kubernetes.io/component: frontend
+            topologyKey: kubernetes.io/hostname
   resources:
     requests:
       memory: 256Mi
@@ -53,34 +70,53 @@ backend:
     limits:
       memory: 1Gi
       cpu: 500m
-  extraEnvVars:
-    - name: APP_CONFIG_backend_database_client
-      value: pg
-    - name: APP_CONFIG_backend_database_connection_host
-      value: backstage-postgresql
-    - name: APP_CONFIG_backend_database_connection_port
-      value: "5432"
-    - name: APP_CONFIG_backend_database_connection_user
-      value: backstage
-    - name: APP_CONFIG_backend_database_connection_password
-      valueFrom:
-        secretKeyRef:
-          name: backstage-postgresql
-          key: postgresql-password
-    - name: APP_CONFIG_backend_database_connection_database
-      value: backstage
-    - name: APP_CONFIG_rollbar_accountToken
-      value: ""
-    - name: APP_CONFIG_scaffolder_github_token
-      value: ""
-    - name: APP_CONFIG_scaffolder_gitlab_api_token
-      value: ""
-    - name: APP_CONFIG_scaffolder_azure_api_token
-      value: ""
-    - name: APP_CONFIG_scaffolder_bitbucket_token
-      value: ""
-    - name: BACKEND_SECRET
-      value: "backstage-backend-session-secret-67890"
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: backstage
+          app.kubernetes.io/component: backend
+      topologyKey: kubernetes.io/hostname
+
+upstream:
+  metrics:
+    controller:
+      - type: Resource
+        name: backstage-backend
+        params:
+          - type: utilization
+            value: 70
+          - type: AverageUtilization
+            value: 50
+          - name: window
+            value: 300s
+          - name: scaleTargetRef
+            value: backstage-backend
+          - name: scaleTargetKind
+            value: Deployment
+
+autoscaling:
+  enabled: true
+  targetRef:
+    name: backstage-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    name: backstage-frontend
+    params:
+      - type: utilization
+        value: 70
+      - type: averageUtilization
+        value: 50
+      - name: window
+        value: 300s
+      - name: scaleTargetRef
+        value: backstage-frontend
+      - name: scaleTargetKind
+        value: deployment
 
 # Disable lighthouse
 lighthouse:
@@ -112,6 +148,24 @@ appConfig:
         password:
           $secret:
             env: APP_CONFIG_backend_database_connection_password
+    replicaCount: 3
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: backstage
+                  app.kubernetes.io/component: backend
+              topologyKey: kubernetes.io/hostname
   
   # Catalog configuration
   catalog:
