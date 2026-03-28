@@ -802,6 +802,49 @@ Grafana에서 **"Backup & Storage"** 폴더 아래 통합 대시보드를 제공
 kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 ```
 
+## CI/CD 파이프라인
+
+Self-hosted runner (Actions Runner Controller) + ArgoCD GitOps 기반 파이프라인입니다.
+
+### 인프라
+
+| 컴포넌트 | 설명 |
+|----------|------|
+| **Actions Runner Controller** | k8s 클러스터 내 self-hosted runner 운영 (`actions-runner-system`) |
+| **Runner** | `sydk-ktcloud/k8s-idp` 레포 전용 2 replicas, GitHub App 인증 |
+| **ArgoCD** | GitOps sync 엔드포인트 (`gitops` 네임스페이스) |
+
+### Workflows
+
+| 워크플로우 | 트리거 | 동작 |
+|------------|--------|------|
+| **Deploy to K8s** | `main` push (backstage 제외) | ArgoCD `k8s-idp` app sync |
+| **Backstage CI/CD** | `backstage-app/**` push/PR | TypeCheck → Lint → Test → Docker 빌드/푸시 → ArgoCD sync |
+| **Chatops CI/CD** | `chatops-app/**` push | Docker 빌드/푸시 → ArgoCD sync |
+
+### 배포 흐름
+
+```
+git push → GitHub Actions (self-hosted runner)
+               │
+               ├─ backstage-app/** → Build & Push (kylekim1223/backstage-backend)
+               ├─ chatops-app/**   → Build & Push (kylekim1223/chatops-bot)
+               │
+               └─ ArgoCD Sync (argocd-sync.yaml reusable workflow)
+                      │
+                      └─ ArgoCD pulls from Git → k8s 클러스터 반영
+```
+
+### 필요한 GitHub Secrets
+
+| Secret | 용도 |
+|--------|------|
+| `ARGOCD_SERVER` | ArgoCD API 엔드포인트 |
+| `ARGOCD_USERNAME` | ArgoCD 로그인 계정 |
+| `ARGOCD_PASSWORD` | ArgoCD 로그인 비밀번호 |
+| `DOCKERHUB_USERNAME` | Docker Hub 푸시 계정 |
+| `DOCKER_PASSWORD` | Docker Hub 토큰 |
+
 ## 문서
 
 - [원격 접속 가이드](docs/remote-access-guide.md)
@@ -815,7 +858,7 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 
 - [ ] Vault HA 배포
 - [ ] Backstage 한국어 UI 완성
-- [ ] CI/CD 파이프라인 템플릿
+- [x] CI/CD 파이프라인 (ARC self-hosted runner + ArgoCD GitOps)
 - [x] GKE Burst 클러스터 Crossplane 자동 프로비저닝
 - [x] GKE Burst 자동 트리거 (KEDA 연동)
 - [x] AWS Crossplane Provider 연동 (EC2/S3/EKS/RDS)
