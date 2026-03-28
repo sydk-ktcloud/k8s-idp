@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: aws-service-wizard
   title: "AWS 서비스 환경 구성 마법사"
-  description: "3가지 질문으로 AWS 인프라를 자동으로 구성합니다"
+  description: "몇 가지 질문으로 AWS 인프라를 자동으로 구성합니다"
   tags:
     - wizard
     - recommended
@@ -34,25 +34,71 @@ spec:
             - "📦 컨테이너 앱  –  Docker 컨테이너 배포 (EC2 Docker 호스트 자동 생성)"
             - "📊 데이터 처리  –  배치 작업, ETL, ML (고성능 EC2 자동 생성)"
 
-    # ── Step 2: 어떤 규모인가요? ───────────────────────────────
-    - title: "어느 정도 규모의 서비스인가요?"
+    # ── Step 2: 동시 접속자 수 ──────────────────────────────────
+    - title: "평소에 몇 명이 동시에 사용하나요?"
       required:
-        - scale
+        - userCount
       properties:
-        scale:
-          title: 서비스 규모
+        userCount:
+          title: 예상 동시 접속자 수
           type: string
-          default: standard
+          default: small
+          description: >
+            서비스가 운영될 때 동시에 접속하는 사람이 몇 명인지 선택해주세요.
+            확실하지 않다면 실제보다 한 단계 위를 선택하는 게 안전합니다.
           enum:
-            - dev
-            - standard
+            - micro
+            - small
+            - medium
             - large
           enumNames:
-            - "👤 개발 / 테스트용  –  나 혼자 또는 팀 내부용  (월 ~$30)"
-            - "👥 일반 서비스용  –  수십~수백 명 사용  (월 ~$80)  ← 권장"
-            - "👥👥 대규모 서비스용  –  수천 명 이상  (월 ~$250)"
+            - "👤 나 혼자 또는 팀 내부 (1~10명)  –  개발·테스트 전용"
+            - "👥 소규모 서비스 (10~100명 동시)  –  사내 도구, 초기 런칭  ← 권장"
+            - "🏢 일반 서비스 (100~1,000명 동시)  –  운영 중인 서비스"
+            - "🏟️ 대규모 서비스 (1,000명 이상)  –  트래픽이 많은 서비스"
 
-    # ── Step 3: 서비스 이름 ────────────────────────────────────
+    # ── Step 3: 트래픽 패턴 ────────────────────────────────────
+    - title: "트래픽이 어떤 패턴으로 발생하나요?"
+      required:
+        - trafficPattern
+      properties:
+        trafficPattern:
+          title: 트래픽 패턴
+          type: string
+          default: steady
+          description: >
+            갑자기 사람이 몰릴 때 서버가 버틸 수 있도록 여유를 잡는 데 사용됩니다.
+          enum:
+            - batch
+            - steady
+            - spiky
+          enumNames:
+            - "🌙 정해진 시간에만 실행 (배치/야간 작업)  –  주기적으로 돌리는 작업"
+            - "☀️ 하루 종일 고르게 사용 (상시 운영)  –  업무 시간 내내 쓰는 서비스  ← 권장"
+            - "⚡ 특정 시간에 폭발적으로 몰림 (이벤트/프로모션)  –  순간 트래픽이 평소의 10배 이상"
+
+    # ── Step 4: 가용성 요구사항 ────────────────────────────────
+    - title: "서비스가 잠깐 멈춰도 괜찮은가요?"
+      required:
+        - availability
+      properties:
+        availability:
+          title: 서비스 중단 허용 수준
+          type: string
+          default: standard
+          description: >
+            서버 점검이나 장애로 서비스가 잠깐 멈출 때 어느 정도까지 괜찮은지 선택해주세요.
+            중단이 허용되지 않을수록 이중화 구성이 필요해 비용이 올라갑니다.
+          enum:
+            - low
+            - standard
+            - high
+          enumNames:
+            - "😴 가끔 멈춰도 됨 (개발 중이거나 내부 도구)  –  재시작해도 불편함이 없음"
+            - "⚠️ 짧은 중단은 허용 (일반 서비스)  –  5분 이내 복구면 OK  ← 권장"
+            - "🚨 절대 멈추면 안 됨 (결제·인증·핵심 API)  –  1분도 허용 안 됨"
+
+    # ── Step 5: 서비스 이름 ────────────────────────────────────
     - title: "서비스 이름을 정해주세요"
       required:
         - componentName
@@ -69,7 +115,7 @@ spec:
           description: "이 서비스가 무엇을 하는지 간단히 설명해주세요"
           default: "AWS에서 운영되는 서비스"
 
-    # ── Step 4: 저장소 설정 ────────────────────────────────────
+    # ── Step 6: 저장소 설정 ────────────────────────────────────
     - title: "저장소를 선택해주세요"
       required:
         - repoUrl
@@ -94,7 +140,9 @@ spec:
           description: ${{ parameters.description }}
           namespace: default
           serviceType: ${{ parameters.serviceType }}
-          scale: ${{ parameters.scale }}
+          userCount: ${{ parameters.userCount }}
+          trafficPattern: ${{ parameters.trafficPattern }}
+          availability: ${{ parameters.availability }}
           destination:
             owner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
             repo: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
@@ -103,7 +151,7 @@ spec:
       name: Pull Request 생성
       action: publish:github
       input:
-        description: "AWS 인프라: ${{ parameters.componentName }} (${{ parameters.serviceType }} / ${{ parameters.scale }})"
+        description: "AWS 인프라: ${{ parameters.componentName }} (${{ parameters.serviceType }})"
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: 'main'
         targetPath: apps/${{ parameters.componentName }}

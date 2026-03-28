@@ -1,3 +1,17 @@
+{# ── 사용자 수 → 서버 크기(serverSize) 자동 결정 ─────────────── #}
+{%- if values.expectedUsers === 'solo' -%}
+  {%- set serverSize = 'small' -%}
+{%- elif values.expectedUsers === 'team' -%}
+  {%- set serverSize = 'medium' -%}
+{%- elif values.expectedUsers === 'service' -%}
+  {%- set serverSize = 'medium' -%}
+{%- elif values.expectedUsers === 'scale' -%}
+  {%- set serverSize = 'large' -%}
+{%- else -%}
+  {%- set serverSize = 'medium' -%}
+{%- endif -%}
+{# ────────────────────────────────────────────────────────── #}
+
 {% if values.cloudProvider === 'aws' %}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: EC2Instance
@@ -7,9 +21,9 @@ metadata:
 spec:
   name: {{ values.componentName }}
   region: ap-northeast-2
-  {%- if values.serverSize === 'small' %}
+  {%- if serverSize === 'small' %}
   instanceType: t3.small
-  {%- elif values.serverSize === 'medium' %}
+  {%- elif serverSize === 'medium' %}
   instanceType: t3.medium
   {%- else %}
   instanceType: t3.xlarge
@@ -27,9 +41,9 @@ metadata:
 spec:
   resourceGroupName: {{ values.resourceGroupName }}
   location: koreacentral
-  {%- if values.serverSize === 'small' %}
+  {%- if serverSize === 'small' %}
   vmSize: Standard_B2s
-  {%- elif values.serverSize === 'medium' %}
+  {%- elif serverSize === 'medium' %}
   vmSize: Standard_D2s_v3
   {%- else %}
   vmSize: Standard_D4s_v3
@@ -49,9 +63,9 @@ spec:
   name: {{ values.componentName }}
   region: us-central1
   zone: us-central1-a
-  {%- if values.serverSize === 'small' %}
+  {%- if serverSize === 'small' %}
   machineType: e2-small
-  {%- elif values.serverSize === 'medium' %}
+  {%- elif serverSize === 'medium' %}
   machineType: e2-medium
   {%- else %}
   machineType: e2-standard-4

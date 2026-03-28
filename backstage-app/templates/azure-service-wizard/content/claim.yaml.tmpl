@@ -1,3 +1,25 @@
+{# ── 사용자 응답 → 인프라 규모(scale) 자동 결정 ─────────────── #}
+{%- if values.userCount === 'micro' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' and values.trafficPattern !== 'spiky' and values.availability !== 'high' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'medium' and values.trafficPattern === 'spiky' and values.availability === 'high' -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'medium' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'large' and values.trafficPattern === 'spiky' -%}
+  {%- set scale = 'xlarge' -%}
+{%- elif values.userCount === 'large' and (values.availability === 'high' or values.trafficPattern === 'steady') -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'large' -%}
+  {%- set scale = 'standard' -%}
+{%- else -%}
+  {%- set scale = 'standard' -%}
+{%- endif -%}
+{# ────────────────────────────────────────────────────────── #}
+
 {% if values.serviceType === 'web-api' %}
 # ── 웹 API 서버: Azure VM + PostgreSQL ──────────────────────
 apiVersion: k8s-idp.example.org/v1alpha1
@@ -7,19 +29,24 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   resourceGroupName: {{ values.resourceGroupName }}
   location: koreacentral
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   vmSize: Standard_B2s
   diskSizeGb: 30
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   vmSize: Standard_D2s_v3
   diskSizeGb: 50
-  {%- else %}
+  {%- elif scale === 'large' %}
   vmSize: Standard_D4s_v3
   diskSizeGb: 100
+  {%- else %}
+  vmSize: Standard_D8s_v3
+  diskSizeGb: 200
   {%- endif %}
   adminUsername: azureuser
   providerConfigRef:
@@ -32,20 +59,25 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   resourceGroupName: {{ values.resourceGroupName }}
   location: koreacentral
   engine: postgresql
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   skuName: B_Standard_B1ms
   storageMb: 20480
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   skuName: GP_Standard_D2s_v3
   storageMb: 51200
-  {%- else %}
+  {%- elif scale === 'large' %}
   skuName: GP_Standard_D4s_v3
   storageMb: 102400
+  {%- else %}
+  skuName: GP_Standard_D8s_v3
+  storageMb: 204800
   {%- endif %}
   providerConfigRef:
     name: default
@@ -59,11 +91,13 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   resourceGroupName: {{ values.resourceGroupName }}
   location: koreacentral
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   replication: LRS
   {%- else %}
   replication: GRS
@@ -80,19 +114,24 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   resourceGroupName: {{ values.resourceGroupName }}
   location: koreacentral
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   vmSize: Standard_D2s_v3
   diskSizeGb: 50
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   vmSize: Standard_D4s_v3
   diskSizeGb: 100
-  {%- else %}
+  {%- elif scale === 'large' %}
   vmSize: Standard_D8s_v3
   diskSizeGb: 200
+  {%- else %}
+  vmSize: Standard_D16s_v3
+  diskSizeGb: 500
   {%- endif %}
   adminUsername: azureuser
   providerConfigRef:
@@ -107,19 +146,24 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   resourceGroupName: {{ values.resourceGroupName }}
   location: koreacentral
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   vmSize: Standard_D4s_v3
   diskSizeGb: 100
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   vmSize: Standard_D8s_v3
   diskSizeGb: 200
-  {%- else %}
+  {%- elif scale === 'large' %}
   vmSize: Standard_D16s_v3
   diskSizeGb: 500
+  {%- else %}
+  vmSize: Standard_D32s_v3
+  diskSizeGb: 1000
   {%- endif %}
   adminUsername: azureuser
   providerConfigRef:

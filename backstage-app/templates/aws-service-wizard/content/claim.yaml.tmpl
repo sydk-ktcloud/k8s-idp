@@ -1,3 +1,25 @@
+{# ── 사용자 응답 → 인프라 규모(scale) 자동 결정 ─────────────── #}
+{%- if values.userCount === 'micro' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' and values.trafficPattern !== 'spiky' and values.availability !== 'high' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'medium' and values.trafficPattern === 'spiky' and values.availability === 'high' -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'medium' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'large' and values.trafficPattern === 'spiky' -%}
+  {%- set scale = 'xlarge' -%}
+{%- elif values.userCount === 'large' and (values.availability === 'high' or values.trafficPattern === 'steady') -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'large' -%}
+  {%- set scale = 'standard' -%}
+{%- else -%}
+  {%- set scale = 'standard' -%}
+{%- endif -%}
+{# ────────────────────────────────────────────────────────── #}
+
 {% if values.serviceType === 'web-api' %}
 # ── 웹 API 서버: EC2 + RDS ──────────────────────────────────
 apiVersion: k8s-idp.example.org/v1alpha1
@@ -7,19 +29,24 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}-vm
   region: ap-northeast-2
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   instanceType: t3.small
   diskSize: 30
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   instanceType: t3.medium
   diskSize: 50
-  {%- else %}
+  {%- elif scale === 'large' %}
   instanceType: t3.xlarge
   diskSize: 100
+  {%- else %}
+  instanceType: m5.2xlarge
+  diskSize: 200
   {%- endif %}
 ---
 apiVersion: k8s-idp.example.org/v1alpha1
@@ -29,20 +56,25 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}-db
   engine: postgres
   region: ap-northeast-2
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   instanceClass: db.t3.small
   diskSize: 20
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   instanceClass: db.t3.medium
   diskSize: 50
-  {%- else %}
+  {%- elif scale === 'large' %}
   instanceClass: db.t3.large
   diskSize: 100
+  {%- else %}
+  instanceClass: db.m5.xlarge
+  diskSize: 200
   {%- endif %}
 
 {% elif values.serviceType === 'file-service' %}
@@ -54,12 +86,14 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
   region: ap-northeast-2
   accessControl: private
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   versioning: false
   {%- else %}
   versioning: true
@@ -74,19 +108,24 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
   region: ap-northeast-2
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   instanceType: t3.medium
   diskSize: 50
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   instanceType: t3.xlarge
   diskSize: 100
-  {%- else %}
+  {%- elif scale === 'large' %}
   instanceType: m5.2xlarge
   diskSize: 200
+  {%- else %}
+  instanceType: m5.4xlarge
+  diskSize: 500
   {%- endif %}
 
 {% elif values.serviceType === 'data-processing' %}
@@ -98,19 +137,24 @@ metadata:
   namespace: {{ values.namespace }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
   region: ap-northeast-2
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   instanceType: t3.xlarge
   diskSize: 100
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   instanceType: m5.2xlarge
   diskSize: 200
-  {%- else %}
+  {%- elif scale === 'large' %}
   instanceType: m5.4xlarge
   diskSize: 500
+  {%- else %}
+  instanceType: m5.8xlarge
+  diskSize: 1000
   {%- endif %}
 
 {% endif %}
