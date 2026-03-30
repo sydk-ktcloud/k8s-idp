@@ -83,10 +83,18 @@ alertmanager:
 nodeExporter:
   enabled: true
 
+prometheus-node-exporter:
+  podLabels:
+    team: platform
+    owner: team-sre
+    cost-center: internal-platform
+    env: prod
+    system: observability
+    service: node-exporter
 kube-state-metrics:
   releaseLabel: true
   prometheusScrape: false
-  customLabels:
+  podLabels:
     team: platform
     owner: team-sre
     cost-center: internal-platform
@@ -98,7 +106,8 @@ kube-state-metrics:
       enabled: true
       http:
         honorLabels: true
-# 추가 스크레이프 설정 (MinIO 메트릭)
+
+   # 추가 스크레이프 설정 (MinIO 메트릭)
 prometheus:
   prometheusSpec:
     additionalScrapeConfigs:
@@ -106,10 +115,17 @@ prometheus:
       static_configs:
       - targets: ['minio.minio-storage:9000']
       metrics_path: /minio/v2/metrics/cluster
-      scheme: http
-
+      scheme: http     
+      
 # Prometheus Operator
 prometheusOperator:
+  podLabels:
+      team: platform
+      owner: team-sre
+      cost-center: internal-platform
+      env: prod
+      system: observability
+      service: prometheus-operator
   resources:
     limits:
       cpu: 200m
