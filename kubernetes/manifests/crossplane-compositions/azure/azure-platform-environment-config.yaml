@@ -1,0 +1,22 @@
+# ── Azure 플랫폼 환경 설정 ────────────────────────────────────────
+# 플랫폼 팀이 1회 설정하는 Azure 구독 수준 값입니다.
+# Composition에서 resourceGroupName 기본값으로 사용됩니다.
+#
+# 적용 방법:
+#   1. defaultResourceGroup을 실제 플랫폼 Resource Group 이름으로 교체
+#   2. defaultLocation을 기본 배포 리전으로 설정
+#   3. kubectl apply -f azure-platform-environment-config.yaml
+#
+# 개발자는 claim에서 resourceGroupName을 생략하면 이 값을 사용합니다.
+# 별도 RG가 필요하면 claim에 명시적으로 지정할 수 있습니다.
+# ─────────────────────────────────────────────────────────────────
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: EnvironmentConfig
+metadata:
+  name: azure-platform
+data:
+  # 기본 Azure Resource Group (플랫폼 팀이 사전 생성)
+  defaultResourceGroup: "rg-platform"
+
+  # 기본 배포 리전
+  defaultLocation: "koreacentral"

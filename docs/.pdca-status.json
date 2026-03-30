@@ -1,9 +1,12 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-03-14T14:41:36.667Z",
+  "lastUpdated": "2026-03-23T03:26:29.314Z",
   "activeFeatures": [
     "backend",
-    "packages"
+    "packages",
+    "home",
+    "dashboard",
+    "Root"
   ],
   "primaryFeature": "backend",
   "features": {
@@ -29,9 +32,48 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-14T09:57:40.220Z",
-        "lastUpdated": "2026-03-14T14:41:36.667Z"
+        "lastUpdated": "2026-03-23T03:20:34.156Z"
       },
       "lastFile": "/Users/kylekim1223/sydk/k8s-idp/backstage-app/packages/app/src/App.tsx"
+    },
+    "home": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-20T16:13:40.037Z",
+        "lastUpdated": "2026-03-23T01:06:14.764Z"
+      },
+      "lastFile": "/Users/kylekim1223/sydk/k8s-idp/backstage-app/packages/app/src/components/home/HomePage.tsx"
+    },
+    "dashboard": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-23T03:20:25.784Z",
+        "lastUpdated": "2026-03-23T03:26:29.314Z"
+      },
+      "lastFile": "/Users/kylekim1223/sydk/k8s-idp/backstage-app/packages/app/src/components/dashboard/ProvisioningDashboard.tsx"
+    },
+    "Root": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-23T03:20:40.035Z",
+        "lastUpdated": "2026-03-23T03:20:45.059Z"
+      },
+      "lastFile": "/Users/kylekim1223/sydk/k8s-idp/backstage-app/packages/app/src/components/Root/Root.tsx"
     }
   },
   "pipeline": {
@@ -42,7 +84,7 @@
   "session": {
     "startedAt": "2026-03-10T03:01:32.721Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-03-14T14:41:36.667Z"
+    "lastActivity": "2026-03-23T03:26:29.314Z"
   },
   "history": [
     {
@@ -78,6 +120,96 @@
     {
       "timestamp": "2026-03-14T14:41:36.667Z",
       "feature": "packages",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-20T16:13:40.037Z",
+      "feature": "home",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-21T13:40:04.160Z",
+      "feature": "home",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-21T13:40:10.378Z",
+      "feature": "home",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-21T16:09:09.978Z",
+      "feature": "home",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T00:40:22.968Z",
+      "feature": "home",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T01:06:06.797Z",
+      "feature": "home",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T01:06:14.764Z",
+      "feature": "home",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:20:25.784Z",
+      "feature": "dashboard",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:20:30.562Z",
+      "feature": "packages",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:20:34.156Z",
+      "feature": "packages",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:20:40.035Z",
+      "feature": "Root",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:20:45.059Z",
+      "feature": "Root",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:25:10.057Z",
+      "feature": "dashboard",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:25:37.671Z",
+      "feature": "dashboard",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-23T03:26:29.314Z",
+      "feature": "dashboard",
       "phase": "do",
       "action": "updated"
     }

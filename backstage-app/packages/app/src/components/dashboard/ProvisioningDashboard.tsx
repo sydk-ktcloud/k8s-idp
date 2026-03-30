@@ -39,6 +39,12 @@ import { TroubleshootingPanel } from './TroubleshootingPanel';
 import { categorizeError } from './troubleshootingGuides';
 import type { ErrorCategory } from './troubleshootingGuides';
 
+const CLOUD_COLORS = {
+  GCP: { bg: '#e8f0fe', color: '#1a73e8', border: '#4285F4' },
+  AWS: { bg: '#fff3e0', color: '#e65100', border: '#FF9900' },
+  Azure: { bg: '#e8f5e9', color: '#2e7d32', border: '#43a047' },
+};
+
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
     summaryCard: {
@@ -54,6 +60,22 @@ const useStyles = makeStyles((theme: Theme) =>
     },
     summaryLabel: {
       color: theme.palette.text.secondary,
+      marginTop: theme.spacing(0.5),
+    },
+    cloudCard: {
+      padding: theme.spacing(1.5),
+      textAlign: 'center',
+      borderRadius: theme.shape.borderRadius,
+      borderTop: '3px solid',
+    },
+    cloudCount: {
+      fontSize: '1.8rem',
+      fontWeight: 700,
+      lineHeight: 1,
+    },
+    cloudLabel: {
+      fontSize: '0.85rem',
+      fontWeight: 600,
       marginTop: theme.spacing(0.5),
     },
     tableContainer: {
@@ -102,18 +124,40 @@ const useStyles = makeStyles((theme: Theme) =>
       borderColor: '#ef9a9a',
       fontSize: '0.75rem',
     },
+    sectionTitle: {
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      color: theme.palette.text.secondary,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      marginBottom: theme.spacing(1),
+      marginTop: theme.spacing(2),
+    },
   }),
 );
 
 const RESOURCE_TYPES = [
-  { plural: 'webapps', kind: 'WebApp', label: 'Web앱', icon: <CloudIcon fontSize="small" /> },
-  { plural: 'gcpinstances', kind: 'GCPInstance', label: 'GCP VM', icon: <DnsIcon fontSize="small" /> },
-  { plural: 'buckets', kind: 'Bucket', label: 'Storage', icon: <StorageIcon fontSize="small" /> },
-  { plural: 'clusters', kind: 'Cluster', label: 'GKE', icon: <AccountTreeIcon fontSize="small" /> },
-  { plural: 'databases', kind: 'Database', label: 'Cloud SQL', icon: <StorageIcon fontSize="small" /> },
-  { plural: 'pubsubs', kind: 'PubSub', label: 'PubSub', icon: <CloudIcon fontSize="small" /> },
-  { plural: 'caches', kind: 'Cache', label: 'Cache', icon: <StorageIcon fontSize="small" /> },
-];
+  // GCP
+  { plural: 'webapps',      kind: 'WebApp',          label: 'Web앱',    cloud: 'GCP',   icon: <CloudIcon fontSize="small" /> },
+  { plural: 'gcpinstances', kind: 'GCPInstance',      label: 'GCP VM',   cloud: 'GCP',   icon: <DnsIcon fontSize="small" /> },
+  { plural: 'buckets',      kind: 'Bucket',           label: 'GCS',      cloud: 'GCP',   icon: <StorageIcon fontSize="small" /> },
+  { plural: 'clusters',     kind: 'Cluster',          label: 'GKE',      cloud: 'GCP',   icon: <AccountTreeIcon fontSize="small" /> },
+  { plural: 'databases',    kind: 'Database',         label: 'Cloud SQL', cloud: 'GCP',  icon: <StorageIcon fontSize="small" /> },
+  { plural: 'pubsubs',      kind: 'PubSub',           label: 'PubSub',   cloud: 'GCP',   icon: <CloudIcon fontSize="small" /> },
+  { plural: 'caches',       kind: 'Cache',            label: 'Cache',    cloud: 'GCP',   icon: <StorageIcon fontSize="small" /> },
+  // AWS
+  { plural: 'ec2instances',  kind: 'EC2Instance',     label: 'EC2',      cloud: 'AWS',   icon: <DnsIcon fontSize="small" /> },
+  { plural: 's3buckets',     kind: 'S3Bucket',        label: 'S3',       cloud: 'AWS',   icon: <StorageIcon fontSize="small" /> },
+  { plural: 'eksclusters',   kind: 'EKSCluster',      label: 'EKS',      cloud: 'AWS',   icon: <AccountTreeIcon fontSize="small" /> },
+  { plural: 'rdsdatabases',  kind: 'RDSDatabase',     label: 'RDS',      cloud: 'AWS',   icon: <StorageIcon fontSize="small" /> },
+  // Azure
+  { plural: 'azurevms',          kind: 'AzureVM',         label: 'Azure VM',  cloud: 'Azure', icon: <DnsIcon fontSize="small" /> },
+  { plural: 'azureblobstorages', kind: 'AzureBlobStorage', label: 'Blob',     cloud: 'Azure', icon: <StorageIcon fontSize="small" /> },
+  { plural: 'aksclusters',       kind: 'AKSCluster',      label: 'AKS',       cloud: 'Azure', icon: <AccountTreeIcon fontSize="small" /> },
+  { plural: 'azuredatabases',    kind: 'AzureDatabase',   label: 'Azure DB',  cloud: 'Azure', icon: <StorageIcon fontSize="small" /> },
+] as const;
+
+type CloudProvider = 'GCP' | 'AWS' | 'Azure';
 
 const API_GROUP = 'k8s-idp.example.org';
 const API_VERSION = 'v1alpha1';
@@ -141,6 +185,7 @@ interface CrossplaneResource {
   };
   kind: string;
   kindLabel: string;
+  cloud: CloudProvider;
 }
 
 type StatusClass = 'chipReady' | 'chipPending' | 'chipError' | 'chipUnknown';
@@ -196,6 +241,23 @@ const StatusChip = ({
   );
 };
 
+const CloudChip = ({ cloud }: { cloud: CloudProvider }) => {
+  const colors = CLOUD_COLORS[cloud];
+  return (
+    <Chip
+      label={cloud}
+      size="small"
+      style={{
+        backgroundColor: colors.bg,
+        color: colors.color,
+        fontWeight: 700,
+        fontSize: '0.7rem',
+        border: `1px solid ${colors.border}`,
+      }}
+    />
+  );
+};
+
 interface TroubleshootState {
   open: boolean;
   resourceName: string;
@@ -229,6 +291,7 @@ const ResourceTable = ({
         <TableHead>
           <TableRow>
             <TableCell>리소스 이름</TableCell>
+            <TableCell>클라우드</TableCell>
             <TableCell>종류</TableCell>
             <TableCell>네임스페이스</TableCell>
             <TableCell>상태</TableCell>
@@ -252,6 +315,9 @@ const ResourceTable = ({
                   <Typography variant="body2" style={{ fontWeight: 600 }}>
                     {resource.metadata.name}
                   </Typography>
+                </TableCell>
+                <TableCell>
+                  <CloudChip cloud={resource.cloud} />
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -335,7 +401,7 @@ export const ProvisioningDashboard = () => {
           const data = await response.json();
           if (data.items) {
             for (const item of data.items) {
-              results.push({ ...item, kindLabel: rt.label });
+              results.push({ ...item, kindLabel: rt.label, cloud: rt.cloud as CloudProvider });
             }
           }
         } catch (_e) {
@@ -359,28 +425,33 @@ export const ProvisioningDashboard = () => {
     setTroubleshoot(prev => ({ ...prev, open: false }));
   }, []);
 
-  const tabs = [
-    { label: '전체', filter: (_r: CrossplaneResource) => true },
-    ...RESOURCE_TYPES.map(rt => ({
-      label: rt.label,
-      filter: (r: CrossplaneResource) => r.kindLabel === rt.label,
-    })),
+  const CLOUD_TABS: { label: string; filter: (r: CrossplaneResource) => boolean }[] = [
+    { label: '전체', filter: () => true },
+    { label: 'GCP',   filter: r => r.cloud === 'GCP' },
+    { label: 'AWS',   filter: r => r.cloud === 'AWS' },
+    { label: 'Azure', filter: r => r.cloud === 'Azure' },
   ];
 
   const filteredResources = (allResources || []).filter(
-    tabs[activeTab]?.filter ?? (() => true),
+    CLOUD_TABS[activeTab]?.filter ?? (() => true),
   );
 
-  const total = allResources?.length ?? 0;
-  const ready = allResources?.filter(r => getStatus(r.status?.conditions).cls === 'chipReady').length ?? 0;
+  const total   = allResources?.length ?? 0;
+  const ready   = allResources?.filter(r => getStatus(r.status?.conditions).cls === 'chipReady').length ?? 0;
   const pending = allResources?.filter(r => getStatus(r.status?.conditions).cls === 'chipPending').length ?? 0;
   const errored = allResources?.filter(r => getStatus(r.status?.conditions).isError).length ?? 0;
+
+  const cloudCounts: Record<CloudProvider, number> = {
+    GCP:   allResources?.filter(r => r.cloud === 'GCP').length   ?? 0,
+    AWS:   allResources?.filter(r => r.cloud === 'AWS').length   ?? 0,
+    Azure: allResources?.filter(r => r.cloud === 'Azure').length ?? 0,
+  };
 
   return (
     <Page themeId="tool">
       <Header
         title="프로비저닝 현황"
-        subtitle="Crossplane으로 프로비저닝된 GCP 리소스 상태"
+        subtitle="멀티 클라우드 (GCP / AWS / Azure) 리소스 상태"
       />
       <Content>
         <ContentHeader title="리소스 현황">
@@ -391,20 +462,17 @@ export const ProvisioningDashboard = () => {
           </Tooltip>
         </ContentHeader>
 
-        {/* 요약 카드 */}
-        <Grid container spacing={2} style={{ marginBottom: 24 }}>
+        {/* 상태별 요약 카드 */}
+        <Grid container spacing={2} style={{ marginBottom: 8 }}>
           {[
-            { label: '전체', count: total, color: '#1565c0' },
-            { label: '✅ 완료', count: ready, color: '#2e7d32' },
+            { label: '전체', count: total,   color: '#1565c0' },
+            { label: '✅ 완료', count: ready,   color: '#2e7d32' },
             { label: '⏳ 프로비저닝 중', count: pending, color: '#e65100' },
             { label: '❌ 오류', count: errored, color: '#b71c1c' },
           ].map(item => (
             <Grid item xs={6} md={3} key={item.label}>
               <Box className={classes.summaryCard}>
-                <Typography
-                  className={classes.summaryCount}
-                  style={{ color: item.color }}
-                >
+                <Typography className={classes.summaryCount} style={{ color: item.color }}>
                   {item.count}
                 </Typography>
                 <Typography variant="body2" className={classes.summaryLabel}>
@@ -413,6 +481,34 @@ export const ProvisioningDashboard = () => {
               </Box>
             </Grid>
           ))}
+        </Grid>
+
+        {/* 클라우드별 요약 카드 */}
+        <Typography className={classes.sectionTitle}>클라우드별 현황</Typography>
+        <Grid container spacing={2} style={{ marginBottom: 24 }}>
+          {(Object.keys(CLOUD_COLORS) as CloudProvider[]).map(cloud => {
+            const colors = CLOUD_COLORS[cloud];
+            return (
+              <Grid item xs={4} key={cloud}>
+                <Box
+                  className={classes.cloudCard}
+                  style={{
+                    backgroundColor: colors.bg,
+                    borderTopColor: colors.border,
+                    border: `1px solid ${colors.border}`,
+                    borderTop: `3px solid ${colors.border}`,
+                  }}
+                >
+                  <Typography className={classes.cloudCount} style={{ color: colors.color }}>
+                    {cloudCounts[cloud]}
+                  </Typography>
+                  <Typography className={classes.cloudLabel} style={{ color: colors.color }}>
+                    {cloud}
+                  </Typography>
+                </Box>
+              </Grid>
+            );
+          })}
         </Grid>
 
         {loading && <Progress />}
@@ -424,19 +520,23 @@ export const ProvisioningDashboard = () => {
 
         {!loading && (
           <>
+            {/* 클라우드 프로바이더 탭 */}
             <Tabs
               value={activeTab}
               onChange={(_e, v) => setActiveTab(v)}
               className={classes.tabs}
-              variant="scrollable"
-              scrollButtons="auto"
             >
-              {tabs.map((tab, i) => (
-                <Tab
-                  key={tab.label}
-                  label={`${tab.label}${i === 0 ? ` (${total})` : ''}`}
-                />
-              ))}
+              {CLOUD_TABS.map((tab, i) => {
+                const count = i === 0
+                  ? total
+                  : cloudCounts[tab.label as CloudProvider] ?? 0;
+                return (
+                  <Tab
+                    key={tab.label}
+                    label={`${tab.label} (${count})`}
+                  />
+                );
+              })}
             </Tabs>
 
             <ResourceTable
@@ -448,7 +548,6 @@ export const ProvisioningDashboard = () => {
         )}
       </Content>
 
-      {/* 트러블슈팅 다이얼로그 */}
       <TroubleshootingPanel
         open={troubleshoot.open}
         onClose={handleCloseTroubleshoot}

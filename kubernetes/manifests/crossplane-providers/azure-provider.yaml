@@ -1,0 +1,84 @@
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: azure-config
+spec:
+  deploymentTemplate:
+    metadata:
+      labels:
+        team: platform
+        owner: team-platform
+        cost-center: internal-platform
+        env: prod
+        system: infra
+        service: crossplane-azure
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-compute
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-compute:v1
+  runtimeConfigRef:
+    name: azure-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-storage
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-storage:v1
+  runtimeConfigRef:
+    name: azure-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-containerservice
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-containerservice:v1
+  runtimeConfigRef:
+    name: azure-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-dbforpostgresql
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-dbforpostgresql:v1
+  runtimeConfigRef:
+    name: azure-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-dbformysql
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-dbformysql:v1
+  runtimeConfigRef:
+    name: azure-config
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-network
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-network:v1
+  runtimeConfigRef:
+    name: azure-config
+---
+# ProviderConfig: azure-credentials Secret 참조 (Service Principal JSON)
+# az ad sp create-for-rbac --sdk-auth > azure-sp.json
+# kubectl create secret generic azure-credentials -n crossplane-system \
+#   --from-file=credentials=azure-sp.json
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: azure-credentials
+      key: credentials

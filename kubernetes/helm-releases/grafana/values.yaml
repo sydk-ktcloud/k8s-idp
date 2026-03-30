@@ -1,4 +1,12 @@
 # Grafana Helm Values with Dex OAuth
+podLabels:
+  team: platform
+  owner: team-sre
+  cost-center: internal-platform
+  env: prod
+  system: observability
+  service: grafana
+
 replicas: 1
 
 service:
@@ -43,7 +51,9 @@ resources:
 
 # Persistence
 persistence:
-  enabled: false
+  enabled: true
+  storageClassName: longhorn
+  size: 1Gi
 
 # Service account
 serviceAccount:
@@ -67,7 +77,7 @@ datasources:
         access: proxy
         jsonData:
           derivedFields:
-            - matcherRegex: "traceID=(\\w+)"
+            - matcherRegex: '"trace_id":"([^"]+)"'
               name: TraceID
               url: "$${__value.raw}"
               datasourceUid: tempo
@@ -76,3 +86,20 @@ datasources:
         url: http://tempo.monitoring:3200
         access: proxy
         uid: tempo
+
+# 백업 & 스토리지 대시보드 프로바이더
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: backup
+      orgId: 1
+      folder: 'Backup & Storage'
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/backup
+
+dashboardsConfigMaps:
+  backup: "grafana-backup-dashboard"

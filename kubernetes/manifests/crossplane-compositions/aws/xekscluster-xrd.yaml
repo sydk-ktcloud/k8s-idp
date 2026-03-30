@@ -1,0 +1,68 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xeksclusters.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XEKSCluster
+    plural: xeksclusters
+    singular: xekscluster
+  claimNames:
+    kind: EKSCluster
+    plural: eksclusters
+    singular: ekscluster
+  # EKS kubeconfig가 자동으로 Kubernetes Secret에 저장됩니다
+  connectionSecretKeys:
+    - kubeconfig
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the EKS cluster
+                region:
+                  type: string
+                  description: AWS region
+                  default: us-east-1
+                nodeCount:
+                  type: integer
+                  description: Number of worker nodes
+                  default: 3
+                instanceType:
+                  type: string
+                  description: EC2 instance type for worker nodes
+                  default: t3.medium
+                roleArn:
+                  type: string
+                  description: IAM role ARN for the EKS cluster (pre-created)
+                nodeRoleArn:
+                  type: string
+                  description: IAM role ARN for EKS node group (pre-created)
+                subnetIds:
+                  type: array
+                  description: Subnet IDs for the EKS cluster (pre-created)
+                  items:
+                    type: string
+              required:
+                - name
+            status:
+              type: object
+              properties:
+                clusterStatus:
+                  type: string
+                  description: "클러스터 상태 (ACTIVE / CREATING / DELETING / FAILED)"
+                endpoint:
+                  type: string
+                  description: "Kubernetes API 서버 엔드포인트"
+                nodeGroupStatus:
+                  type: string
+                  description: "노드 그룹 상태 (ACTIVE / CREATING / DEGRADED)"

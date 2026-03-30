@@ -9,15 +9,38 @@ spec:
   compositeTypeRef:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XCluster
+
+  # GKE kubeconfig를 crossplane-system 네임스페이스에 Secret으로 자동 저장
+  writeConnectionSecretsToNamespace: crossplane-system
+
+  # ── EnvironmentConfig: GCP 프로젝트 수준 기본값 ───────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: gcp-platform
+
   resources:
     - name: gke-cluster
       base:
         apiVersion: container.gcp.upbound.io/v1beta1
         kind: Cluster
         spec:
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+            name: placeholder
           forProvider:
+            labels:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              service: gcp-cluster
+              managed-by: crossplane
+              resource-type: cluster
             location: us-central1
-            network: projects/sydk-ktcloud/global/networks/default
+            network: ""
             initialNodeCount: 3
             nodeConfig:
               - machineType: e2-medium
@@ -32,15 +55,37 @@ spec:
       patches:
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
-        - fromFieldPath: spec.network
+        # network: EnvironmentConfig 기본값(defaultNetworkUrl) 사용
+        # spec.network(선택 필드)가 있으면 추후 CombineTransform으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultNetworkUrl
           toFieldPath: spec.forProvider.network
-          transforms:
-            - type: string
-              string:
-                fmt: "projects/sydk-ktcloud/global/networks/%s"
         - fromFieldPath: spec.nodeCount
           toFieldPath: spec.forProvider.initialNodeCount
         - fromFieldPath: spec.machineType
           toFieldPath: spec.forProvider.nodeConfig[0].machineType
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
+        - fromFieldPath: metadata.labels
+          toFieldPath: spec.forProvider.labels
+        # kubeconfig Secret 이름: {uid}-gke-cluster-conn
+        - fromFieldPath: metadata.uid
+          toFieldPath: spec.writeConnectionSecretToRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-gke-cluster-conn"
+        # ── 클러스터 상태 → composite status 버블업 ────────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.status
+          toFieldPath: status.clusterStatus
+          policy:
+            fromFieldPath: Optional
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.endpoint
+          toFieldPath: status.endpoint
+          policy:
+            fromFieldPath: Optional
+      connectionDetails:
+        - name: kubeconfig
+          fromConnectionSecretKey: kubeconfig

@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dex-pdb
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: dex
+    app.kubernetes.io/component: identity-provider
+    team: platform
+    system: auth
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dex

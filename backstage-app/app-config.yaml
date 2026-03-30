@@ -80,9 +80,15 @@ catalog:
       rules:
         - allow: [Template]
 
-    # Service wizard template - 질문 기반 인프라 구성 마법사
+    # Service wizard template - 질문 기반 GCP 인프라 구성 마법사
     - type: file
       target: ../../templates/service-wizard/template.yaml
+      rules:
+        - allow: [Template]
+
+    # AWS service wizard - 질문 기반 AWS 인프라 구성 마법사
+    - type: file
+      target: ../../templates/aws-service-wizard/template.yaml
       rules:
         - allow: [Template]
 
@@ -95,6 +101,24 @@ catalog:
     # Infrastructure-only template - GCP 리소스 프로비저닝
     - type: file
       target: ../../templates/infrastructure-only/template.yaml
+      rules:
+        - allow: [Template]
+
+    # AWS infrastructure template - AWS 리소스 프로비저닝
+    - type: file
+      target: ../../templates/aws-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Azure service wizard - 초보자용 Azure 인프라 마법사
+    - type: file
+      target: ../../templates/azure-service-wizard/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Azure infrastructure template - Azure 리소스 프로비저닝
+    - type: file
+      target: ../../templates/azure-infrastructure/template.yaml
       rules:
         - allow: [Template]
 

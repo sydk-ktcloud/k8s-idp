@@ -1,0 +1,67 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xclusterbursts.k8s-idp.example.org
+  labels:
+    purpose: burst
+    environment: gcp
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XClusterBurst
+    plural: xclusterbursts
+    singular: xclusterburst
+  claimNames:
+    kind: ClusterBurst
+    plural: clusterbursts
+    singular: clusterburst
+  connectionSecretKeys:
+    - kubeconfig
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the GKE burst cluster
+                location:
+                  type: string
+                  description: Cluster location/region
+                  default: asia-northeast3
+                machineType:
+                  type: string
+                  description: Node machine type
+                  default: e2-standard-2
+                minNodeCount:
+                  type: integer
+                  description: Minimum node count for autoscaling (0 = scale to zero)
+                  default: 0
+                maxNodeCount:
+                  type: integer
+                  description: Maximum node count for autoscaling
+                  default: 5
+                preemptible:
+                  type: boolean
+                  description: Use preemptible VMs for cost savings
+                  default: true
+                diskSizeGb:
+                  type: integer
+                  description: Node disk size in GB
+                  default: 50
+                network:
+                  type: string
+                  description: VPC network name
+                  default: default
+                subnetwork:
+                  type: string
+                  description: Subnetwork name
+                  default: default
+              required:
+                - name

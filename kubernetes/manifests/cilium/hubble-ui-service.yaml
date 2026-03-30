@@ -9,6 +9,12 @@ metadata:
   labels:
     app.kubernetes.io/name: hubble-ui
     app.kubernetes.io/part-of: cilium
+    team: platform
+    owner: team-security    
+    cost-center: internal-platform
+    env: prod
+    system: security          
+    service: hubble-ui
 spec:
   type: NodePort
   selector:

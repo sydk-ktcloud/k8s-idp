@@ -1,47 +1,47 @@
-{% if resourceType == 'gcpinstance' -%}
+{% if values.resourceType == 'gcpinstance' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: GCPInstance
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  machineType: {{ vmMachineType }}
-  region: {{ vmRegion }}
-  zone: {{ vmZone }}
-  diskSize: {{ vmDiskSize }}
-{% elif resourceType == 'bucket' -%}
+  name: {{ values.componentName }}
+  machineType: {{ values.vmMachineType }}
+  region: {{ values.vmRegion }}
+  zone: {{ values.vmZone }}
+  diskSize: {{ values.vmDiskSize }}
+{% elif values.resourceType == 'bucket' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Bucket
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  location: {{ bucketLocation }}
-  storageClass: {{ bucketStorageClass }}
-  versioning: {{ bucketVersioning }}
-{% elif resourceType == 'cluster' -%}
+  name: {{ values.componentName }}
+  location: {{ values.bucketLocation }}
+  storageClass: {{ values.bucketStorageClass }}
+  versioning: {{ values.bucketVersioning }}
+{% elif values.resourceType == 'cluster' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Cluster
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  location: {{ clusterLocation }}
-  nodeCount: {{ clusterNodeCount }}
-  machineType: {{ clusterMachineType }}
-{% elif resourceType == 'database' -%}
+  name: {{ values.componentName }}
+  location: {{ values.clusterLocation }}
+  nodeCount: {{ values.clusterNodeCount }}
+  machineType: {{ values.clusterMachineType }}
+{% elif values.resourceType == 'database' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Database
 metadata:
-  name: {{ componentName }}
-  namespace: {{ namespace }}
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
 spec:
-  name: {{ componentName }}
-  databaseVersion: {{ dbDatabaseVersion }}
-  tier: {{ dbTier }}
-  region: {{ dbRegion }}
-  diskSize: {{ dbDiskSize }}
+  name: {{ values.componentName }}
+  databaseVersion: {{ values.dbDatabaseVersion }}
+  tier: {{ values.dbTier }}
+  region: {{ values.dbRegion }}
+  diskSize: {{ values.dbDiskSize }}
 {% endif -%}

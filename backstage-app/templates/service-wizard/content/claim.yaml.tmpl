@@ -1,3 +1,25 @@
+{# ── 사용자 응답 → 인프라 규모(scale) 자동 결정 ─────────────── #}
+{%- if values.userCount === 'micro' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' and values.trafficPattern !== 'spiky' and values.availability !== 'high' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'medium' and values.trafficPattern === 'spiky' and values.availability === 'high' -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'medium' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'large' and values.trafficPattern === 'spiky' -%}
+  {%- set scale = 'xlarge' -%}
+{%- elif values.userCount === 'large' and (values.availability === 'high' or values.trafficPattern === 'steady') -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'large' -%}
+  {%- set scale = 'standard' -%}
+{%- else -%}
+  {%- set scale = 'standard' -%}
+{%- endif -%}
+{# ────────────────────────────────────────────────────────── #}
+
 {% if values.serviceType === 'web-api' %}
 # ── 웹 API 서버: VM + 데이터베이스 ────────────────────────────
 apiVersion: k8s-idp.example.org/v1alpha1
@@ -5,13 +27,19 @@ kind: WebApp
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
-  environment: {{ values.scale }}
-  region: us-central1
+  environment: {{ scale }}
+  region: {{ values.region }}
   dbEngine: POSTGRES_15
 
 {% elif values.serviceType === 'file-service' %}
@@ -21,14 +49,18 @@ kind: Bucket
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
   location: US
   storageClass: STANDARD
-  {%- if values.scale === 'large' %}
+  {%- if scale === 'large' or scale === 'xlarge' %}
   versioning: true
   {%- else %}
   versioning: false
@@ -41,21 +73,28 @@ kind: Cluster
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
-  location: us-central1
-  {%- if values.scale === 'dev' %}
+  location: {{ values.region }}
+  {%- if scale === 'dev' %}
   nodeCount: 1
   machineType: e2-medium
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   nodeCount: 3
   machineType: e2-medium
-  {%- else %}
+  {%- elif scale === 'large' %}
   nodeCount: 5
   machineType: e2-standard-4
+  {%- else %}
+  nodeCount: 5
+  machineType: n2-standard-8
   {%- endif %}
 
 {% elif values.serviceType === 'event-driven' %}
@@ -65,15 +104,19 @@ kind: PubSub
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
-  {%- if values.scale === 'dev' %}
+  {%- if scale === 'dev' %}
   messageRetentionDuration: "86400s"
   ackDeadlineSeconds: 30
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   messageRetentionDuration: "604800s"
   ackDeadlineSeconds: 60
   {%- else %}
@@ -88,22 +131,29 @@ kind: GCPInstance
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
-    k8s-idp.example.org/scale: "{{ values.scale }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
 spec:
   name: {{ values.componentName }}
-  region: us-central1
-  zone: us-central1-a
-  {%- if values.scale === 'dev' %}
+  region: {{ values.region }}
+  zone: {{ values.region }}-a
+  {%- if scale === 'dev' %}
   machineType: e2-standard-4
   diskSize: 100
-  {%- elif values.scale === 'standard' %}
+  {%- elif scale === 'standard' %}
   machineType: e2-standard-8
   diskSize: 200
-  {%- else %}
+  {%- elif scale === 'large' %}
   machineType: n2-standard-16
   diskSize: 500
+  {%- else %}
+  machineType: n2-standard-32
+  diskSize: 1000
   {%- endif %}
 
 {% endif %}

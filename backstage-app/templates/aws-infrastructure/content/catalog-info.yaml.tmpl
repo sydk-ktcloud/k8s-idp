@@ -1,0 +1,38 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ values.componentName }}
+  description: "AWS 인프라 리소스: {{ values.resourceType }}"
+  tags:
+    - infrastructure
+    - aws
+    - {{ values.resourceType }}
+  annotations:
+    github.com/project-slug: sydk-ktcloud/k8s-idp
+spec:
+  type: resource
+  lifecycle: experimental
+  owner: user:guest
+  dependsOn:
+    - resource:crossplane-claims
+  links:
+    - url: https://console.aws.amazon.com
+      title: AWS Console
+      icon: cloud
+{% if values.resourceType == 'ec2instance' -%}
+    - url: https://console.aws.amazon.com/ec2/v2/home#Instances
+      title: EC2 Instances
+      icon: compute
+{% elif values.resourceType == 's3bucket' -%}
+    - url: https://s3.console.aws.amazon.com/s3/buckets/{{ values.componentName }}
+      title: S3 Bucket
+      icon: storage
+{% elif values.resourceType == 'ekscluster' -%}
+    - url: https://console.aws.amazon.com/eks/home#/clusters
+      title: EKS Clusters
+      icon: kubernetes
+{% elif values.resourceType == 'rdsdatabase' -%}
+    - url: https://console.aws.amazon.com/rds/home#databases
+      title: RDS Databases
+      icon: database
+{% endif -%}

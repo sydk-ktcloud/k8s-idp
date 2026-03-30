@@ -1,0 +1,22 @@
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: ClusterBurst
+metadata:
+  name: gke-burst-asia3
+  namespace: default
+  labels:
+    environment: burst
+    region: asia-northeast3
+    purpose: peak-scaling
+    managed-by: crossplane
+    cost-center: platform
+spec:
+  name: k8s-idp-burst
+  location: asia-northeast3
+  machineType: e2-standard-2
+  minNodeCount: 0
+  maxNodeCount: 5
+  diskSizeGb: 50
+  preemptible: true
+  network: default
+  writeConnectionSecretToRef:
+    name: gke-burst-kubeconfig

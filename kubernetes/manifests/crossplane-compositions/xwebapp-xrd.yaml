@@ -11,6 +11,10 @@ spec:
     kind: WebApp
     plural: webapps
     singular: webapp
+  # Cloud SQL 접속 정보가 자동으로 Kubernetes Secret에 저장됩니다
+  connectionSecretKeys:
+    - dbConnectionName
+    - dbPrivateIp
   versions:
     - name: v1alpha1
       served: true
@@ -29,12 +33,13 @@ spec:
                   description: 웹앱 이름
                 environment:
                   type: string
-                  description: "환경 (dev: 소형, standard: 중형, large: 대형)"
+                  description: "환경 (dev: 소형, standard: 중형, large: 대형, xlarge: 초대형)"
                   default: standard
                   enum:
                     - dev
                     - standard
                     - large
+                    - xlarge
                 region:
                   type: string
                   description: GCP 리전
@@ -52,5 +57,13 @@ spec:
               properties:
                 vmStatus:
                   type: string
+                  description: "VM 상태 (RUNNING / PROVISIONING / TERMINATED)"
                 dbStatus:
                   type: string
+                  description: "DB 상태 (RUNNABLE / PENDING_CREATE / FAILED)"
+                dbConnectionName:
+                  type: string
+                  description: "Cloud SQL 접속 식별자 (project:region:instance)"
+                vmPublicIp:
+                  type: string
+                  description: "VM 공인 IP 주소"

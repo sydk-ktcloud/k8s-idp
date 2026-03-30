@@ -1,4 +1,4 @@
-module {{ name | replace("-", "" }}
+module {{ values.name | replace("-", "" }}
 
 import (
 	"encoding/json"
@@ -25,9 +25,9 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		response := Response{
-			Message:     "Hello from {{ name }}!",
-			Service:     "{{ name }}",
-			Description: "{{ description }}",
+			Message:     "Hello from {{ values.name }}!",
+			Service:     "{{ values.name }}",
+			Description: "{{ values.description }}",
 		}
 		json.NewEncoder(w).Encode(response)
 	})

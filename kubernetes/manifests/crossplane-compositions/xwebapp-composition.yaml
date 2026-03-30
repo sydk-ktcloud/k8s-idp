@@ -9,6 +9,16 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XWebApp
 
+  # DB 접속 정보를 crossplane-system 네임스페이스에 Secret으로 자동 저장
+  writeConnectionSecretsToNamespace: crossplane-system
+
+  # ── EnvironmentConfig: GCP 프로젝트 수준 기본값 ───────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: gcp-platform
+
   resources:
     # ── VM 서버 ──────────────────────────────────────────────
     - name: vm-instance
@@ -19,7 +29,7 @@ spec:
           providerConfigRef:
             name: default
           forProvider:
-            project: sydk-ktcloud
+            project: ""
             networkInterface:
               - accessConfig:
                   - networkTier: PREMIUM
@@ -30,6 +40,10 @@ spec:
               - http-server
               - https-server
       patches:
+        # project: EnvironmentConfig에서 자동 주입
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: projectId
+          toFieldPath: spec.forProvider.project
         # 이름: <webapp-name>-server
         - type: FromCompositeFieldPath
           fromFieldPath: spec.name
@@ -56,6 +70,7 @@ spec:
                 dev: e2-small
                 standard: e2-medium
                 large: e2-standard-4
+                xlarge: n2-standard-8
         # diskSize: environment → 용량 매핑
         - type: FromCompositeFieldPath
           fromFieldPath: spec.environment
@@ -66,6 +81,18 @@ spec:
                 dev: "20"
                 standard: "50"
                 large: "100"
+                xlarge: "200"
+        # ── VM 상태 → composite status 버블업 ──────────────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.status
+          toFieldPath: status.vmStatus
+          policy:
+            fromFieldPath: Optional
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.networkInterface[0].accessConfig[0].natIp
+          toFieldPath: status.vmPublicIp
+          policy:
+            fromFieldPath: Optional
 
     # ── Cloud SQL 데이터베이스 ────────────────────────────────
     - name: database
@@ -75,6 +102,9 @@ spec:
         spec:
           providerConfigRef:
             name: default
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+            name: placeholder
           forProvider:
             region: us-central1
             deletionProtection: false
@@ -109,6 +139,7 @@ spec:
                 dev: db-custom-1-3840
                 standard: db-custom-1-3840
                 large: db-custom-2-7680
+                xlarge: db-custom-4-15360
         # diskSize: environment → DB 용량 매핑
         - type: FromCompositeFieldPath
           fromFieldPath: spec.environment
@@ -119,3 +150,28 @@ spec:
                 dev: "20"
                 standard: "50"
                 large: "100"
+                xlarge: "200"
+        # DB 접속 Secret 이름: {uid}-webapp-db-conn
+        - fromFieldPath: metadata.uid
+          toFieldPath: spec.writeConnectionSecretToRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-webapp-db-conn"
+        # ── DB 상태 → composite status 버블업 ──────────────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.state
+          toFieldPath: status.dbStatus
+          policy:
+            fromFieldPath: Optional
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.connectionName
+          toFieldPath: status.dbConnectionName
+          policy:
+            fromFieldPath: Optional
+      # Cloud SQL 접속 정보 → composite connection secret으로 수집
+      connectionDetails:
+        - name: dbConnectionName
+          fromConnectionSecretKey: connectionName
+        - name: dbPrivateIp
+          fromConnectionSecretKey: privateIpAddress

@@ -4,6 +4,9 @@ metadata:
   name: infrastructure-only-template
   title: 인프라 프로비저닝
   description: GCP 리소스(VM, GCS, GKE, Cloud SQL)를 프로비저닝합니다
+  tags:
+    - infrastructure
+    - gcp
 spec:
   owner: user:guest
   type: resource

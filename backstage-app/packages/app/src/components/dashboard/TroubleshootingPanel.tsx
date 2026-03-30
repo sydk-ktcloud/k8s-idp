@@ -118,7 +118,7 @@ export const TroubleshootingPanel = ({
   const classes = useStyles();
   const guide: TroubleshootingGuide = errorCategory
     ? GUIDES[errorCategory]
-    : GUIDES['UNKNOWN'];
+    : GUIDES.UNKNOWN;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -169,36 +169,46 @@ export const TroubleshootingPanel = ({
             🚀 빠른 해결 방법
           </Typography>
           <Box display="flex" flexWrap="wrap">
-            {guide.actions.map(action => (
-              <Button
-                key={action.label}
-                component={action.url.startsWith('/') ? Link : 'a'}
-                to={action.url.startsWith('/') ? action.url : undefined}
-                href={action.url.startsWith('http') ? action.url : undefined}
-                target={action.url.startsWith('http') ? '_blank' : undefined}
-                rel={action.url.startsWith('http') ? 'noopener noreferrer' : undefined}
-                size="small"
-                variant="contained"
-                startIcon={
-                  action.variant === 'contact' ? (
-                    <ContactSupportIcon />
-                  ) : action.url.startsWith('http') ? (
-                    <OpenInNewIcon />
-                  ) : (
-                    <CheckCircleOutlineIcon />
-                  )
-                }
-                className={`${classes.actionBtn} ${
-                  action.variant === 'primary'
-                    ? classes.actionBtnPrimary
-                    : action.variant === 'contact'
-                    ? classes.actionBtnContact
-                    : ''
-                }`}
-              >
-                {action.label}
-              </Button>
-            ))}
+            {guide.actions.map(action => {
+              const isExternal = action.url.startsWith('http');
+              let extraClass = '';
+              if (action.variant === 'primary') extraClass = classes.actionBtnPrimary;
+              else if (action.variant === 'contact') extraClass = classes.actionBtnContact;
+              const btnClass = `${classes.actionBtn} ${extraClass}`;
+
+              let icon = <CheckCircleOutlineIcon />;
+              if (action.variant === 'contact') icon = <ContactSupportIcon />;
+              else if (isExternal) icon = <OpenInNewIcon />;
+              if (isExternal) {
+                return (
+                  <Button
+                    key={action.label}
+                    component="a"
+                    href={action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small"
+                    variant="contained"
+                    startIcon={icon}
+                    className={btnClass}
+                  >
+                    {action.label}
+                  </Button>
+                );
+              }
+              return (
+                <Link key={action.label} to={action.url} style={{ textDecoration: 'none' }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={icon}
+                    className={btnClass}
+                  >
+                    {action.label}
+                  </Button>
+                </Link>
+              );
+            })}
           </Box>
         </Box>
 

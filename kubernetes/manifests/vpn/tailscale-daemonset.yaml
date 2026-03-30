@@ -1,0 +1,103 @@
+# Tailscale DaemonSet for GKE Burst Cluster
+# Connects GKE nodes to Headscale VPN mesh
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tailscale
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: tailscale
+    app.kubernetes.io/component: vpn
+spec:
+  selector:
+    matchLabels:
+      app: tailscale
+  template:
+    metadata:
+      labels:
+        app: tailscale
+    spec:
+      hostNetwork: true
+      serviceAccountName: tailscale
+      containers:
+        - name: tailscale
+          image: tailscale/tailscale:v1.66
+          env:
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-auth
+                  key: authkey
+            - name: TS_ROUTES
+              value: "10.244.0.0/16,10.96.0.0/12"
+            - name: TS_ACCEPT_DNS
+              value: "true"
+            - name: TS_EXTRA_ARGS
+              value: "--login-server=http://100.64.0.1:8080"
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+          volumeMounts:
+            - name: tun
+              mountPath: /dev/net/tun
+      volumes:
+        - name: tun
+          hostPath:
+            path: /dev/net/tun
+            type: CharDevice
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tailscale
+  namespace: kube-system
+---
+# Secrets 접근은 kube-system 네임스페이스로 범위 제한
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tailscale-secrets
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale-secrets
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tailscale-secrets
+subjects:
+  - kind: ServiceAccount
+    name: tailscale
+    namespace: kube-system
+---
+# Nodes는 cluster-scoped 리소스이므로 ClusterRole 유지
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tailscale-nodes
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tailscale-nodes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tailscale-nodes
+subjects:
+  - kind: ServiceAccount
+    name: tailscale
+    namespace: kube-system

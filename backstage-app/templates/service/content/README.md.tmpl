@@ -1,34 +1,34 @@
-# {{ name }}
+# {{ values.name }}
 
-{{ description }}
+{{ values.description }}
 
 ## Getting Started
 
 ### Prerequisites
 
-{% if language == 'nodejs' -%}
+{% if values.language == 'nodejs' -%}
 - Node.js 18+
 - npm or yarn
-{% elif language == 'python' -%}
+{% elif values.language == 'python' -%}
 - Python 3.11+
 - pip
-{% elif language == 'go' -%}
+{% elif values.language == 'go' -%}
 - Go 1.21+
 {% endif -%}
 
 ### Installation
 
-{% if language == 'nodejs' -%}
+{% if values.language == 'nodejs' -%}
 ```bash
 npm install
 npm start
 ```
-{% elif language == 'python' -%}
+{% elif values.language == 'python' -%}
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
-{% elif language == 'go' -%}
+{% elif values.language == 'go' -%}
 ```bash
 go run main.go
 ```

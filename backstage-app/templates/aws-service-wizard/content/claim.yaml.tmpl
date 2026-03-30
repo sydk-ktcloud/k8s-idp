@@ -1,0 +1,170 @@
+{# ── 사용자 응답 → 인프라 규모(scale) 자동 결정 ─────────────── #}
+{%- if values.userCount === 'micro' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' and values.trafficPattern !== 'spiky' and values.availability !== 'high' -%}
+  {%- set scale = 'dev' -%}
+{%- elif values.userCount === 'small' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'medium' and values.trafficPattern === 'spiky' and values.availability === 'high' -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'medium' -%}
+  {%- set scale = 'standard' -%}
+{%- elif values.userCount === 'large' and values.trafficPattern === 'spiky' -%}
+  {%- set scale = 'xlarge' -%}
+{%- elif values.userCount === 'large' and (values.availability === 'high' or values.trafficPattern === 'steady') -%}
+  {%- set scale = 'large' -%}
+{%- elif values.userCount === 'large' -%}
+  {%- set scale = 'standard' -%}
+{%- else -%}
+  {%- set scale = 'standard' -%}
+{%- endif -%}
+{# ────────────────────────────────────────────────────────── #}
+
+{% if values.serviceType === 'web-api' %}
+# ── 웹 API 서버: EC2 + RDS ──────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ values.componentName }}-vm
+  namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
+spec:
+  name: {{ values.componentName }}-vm
+  region: {{ values.region }}
+  {%- if scale === 'dev' %}
+  instanceType: t3.small
+  diskSize: 30
+  {%- elif scale === 'standard' %}
+  instanceType: t3.medium
+  diskSize: 50
+  {%- elif scale === 'large' %}
+  instanceType: t3.xlarge
+  diskSize: 100
+  {%- else %}
+  instanceType: m5.2xlarge
+  diskSize: 200
+  {%- endif %}
+---
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: RDSDatabase
+metadata:
+  name: {{ values.componentName }}-db
+  namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
+spec:
+  name: {{ values.componentName }}-db
+  engine: postgres
+  region: {{ values.region }}
+  {%- if scale === 'dev' %}
+  instanceClass: db.t3.small
+  diskSize: 20
+  {%- elif scale === 'standard' %}
+  instanceClass: db.t3.medium
+  diskSize: 50
+  {%- elif scale === 'large' %}
+  instanceClass: db.t3.large
+  diskSize: 100
+  {%- else %}
+  instanceClass: db.m5.xlarge
+  diskSize: 200
+  {%- endif %}
+
+{% elif values.serviceType === 'file-service' %}
+# ── 파일 저장 서비스: S3 버킷 ────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: S3Bucket
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
+spec:
+  name: {{ values.componentName }}
+  region: {{ values.region }}
+  accessControl: private
+  {%- if scale === 'dev' %}
+  versioning: false
+  {%- else %}
+  versioning: true
+  {%- endif %}
+
+{% elif values.serviceType === 'container-app' %}
+# ── 컨테이너 앱: EKS Kubernetes 클러스터 ────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EKSCluster
+metadata:
+  name: {{ values.componentName }}-eks
+  namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
+spec:
+  name: {{ values.componentName }}-eks
+  region: {{ values.region }}
+  {%- if scale === 'dev' %}
+  nodeCount: 1
+  instanceType: t3.small
+  {%- elif scale === 'standard' %}
+  nodeCount: 3
+  instanceType: t3.medium
+  {%- elif scale === 'large' %}
+  nodeCount: 5
+  instanceType: t3.xlarge
+  {%- else %}
+  nodeCount: 10
+  instanceType: m5.2xlarge
+  {%- endif %}
+
+{% elif values.serviceType === 'data-processing' %}
+# ── 데이터 처리: 고성능 EC2 ──────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+  labels:
+    backstage.io/kubernetes-id: {{ values.componentName }}
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
+spec:
+  name: {{ values.componentName }}
+  region: {{ values.region }}
+  {%- if scale === 'dev' %}
+  instanceType: t3.xlarge
+  diskSize: 100
+  {%- elif scale === 'standard' %}
+  instanceType: m5.2xlarge
+  diskSize: 200
+  {%- elif scale === 'large' %}
+  instanceType: m5.4xlarge
+  diskSize: 500
+  {%- else %}
+  instanceType: m5.8xlarge
+  diskSize: 1000
+  {%- endif %}
+
+{% endif %}

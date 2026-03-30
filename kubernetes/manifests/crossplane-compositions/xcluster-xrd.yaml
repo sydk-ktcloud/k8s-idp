@@ -12,6 +12,9 @@ spec:
     kind: Cluster
     plural: clusters
     singular: cluster
+  # GKE kubeconfig가 자동으로 Kubernetes Secret에 저장됩니다
+  connectionSecretKeys:
+    - kubeconfig
   versions:
     - name: v1alpha1
       served: true
@@ -40,3 +43,12 @@ spec:
                   default: e2-medium
               required:
                 - name
+            status:
+              type: object
+              properties:
+                clusterStatus:
+                  type: string
+                  description: "클러스터 상태 (RUNNING / PROVISIONING / ERROR)"
+                endpoint:
+                  type: string
+                  description: "Kubernetes API 서버 엔드포인트"

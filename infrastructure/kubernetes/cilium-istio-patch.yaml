@@ -1,0 +1,4 @@
+# Cilium configuration for Istio Ambient compatibility
+# Required to allow Istio's CNI components to work alongside Cilium
+cni-exclusive: "false"
+bpf-lb-sock-hostns-only: "true"

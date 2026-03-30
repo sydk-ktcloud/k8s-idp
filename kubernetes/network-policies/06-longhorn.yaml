@@ -55,3 +55,14 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # MinIO S3 백업 타겟 접근
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: minio-storage
+          podSelector:
+            matchLabels:
+              app: minio
+      ports:
+        - protocol: TCP
+          port: 9000

@@ -53,6 +53,33 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # Longhorn 메트릭 수집
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: longhorn-system
+      ports:
+        - protocol: TCP
+          port: 9500
+    # Velero 메트릭 수집
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: velero
+      ports:
+        - protocol: TCP
+          port: 8085
+    # MinIO 메트릭 수집
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: minio-storage
+          podSelector:
+            matchLabels:
+              app: minio
+      ports:
+        - protocol: TCP
+          port: 9000
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -250,6 +277,17 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # MinIO S3 청크 스토리지 접근
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: minio-storage
+          podSelector:
+            matchLabels:
+              app: minio
+      ports:
+        - protocol: TCP
+          port: 9000
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -281,6 +319,17 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # MinIO S3 트레이스 스토리지 접근
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: minio-storage
+          podSelector:
+            matchLabels:
+              app: minio
+      ports:
+        - protocol: TCP
+          port: 9000
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -338,3 +387,13 @@ spec:
         values:
           - prometheus
           - alloy
+  egress:
+  - toEntities:
+    - kube-apiserver
+  - toEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: tempo
+    toPorts:
+    - ports:
+      - port: "4317"
+        protocol: TCP

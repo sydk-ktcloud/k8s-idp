@@ -1,55 +1,55 @@
-# {{ name }}
+# {{ values.name }}
 
-{{ description }}
+{{ values.description }}
 
 ## Infrastructure
 
 이 서비스는 다음 인프라와 함께 배포됩니다:
-- **Type**: {{ resourceType }}
+- **Type**: {{ values.resourceType }}
 
 ## Getting Started
 
 ### Prerequisites
 
-{% if language == 'nodejs' -%}
+{% if values.language == 'nodejs' -%}
 - Node.js 18+
 - npm or yarn
-{% elif language == 'python' -%}
+{% elif values.language == 'python' -%}
 - Python 3.11+
 - pip
-{% elif language == 'go' -%}
+{% elif values.language == 'go' -%}
 - Go 1.21+
 {% endif -%}
 
 ### Environment Variables
 
-{% if resourceType == 'database' -%}
+{% if values.resourceType == 'database' -%}
 ```bash
-DATABASE_HOST={{ name }}-db
+DATABASE_HOST={{ values.name }}-db
 DATABASE_PORT=5432
-DATABASE_NAME={{ name }}
+DATABASE_NAME={{ values.name }}
 DATABASE_USER=<from-secret>
 DATABASE_PASSWORD=<from-secret>
 ```
-{% elif resourceType == 'bucket' -%}
+{% elif values.resourceType == 'bucket' -%}
 ```bash
-GCS_BUCKET_NAME={{ name }}
+GCS_BUCKET_NAME={{ values.name }}
 ```
 {% endif -%}
 
 ### Installation
 
-{% if language == 'nodejs' -%}
+{% if values.language == 'nodejs' -%}
 ```bash
 npm install
 npm start
 ```
-{% elif language == 'python' -%}
+{% elif values.language == 'python' -%}
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
-{% elif language == 'go' -%}
+{% elif values.language == 'go' -%}
 ```bash
 go run main.go
 ```

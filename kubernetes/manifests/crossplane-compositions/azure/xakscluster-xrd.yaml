@@ -1,0 +1,57 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xaksclusters.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XAKSCluster
+    plural: xaksclusters
+    singular: xakscluster
+  claimNames:
+    kind: AKSCluster
+    plural: aksclusters
+    singular: akscluster
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the AKS cluster
+                location:
+                  type: string
+                  description: Azure region
+                  default: koreacentral
+                nodeCount:
+                  type: integer
+                  description: Number of worker nodes
+                  default: 3
+                vmSize:
+                  type: string
+                  description: VM size for worker nodes
+                  default: Standard_B2ms
+                resourceGroupName:
+                  type: string
+                  description: "Azure Resource Group name (생략 시 EnvironmentConfig azure-platform의 defaultResourceGroup 사용)"
+                dnsPrefix:
+                  type: string
+                  description: "DNS prefix for the AKS cluster (생략 시 name에서 자동 파생)"
+              required:
+                - name
+            status:
+              type: object
+              properties:
+                provisioningState:
+                  type: string
+                  description: "프로비저닝 상태 (Succeeded / Creating / Updating / Failed)"
+                fqdn:
+                  type: string
+                  description: "AKS Kubernetes API 서버 FQDN"

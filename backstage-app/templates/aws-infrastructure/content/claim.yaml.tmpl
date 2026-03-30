@@ -1,0 +1,47 @@
+{% if values.resourceType == 'ec2instance' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+spec:
+  name: {{ values.componentName }}
+  instanceType: {{ values.ec2InstanceType }}
+  region: {{ values.ec2Region }}
+  diskSize: {{ values.ec2DiskSize }}
+{% elif values.resourceType == 's3bucket' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: S3Bucket
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+spec:
+  name: {{ values.componentName }}
+  region: {{ values.s3Region }}
+  versioning: {{ values.s3Versioning }}
+  accessControl: {{ values.s3AccessControl }}
+{% elif values.resourceType == 'ekscluster' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EKSCluster
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+spec:
+  name: {{ values.componentName }}
+  region: {{ values.eksRegion }}
+  nodeCount: {{ values.eksNodeCount }}
+  instanceType: {{ values.eksInstanceType }}
+  # roleArn, nodeRoleArn, subnetIds — Crossplane EnvironmentConfig(aws-platform)에서 자동 주입
+{% elif values.resourceType == 'rdsdatabase' -%}
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: RDSDatabase
+metadata:
+  name: {{ values.componentName }}
+  namespace: {{ values.namespace }}
+spec:
+  name: {{ values.componentName }}
+  engine: {{ values.rdsEngine }}
+  instanceClass: {{ values.rdsInstanceClass }}
+  region: {{ values.rdsRegion }}
+  diskSize: {{ values.rdsDiskSize }}
+{% endif -%}

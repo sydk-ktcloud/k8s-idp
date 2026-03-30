@@ -1,0 +1,45 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xazurevms.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XAzureVM
+    plural: xazurevms
+    singular: xazurevm
+  claimNames:
+    kind: AzureVM
+    plural: azurevms
+    singular: azurevm
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the Azure VM
+                vmSize:
+                  type: string
+                  description: VM size (e.g., Standard_B2ms)
+                  default: Standard_B2ms
+                location:
+                  type: string
+                  description: Azure region
+                  default: koreacentral
+                diskSizeGb:
+                  type: integer
+                  description: OS disk size in GB
+                  default: 50
+                resourceGroupName:
+                  type: string
+                  description: "Azure Resource Group name (생략 시 EnvironmentConfig azure-platform의 defaultResourceGroup 사용)"
+              required:
+                - name

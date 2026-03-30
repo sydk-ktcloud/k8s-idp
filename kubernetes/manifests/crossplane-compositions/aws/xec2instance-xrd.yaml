@@ -1,0 +1,46 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xec2instances.k8s-idp.example.org
+spec:
+  group: k8s-idp.example.org
+  names:
+    kind: XEC2Instance
+    plural: xec2instances
+    singular: xec2instance
+  claimNames:
+    kind: EC2Instance
+    plural: ec2instances
+    singular: ec2instance
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the EC2 instance
+                instanceType:
+                  type: string
+                  description: EC2 instance type (e.g., t3.medium)
+                  default: t3.medium
+                region:
+                  type: string
+                  description: AWS region
+                  default: us-east-1
+                diskSize:
+                  type: integer
+                  description: Root volume size in GB
+                  default: 50
+                ami:
+                  type: string
+                  description: AMI ID (e.g., ami-0c55b159cbfafe1f0 for Amazon Linux 2)
+                  default: ami-0c55b159cbfafe1f0
+              required:
+                - name

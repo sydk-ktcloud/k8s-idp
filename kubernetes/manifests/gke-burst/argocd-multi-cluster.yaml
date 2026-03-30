@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gke-burst-cluster
+  namespace: gitops
+type: Opaque
+stringData:
+  name: gke-burst
+  server: https://34.47.90.121
+  config: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority-data: REPLACE_ME_WITH_GKE_CA_CERT
+        server: https://34.47.90.121
+      name: gke-burst
+    contexts:
+    - context:
+        cluster: gke-burst
+        user: argocd-manager
+      name: gke-burst
+    current-context: gke-burst
+    preferences: {}
+    users:
+    - name: argocd-manager
+      user:
+        token: REPLACE_ME_WITH_GKE_BEARER_TOKEN
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: burst-workloads
+  namespace: gitops
+spec:
+  generators:
+    - list:
+        elements:
+          - cluster: gke-burst
+            name: trip-app
+  template:
+    metadata:
+      name: '{{name}}-burst'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+        path: apps/{{name}}
+      destination:
+        server: '{{cluster}}'
+        namespace: '{{name}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

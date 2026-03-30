@@ -6,9 +6,9 @@ app.use(express.json());
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'Hello from {{ name }}!',
-    service: '{{ name }}',
-    description: '{{ description }}'
+    message: 'Hello from {{ values.name }}!',
+    service: '{{ values.name }}',
+    description: '{{ values.description }}'
   });
 });
 
@@ -17,5 +17,5 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`{{ name }} listening on port ${port}`);
+  console.log(`{{ values.name }} listening on port ${port}`);
 });

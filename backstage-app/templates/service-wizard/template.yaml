@@ -3,11 +3,12 @@ kind: Template
 metadata:
   name: service-wizard
   title: "서비스 환경 구성 마법사"
-  description: "2가지 질문으로 필요한 인프라를 자동으로 구성합니다"
+  description: "몇 가지 질문으로 필요한 GCP 인프라를 자동으로 구성합니다"
   tags:
     - wizard
     - recommended
     - beginner
+    - gcp
 spec:
   owner: user:guest
   type: service
@@ -35,28 +36,75 @@ spec:
             - "⚡ 이벤트 기반 서비스  –  비동기 메시지 처리 (Pub/Sub 자동 생성)"
             - "📊 데이터 처리  –  배치 작업, ETL, ML (고성능 VM 자동 생성)"
 
-    # ── Step 2: 어떤 규모인가요? ───────────────────────────────
-    - title: "어느 정도 규모의 서비스인가요?"
+    # ── Step 2: 동시 접속자 수 ──────────────────────────────────
+    - title: "평소에 몇 명이 동시에 사용하나요?"
       required:
-        - scale
+        - userCount
       properties:
-        scale:
-          title: 서비스 규모
+        userCount:
+          title: 예상 동시 접속자 수
           type: string
-          default: standard
+          default: small
+          description: >
+            서비스가 운영될 때 동시에 접속하는 사람이 몇 명인지 선택해주세요.
+            확실하지 않다면 실제보다 한 단계 위를 선택하는 게 안전합니다.
           enum:
-            - dev
-            - standard
+            - micro
+            - small
+            - medium
             - large
           enumNames:
-            - "👤 개발 / 테스트용  –  나 혼자 또는 팀 내부용  (월 ~$20)"
-            - "👥 일반 서비스용  –  수십~수백 명 사용  (월 ~$60)  ← 권장"
-            - "👥👥 대규모 서비스용  –  수천 명 이상  (월 ~$200)"
+            - "👤 나 혼자 또는 팀 내부 (1~10명)  –  개발·테스트 전용"
+            - "👥 소규모 서비스 (10~100명 동시)  –  사내 도구, 초기 런칭  ← 권장"
+            - "🏢 일반 서비스 (100~1,000명 동시)  –  운영 중인 서비스"
+            - "🏟️ 대규모 서비스 (1,000명 이상)  –  트래픽이 많은 서비스"
 
-    # ── Step 3: 서비스 이름 ────────────────────────────────────
+    # ── Step 3: 트래픽 패턴 ────────────────────────────────────
+    - title: "트래픽이 어떤 패턴으로 발생하나요?"
+      required:
+        - trafficPattern
+      properties:
+        trafficPattern:
+          title: 트래픽 패턴
+          type: string
+          default: steady
+          description: >
+            갑자기 사람이 몰릴 때 서버가 버틸 수 있도록 여유를 잡는 데 사용됩니다.
+          enum:
+            - batch
+            - steady
+            - spiky
+          enumNames:
+            - "🌙 정해진 시간에만 실행 (배치/야간 작업)  –  주기적으로 돌리는 작업"
+            - "☀️ 하루 종일 고르게 사용 (상시 운영)  –  업무 시간 내내 쓰는 서비스  ← 권장"
+            - "⚡ 특정 시간에 폭발적으로 몰림 (이벤트/프로모션)  –  순간 트래픽이 평소의 10배 이상"
+
+    # ── Step 4: 가용성 요구사항 ────────────────────────────────
+    - title: "서비스가 잠깐 멈춰도 괜찮은가요?"
+      required:
+        - availability
+      properties:
+        availability:
+          title: 서비스 중단 허용 수준
+          type: string
+          default: standard
+          description: >
+            서버 점검이나 장애로 서비스가 잠깐 멈출 때 어느 정도까지 괜찮은지 선택해주세요.
+            중단이 허용되지 않을수록 이중화 구성이 필요해 비용이 올라갑니다.
+          enum:
+            - low
+            - standard
+            - high
+          enumNames:
+            - "😴 가끔 멈춰도 됨 (개발 중이거나 내부 도구)  –  재시작해도 불편함이 없음"
+            - "⚠️ 짧은 중단은 허용 (일반 서비스)  –  5분 이내 복구면 OK  ← 권장"
+            - "🚨 절대 멈추면 안 됨 (결제·인증·핵심 API)  –  1분도 허용 안 됨"
+
+    # ── Step 5: 서비스 이름 & 배포 위치 ──────────────────────────
     - title: "서비스 이름을 정해주세요"
       required:
         - componentName
+        - region
       properties:
         componentName:
           title: 서비스 이름
@@ -71,8 +119,33 @@ spec:
           ui:widget: textarea
           ui:options:
             rows: 2
+        region:
+          title: 서버 위치 (리전)
+          type: string
+          default: asia-northeast3
+          description: >
+            서비스를 운영할 GCP 데이터센터 위치를 선택하세요.
+            사용자와 가까운 리전일수록 응답 속도가 빠릅니다.
+          enum:
+            - asia-northeast3
+            - asia-northeast1
+            - asia-northeast2
+            - asia-southeast1
+            - us-central1
+            - us-east1
+            - europe-west1
+            - europe-west4
+          enumNames:
+            - "🇰🇷 한국 서울 (asia-northeast3)  ← 권장"
+            - "🇯🇵 일본 도쿄 (asia-northeast1)"
+            - "🇯🇵 일본 오사카 (asia-northeast2)"
+            - "🌏 싱가포르 (asia-southeast1)"
+            - "🇺🇸 미국 아이오와 (us-central1)"
+            - "🇺🇸 미국 버지니아 (us-east1)"
+            - "🇪🇺 벨기에 (europe-west1)"
+            - "🇪🇺 네덜란드 (europe-west4)"
 
-    # ── Step 4: 저장소 선택 ────────────────────────────────────
+    # ── Step 6: 저장소 선택 ────────────────────────────────────
     - title: "저장소를 선택하세요"
       required:
         - repoUrl
@@ -97,7 +170,10 @@ spec:
           description: ${{ parameters.description or parameters.componentName }}
           namespace: default
           serviceType: ${{ parameters.serviceType }}
-          scale: ${{ parameters.scale }}
+          userCount: ${{ parameters.userCount }}
+          trafficPattern: ${{ parameters.trafficPattern }}
+          availability: ${{ parameters.availability }}
+          region: ${{ parameters.region }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
@@ -120,10 +196,19 @@ spec:
     text:
       - title: "✅ 인프라 구성이 완료되었습니다!"
         content: |
-          서비스 유형 **${{ parameters.serviceType }}** / 규모 **${{ parameters.scale }}** 에 맞는
-          인프라가 자동으로 설정되었습니다.
+          서비스 유형 **${{ parameters.serviceType }}** 에 맞는 인프라가 자동으로 설정되었습니다.
 
-          ArgoCD가 Pull Request를 감지하면 자동으로 배포가 시작됩니다.
+          **다음 단계:**
+          1. 아래 Pull Request 링크에서 변경 내용을 확인하고 머지하세요
+          2. ArgoCD가 자동으로 Crossplane claim을 배포합니다 (약 1~2분)
+          3. GCP가 실제 리소스를 프로비저닝합니다 (약 5~15분)
+
+          **프로비저닝 상태 확인 방법:**
+          ```
+          kubectl get ${{ parameters.serviceType == 'web-api' && 'webapp' || parameters.serviceType }} ${{ parameters.componentName }} -n default
+          kubectl describe ${{ parameters.serviceType == 'web-api' && 'webapp' || parameters.serviceType }} ${{ parameters.componentName }} -n default
+          ```
+          Backstage 카탈로그에서도 Kubernetes 플러그인으로 실시간 상태를 확인할 수 있습니다.
     links:
       - title: Pull Request 확인하기
         url: ${{ steps['publish'].output.remoteUrl }}

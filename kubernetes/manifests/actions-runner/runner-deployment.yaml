@@ -1,0 +1,22 @@
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: k8s-idp-runner
+  namespace: actions-runner-system
+spec:
+  replicas: 2
+  template:
+    spec:
+      repository: sydk-ktcloud/k8s-idp
+      labels:
+        - self-hosted
+        - k8s-idp
+      image: summerwind/actions-runner:latest
+      serviceAccountName: actions-runner
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi

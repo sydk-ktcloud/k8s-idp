@@ -1,0 +1,46 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xec2instance.k8s-idp.example.org
+  labels:
+    provider: aws
+    resource: ec2
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XEC2Instance
+  resources:
+    - name: ec2-instance
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: Instance
+        spec:
+          forProvider:
+            region: us-east-1
+            instanceType: t3.medium
+            ami: ami-0c55b159cbfafe1f0
+            rootBlockDevice:
+              - volumeSize: 50
+                volumeType: gp3
+                deleteOnTermination: true
+            tags:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              managed-by: crossplane
+              resource-type: ec2-instance
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: spec.instanceType
+          toFieldPath: spec.forProvider.instanceType
+        - fromFieldPath: spec.ami
+          toFieldPath: spec.forProvider.ami
+        - fromFieldPath: spec.diskSize
+          toFieldPath: spec.forProvider.rootBlockDevice[0].volumeSize
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels

@@ -1,19 +1,44 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # 기존 단일 리소스 XRDs
+  # Platform EnvironmentConfigs (플랫폼 팀이 계정 수준 값을 1회 설정)
+  - gcp-platform-environment-config.yaml
+  - azure/azure-platform-environment-config.yaml
+  # XRDs and Compositions for GCP resources
   - xgcpinstance-xrd.yaml
   - xgcpinstance-composition.yaml
   - xbucket-xrd.yaml
   - xbucket-composition.yaml
-  - xcluster-xrd.yaml
-  - xcluster-composition.yaml
   - xdatabase-xrd.yaml
   - xdatabase-composition.yaml
-  # 신규 복합/추가 XRDs
+  - xcluster-xrd.yaml
+  - xcluster-composition.yaml
+  # GKE Burst Cluster (scale-to-zero capable)
+  - xcluster-burst-xrd.yaml
+  - xcluster-burst-composition.yaml
+  # 새로운 복합/추가 XRDs
   - xwebapp-xrd.yaml
   - xwebapp-composition.yaml
   - xpubsub-xrd.yaml
   - xpubsub-composition.yaml
   - xcache-xrd.yaml
   - xcache-composition.yaml
+  # AWS XRDs and Compositions
+  - aws/aws-platform-environment-config.yaml
+  - aws/xec2instance-xrd.yaml
+  - aws/xec2instance-composition.yaml
+  - aws/xs3bucket-xrd.yaml
+  - aws/xs3bucket-composition.yaml
+  - aws/xekscluster-xrd.yaml
+  - aws/xekscluster-composition.yaml
+  - aws/xrdsdatabase-xrd.yaml
+  - aws/xrdsdatabase-composition.yaml
+  # Azure XRDs and Compositions
+  - azure/xazurevm-xrd.yaml
+  - azure/xazurevm-composition.yaml
+  - azure/xazureblobstorage-xrd.yaml
+  - azure/xazureblobstorage-composition.yaml
+  - azure/xakscluster-xrd.yaml
+  - azure/xakscluster-composition.yaml
+  - azure/xazuredatabase-xrd.yaml
+  - azure/xazuredatabase-composition.yaml

@@ -1,9 +1,18 @@
 # ArgoCD Helm Values with Dex SSO
+global:
+  additionalLabels:
+    team: platform
+    owner: team-platform
+    cost-center: internal-platform
+    env: prod
+    system: gitops
+    service: argo
 
 # ArgoCD Configuration
 configs:
   cm:
     url: http://100.64.0.1:30081
+    accounts.ci: login
     oidc.config: |
       name: Dex
       issuer: http://100.64.0.1:30556
@@ -18,23 +27,54 @@ configs:
   rbac:
     policy.default: role:readonly
     policy.csv: |
-      g, admin@k8s.local, role:admin
-      g, platform@k8s.local, role:admin
-      g, gitops@k8s.local, role:admin
-      g, finops@k8s.local, role:readonly
-      g, security@k8s.local, role:admin
-      g, sre@k8s.local, role:admin
-      g, ai@k8s.local, role:readonly
+      # GitHub teams (sydk-ktcloud org) → ArgoCD 역할 매핑
+      # Dex가 groups claim에 "sydk-ktcloud:<team>" 형식으로 포함
+      g, sydk-ktcloud:platform, role:admin
+      g, sydk-ktcloud:sre, role:admin
+      g, sydk-ktcloud:security, role:readonly
+      g, sydk-ktcloud:developer, role:readonly
+      g, sydk-ktcloud:finops, role:readonly
+      # 로컬 fallback (비상 접근용 - enablePasswordDB 비활성화 전까지 유지)
+      g, admin, role:admin
+      # CI/CD 전용 로컬 계정
+      p, role:ci, applications, sync, */*, allow
+      p, role:ci, applications, get, */*, allow
+      g, ci, role:ci
 
 # Server configuration
 server:
+  replicas: 3
   extraArgs:
     - --insecure
   service:
     type: NodePort
-    nodePort: 30081
-# Resources
+    nodePortHttp: 30081
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: argocd-server
+            topologyKey: kubernetes.io/hostname
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-server
+
 controller:
+  replicas: 3
   resources:
     limits:
       cpu: 500m
@@ -42,17 +82,18 @@ controller:
     requests:
       cpu: 250m
       memory: 256Mi
-
-server:
-  resources:
-    limits:
-      cpu: 200m
-      memory: 256Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: argocd-application-controller
+            topologyKey: kubernetes.io/hostname
 
 repoServer:
+  replicas: 3
   resources:
     limits:
       cpu: 200m
@@ -60,17 +101,54 @@ repoServer:
     requests:
       cpu: 100m
       memory: 128Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: argocd-repo-server
+            topologyKey: kubernetes.io/hostname
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-repo-server
 
 # Disable Dex server (using external Dex)
 dex:
   enabled: false
 
-# Redis
 redis:
-  resources:
-    limits:
-      cpu: 100m
-      memory: 128Mi
-    requests:
-      cpu: 50m
-      memory: 64Mi
+  enabled: false
+
+redis-ha:
+  enabled: true
+  replicas: 3
+  redis:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+  haproxy:
+    replicas: 3
+    resources:
+      limits:
+        cpu: 100m
+        memory: 64Mi
+      requests:
+        cpu: 50m
+        memory: 32Mi
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: argocd-redis-ha
+          topologyKey: kubernetes.io/hostname

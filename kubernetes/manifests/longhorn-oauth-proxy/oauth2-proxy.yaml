@@ -21,6 +21,12 @@ metadata:
   namespace: longhorn-system
   labels:
     app: oauth2-proxy-longhorn
+    team: platform
+    owner: team-platform
+    cost-center: internal-platform
+    env: prod
+    system: infra
+    service: oauth2-proxy-longhorn
 spec:
   replicas: 1
   selector:
@@ -30,6 +36,12 @@ spec:
     metadata:
       labels:
         app: oauth2-proxy-longhorn
+        team: platform
+        owner: team-platform
+        cost-center: internal-platform
+        env: prod
+        system: infra
+        service: oauth2-proxy-longhorn
     spec:
       containers:
       - name: oauth2-proxy

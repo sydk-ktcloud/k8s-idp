@@ -1,45 +1,45 @@
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
-  name: {{ name }}
-  description: {{ description }}
+  name: {{ values.name }}
+  description: {{ values.description }}
   annotations:
-    github.com/project-slug: {{ destination.owner }}/{{ destination.repo }}
+    github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
 spec:
-  owner: {{ owner }}
+  owner: {{ values.owner }}
   domain: default
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: {{ name }}-service
-  description: {{ description }}
+  name: {{ values.name }}-service
+  description: {{ values.description }}
   tags:
-    - {{ language }}
+    - {{ values.language }}
     - service
   annotations:
-    github.com/project-slug: {{ destination.owner }}/{{ destination.repo }}
+    github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
 spec:
   type: service
   lifecycle: experimental
-  owner: {{ owner }}
-  system: {{ name }}
+  owner: {{ values.owner }}
+  system: {{ values.name }}
   dependsOn:
-    - resource:default/{{ name }}-infra
+    - resource:default/{{ values.name }}-infra
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
-  name: {{ name }}-infra
-  description: Infrastructure for {{ name }}
+  name: {{ values.name }}-infra
+  description: Infrastructure for {{ values.name }}
   tags:
     - infrastructure
-    - {{ resourceType }}
+    - {{ values.resourceType }}
   annotations:
-    github.com/project-slug: {{ destination.owner }}/{{ destination.repo }}
+    github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
 spec:
-  type: {{ resourceType }}
+  type: {{ values.resourceType }}
   lifecycle: experimental
-  owner: {{ owner }}
-  system: {{ name }}
+  owner: {{ values.owner }}
+  system: {{ values.name }}

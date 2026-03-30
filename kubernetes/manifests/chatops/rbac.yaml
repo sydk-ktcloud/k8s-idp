@@ -4,15 +4,44 @@ kind: ServiceAccount
 metadata:
   name: chatops-bot
   namespace: chatops
+automountServiceAccountToken: false
 
 ---
+# namespaces는 cluster-scoped 리소스이므로 ClusterRole 유지 (읽기 전용)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: chatops-bot-reader
+  name: chatops-bot-namespace-reader
 rules:
   - apiGroups: [""]
-    resources: ["pods", "namespaces"]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chatops-bot-namespace-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: chatops-bot-namespace-reader
+subjects:
+  - kind: ServiceAccount
+    name: chatops-bot
+    namespace: chatops
+
+---
+# pods/pods/log는 네임스페이스 범위 Role로 축소
+# chatops 봇이 모니터링하는 네임스페이스에만 접근 허용
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: chatops-bot-pod-reader
+  namespace: trip-app
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods/log"]
@@ -20,13 +49,101 @@ rules:
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: chatops-bot-reader
+  name: chatops-bot-pod-reader
+  namespace: trip-app
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: chatops-bot-reader
+  kind: Role
+  name: chatops-bot-pod-reader
+subjects:
+  - kind: ServiceAccount
+    name: chatops-bot
+    namespace: chatops
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: chatops-bot-pod-reader
+  namespace: chatops
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: chatops-bot-pod-reader
+  namespace: chatops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: chatops-bot-pod-reader
+subjects:
+  - kind: ServiceAccount
+    name: chatops-bot
+    namespace: chatops
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: chatops-bot-pod-reader
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: chatops-bot-pod-reader
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: chatops-bot-pod-reader
+subjects:
+  - kind: ServiceAccount
+    name: chatops-bot
+    namespace: chatops
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: chatops-bot-pod-reader
+  namespace: backstage
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: chatops-bot-pod-reader
+  namespace: backstage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: chatops-bot-pod-reader
 subjects:
   - kind: ServiceAccount
     name: chatops-bot

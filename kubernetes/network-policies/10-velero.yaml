@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: velero-allow
+  namespace: velero
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: velero
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Prometheus 메트릭 수집
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8085
+  egress:
+  # kube-apiserver 접근 (클러스터 백업/복구)
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # MinIO S3 백업 스토리지 접근
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: minio-storage
+      podSelector:
+        matchLabels:
+          app: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  # DNS
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53

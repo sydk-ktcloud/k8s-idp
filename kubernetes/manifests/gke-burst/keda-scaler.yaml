@@ -1,0 +1,32 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: burst-demo-scaler
+  namespace: burst-workloads
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: burst-demo
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  cooldownPeriod: 300
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring.svc.cluster.local:9090
+      metricName: http_requests_total
+      threshold: "100"
+      query: |
+        sum(rate(http_requests_total{namespace="burst-workloads"}[1m]))
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-prometheus-trigger
+  namespace: burst-workloads
+spec:
+  secretTargetRef:
+  - parameter: bearerToken
+    name: keda-prometheus-secret
+    key: bearerToken

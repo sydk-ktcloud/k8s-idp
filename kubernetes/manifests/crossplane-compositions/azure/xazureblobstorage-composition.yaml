@@ -1,0 +1,66 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xazureblobstorage.k8s-idp.example.org
+  labels:
+    provider: azure
+    resource: storage
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XAzureBlobStorage
+
+  # ── EnvironmentConfig: Azure 플랫폼 기본값 ───────────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: azure-platform
+
+  resources:
+    - name: storage-account
+      base:
+        apiVersion: storage.azure.upbound.io/v1beta1
+        kind: Account
+        spec:
+          forProvider:
+            location: koreacentral
+            resourceGroupName: ""
+            accountTier: Standard
+            accountReplicationType: LRS
+            tags:
+              team: platform
+              owner: team-platform
+              cost-center: internal-platform
+              env: prod
+              system: infra
+              managed-by: crossplane
+              resource-type: azure-storage
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultResourceGroup
+          toFieldPath: spec.forProvider.resourceGroupName
+        - fromFieldPath: spec.resourceGroupName
+          toFieldPath: spec.forProvider.resourceGroupName
+          policy:
+            fromFieldPath: Optional
+        - fromFieldPath: spec.replication
+          toFieldPath: spec.forProvider.accountReplicationType
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels
+    - name: storage-container
+      base:
+        apiVersion: storage.azure.upbound.io/v1beta1
+        kind: Container
+        spec:
+          forProvider:
+            storageAccountNameSelector:
+              matchControllerRef: true
+            containerAccessType: private
+          providerConfigRef:
+            name: default

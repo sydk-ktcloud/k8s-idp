@@ -1,0 +1,10 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-ambient-hostprobes
+  namespace: trip-app
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromCIDR:
+        - 169.254.7.127/32

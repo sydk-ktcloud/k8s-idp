@@ -1,0 +1,121 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xclusterburst.gcp.k8s-idp.example.org
+  labels:
+    provider: gcp
+    resource: container
+    type: burst
+spec:
+  compositeTypeRef:
+    apiVersion: k8s-idp.example.org/v1alpha1
+    kind: XClusterBurst
+  writeConnectionSecretsToNamespace: crossplane-system
+
+  # ── EnvironmentConfig: GCP 프로젝트 수준 기본값 ───────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: gcp-platform
+
+  resources:
+    - name: gke-burst-cluster
+      base:
+        apiVersion: container.gcp.upbound.io/v1beta1
+        kind: Cluster
+        spec:
+          forProvider:
+            labels:
+              environment: burst
+              managed-by: crossplane
+              cost-center: burst-workload
+              preemptible: "true"
+            location: asia-northeast3
+            network: ""
+            subnetwork: ""
+            initialNodeCount: 1
+            enableIntranodeVisibility: true
+            nodeConfig:
+              - machineType: e2-standard-2
+                diskSizeGb: 50
+                preemptible: true
+                oauthScopes:
+                  - "https://www.googleapis.com/auth/cloud-platform"
+                labels:
+                  environment: burst
+                  preemptible: "true"
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+            name: placeholder
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+        # network: EnvironmentConfig 기본값 사용 (spec.network="default"이면 EnvironmentConfig URL 적용)
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultNetworkUrl
+          toFieldPath: spec.forProvider.network
+        # subnetwork: EnvironmentConfig 기본값 사용
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultSubnetworkUrl
+          toFieldPath: spec.forProvider.subnetwork
+        - fromFieldPath: spec.machineType
+          toFieldPath: spec.forProvider.nodeConfig[0].machineType
+        - fromFieldPath: spec.diskSizeGb
+          toFieldPath: spec.forProvider.nodeConfig[0].diskSizeGb
+        - fromFieldPath: spec.preemptible
+          toFieldPath: spec.forProvider.nodeConfig[0].preemptible
+        - fromFieldPath: metadata.uid
+          toFieldPath: spec.writeConnectionSecretToRef.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-gke-cluster-conn"
+      connectionDetails:
+        - name: kubeconfig
+          fromConnectionSecretKey: kubeconfig
+
+    - name: gke-burst-nodepool
+      base:
+        apiVersion: container.gcp.upbound.io/v1beta1
+        kind: NodePool
+        spec:
+          forProvider:
+            clusterSelector:
+              matchControllerRef: true
+            location: asia-northeast3
+            initialNodeCount: 1
+            autoscaling:
+              - minNodeCount: 0
+                maxNodeCount: 5
+            nodeConfig:
+              - machineType: e2-standard-2
+                diskSizeGb: 50
+                preemptible: true
+                oauthScopes:
+                  - "https://www.googleapis.com/auth/cloud-platform"
+                labels:
+                  environment: burst
+                  preemptible: "true"
+            management:
+              - autoRepair: true
+                autoUpgrade: true
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+        - fromFieldPath: spec.machineType
+          toFieldPath: spec.forProvider.nodeConfig[0].machineType
+        - fromFieldPath: spec.diskSizeGb
+          toFieldPath: spec.forProvider.nodeConfig[0].diskSizeGb
+        - fromFieldPath: spec.preemptible
+          toFieldPath: spec.forProvider.nodeConfig[0].preemptible
+        - fromFieldPath: spec.minNodeCount
+          toFieldPath: spec.forProvider.autoscaling[0].minNodeCount
+        - fromFieldPath: spec.maxNodeCount
+          toFieldPath: spec.forProvider.autoscaling[0].maxNodeCount

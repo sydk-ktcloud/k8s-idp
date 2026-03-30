@@ -7,25 +7,18 @@ kind: ServiceAccount
 metadata:
   name: backstage
   namespace: backstage
-automountServiceAccountToken: true
+automountServiceAccountToken: false
 
 ---
+# ClusterRole: 클러스터 범위 리소스만 (namespaces, nodes, Crossplane)
+# 네임스페이스 리소스(pods/services 등)는 각 ns의 Role로 분리
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: backstage-read-crossplane
+  name: backstage-cluster-reader
 rules:
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps", "secrets", "namespaces", "persistentvolumeclaims", "events"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["batch"]
-    resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses", "networkpolicies"]
+    resources: ["namespaces"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apiextensions.crossplane.io"]
     resources: ["compositeresourcedefinitions", "compositions", "claims"]
@@ -41,11 +34,155 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: backstage-read-crossplane
+  name: backstage-cluster-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: backstage-read-crossplane
+  name: backstage-cluster-reader
+subjects:
+  - kind: ServiceAccount
+    name: backstage
+    namespace: backstage
+
+---
+# Role: 네임스페이스 범위 리소스 읽기 (trip-app)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backstage-ns-reader
+  namespace: trip-app
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backstage-ns-reader
+  namespace: trip-app
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backstage-ns-reader
+subjects:
+  - kind: ServiceAccount
+    name: backstage
+    namespace: backstage
+
+---
+# Role: 네임스페이스 범위 리소스 읽기 (chatops)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backstage-ns-reader
+  namespace: chatops
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backstage-ns-reader
+  namespace: chatops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backstage-ns-reader
+subjects:
+  - kind: ServiceAccount
+    name: backstage
+    namespace: backstage
+
+---
+# Role: 네임스페이스 범위 리소스 읽기 (monitoring)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backstage-ns-reader
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backstage-ns-reader
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backstage-ns-reader
+subjects:
+  - kind: ServiceAccount
+    name: backstage
+    namespace: backstage
+
+---
+# Role: 네임스페이스 범위 리소스 읽기 (backstage 자체)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backstage-ns-reader
+  namespace: backstage
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backstage-ns-reader
+  namespace: backstage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backstage-ns-reader
 subjects:
   - kind: ServiceAccount
     name: backstage
@@ -93,6 +230,13 @@ spec:
     metadata:
       labels:
         app: backstage-postgresql
+        team: platform
+        owner: team-platform
+        cost-center: internal-platform
+        env: prod
+        system: platform
+        service: backstage-postgresql
+
     spec:
       containers:
       - name: postgresql
@@ -165,7 +309,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Replace=true
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: backstage-backend
@@ -173,8 +317,24 @@ spec:
     metadata:
       labels:
         app: backstage-backend
+        team: platform
+        owner: team-platform
+        cost-center: internal-platform
+        env: prod
+        system: platform
+        service: backstage-backend
+
     spec:
       serviceAccountName: backstage
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: backstage-backend
+                topologyKey: kubernetes.io/hostname
       containers:
       - name: backstage
         image: kylekim1223/backstage-backend:latest
@@ -293,6 +453,22 @@ data:
             - allow: [User, Group]
         - type: file
           target: ./templates/service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/aws-service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/azure-service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/aws-infrastructure/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/azure-infrastructure/template.yaml
           rules:
             - allow: [Template]
         - type: file

@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backstage-backend-pdb
+  namespace: backstage
+  labels:
+    app.kubernetes.io/name: backstage-backend
+    app.kubernetes.io/component: backend
+    team: platform
+    system: backstage
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backstage-backend

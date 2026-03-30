@@ -17,16 +17,56 @@ spec:
     helm:
       valuesObject:
         loki:
+          podLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: loki
+          serviceLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: loki
           auth_enabled: false
           commonConfig:
             replication_factor: 1
+          compactor:
+            retention_enabled: true
+            delete_request_store: s3
+          limits_config:
+            reject_old_samples: true
+            reject_old_samples_max_age: 720h
+            ingestion_rate_mb: 16
+            ingestion_burst_size_mb: 32
+            retention_period: 720h
           storage:
-            type: filesystem
+            type: s3
+            s3:
+              endpoint: minio.minio-storage:9000
+              bucketnames: loki-chunks
+              region: us-east-1
+              access_key_id: admin
+              secret_access_key: "${LOKI_S3_SECRET_KEY}"
+              s3ForcePathStyle: true
+              insecure: true
           schemaConfig:
             configs:
+              # 기존 데이터는 filesystem 스키마 유지 (자연 만료 대기)
               - from: "2024-01-01"
                 store: tsdb
                 object_store: filesystem
+                schema: v13
+                index:
+                  prefix: loki_index_
+                  period: 24h
+              # 신규 데이터는 S3 스키마 사용 (컷오버 날짜)
+              - from: "2026-04-07"
+                store: tsdb
+                object_store: s3
                 schema: v13
                 index:
                   prefix: loki_index_
@@ -39,16 +79,39 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 10
+        lokiCanary:
+          enabled: true
+          podLabels:
+            team: platform
+            owner: team-sre
+            cost-center: internal-platform
+            env: prod
+            system: observability
+            service: loki
         deploymentMode: SingleBinary
         singleBinary:
           replicas: 1
+          service:
+            labels:
+              team: platform
+              owner: team-sre
+              cost-center: internal-platform
+              env: prod
+              system: observability
+              service: loki
           resources:
             limits:
               cpu: 200m
-              memory: 256Mi
+              memory: 1Gi
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 512Mi
+          extraEnv:
+          - name: LOKI_S3_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: loki-minio-credentials
+                key: secret_access_key
           persistence:
             enabled: true
             storageClass: longhorn
