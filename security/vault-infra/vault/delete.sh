@@ -24,7 +24,7 @@ kubectl delete secret vault-config vault-unseal-keys vault-raw-config vault-tls 
 kubectl delete cm,pdb,sa -l app.kubernetes.io/name=vault -n $NAMESPACE --ignore-not-found
 kubectl delete cm vault-config -n $NAMESPACE --ignore-not-found 2>/dev/null
 kubectl delete pdb vault -n $NAMESPACE --ignore-not-found 2>/dev/null
-#kubectl delete sa vault -n $NAMESPACE --ignore-not-found 2>/dev/null
+kubectl delete sa vault -n $NAMESPACE --ignore-not-found 2>/dev/null
 
 echo "--- [4/5] 오퍼레이터 상태 리셋 (파드 재시작) ---"
 # 오퍼레이터가 이전 에러 상태를 캐싱하지 않도록 뇌를 비워줍니다.

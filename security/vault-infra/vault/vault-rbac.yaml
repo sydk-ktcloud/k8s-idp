@@ -7,24 +7,28 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: vault-secrets-manager
+  name: vault-all-in-one-role
   namespace: vault
 rules:
+  # 1. Secret 관리: Unseal 키 저장 및 TLS 인증서 읽기/감시
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # 2. Pod 상태 확인: Vault가 정상인지 체크하기 위해 필요
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: vault-secrets-manager-binding
+  name: vault-all-in-one-binding
   namespace: vault
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: vault-secrets-manager
+  name: vault-all-in-one-role
 subjects:
   - kind: ServiceAccount
     name: vault
     namespace: vault
-~                            
