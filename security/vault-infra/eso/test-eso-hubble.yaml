@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: dest-secret
+  namespace: external-secrets
+spec:
+  refreshInterval: "15s" # 1시간은 너무 기니까 15초로 단축!
+  secretStoreRef:
+    name: vault-secret-store
+    kind: SecretStore
+  target:
+    name: hubble-ca-secret # 이 이름으로 Secret이 만들어집니다.
+    creationPolicy: Owner
+  dataFrom:
+  - extract:
+      key: "k8s/hubble-ca-secret" # 우리가 Vault에 넣은 그 경로!
+~                                                                    
