@@ -1,0 +1,113 @@
+@import './fonts.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  font-family: 'Pretendard', sans-serif;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 배경 페이드 애니메이션 - 더 부드럽게 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+/* 패널 가로 슬라이드 - 더 자연스러운 커브 */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%) scale(0.98);
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  to {
+    transform: translateX(100%) scale(0.98);
+    opacity: 0.6;
+  }
+}
+
+/* 헤더 전용 애니메이션 - 패널과 연결되게 */
+@keyframes headerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes headerFadeOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+/* 애니메이션 클래스 - 더 길고 부드럽게 */
+.animate-fadeIn {
+  animation: fadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animate-fadeOut {
+  animation: fadeOut 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.animate-slideIn {
+  animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-slideOut {
+  animation: slideOut 0.6s cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+.animate-headerFadeIn {
+  animation: headerFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+
+.animate-headerFadeOut {
+  animation: headerFadeOut 0.3s cubic-bezier(0.7, 0, 0.84, 0) both;
+}

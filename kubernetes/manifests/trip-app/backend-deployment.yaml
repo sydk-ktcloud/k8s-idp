@@ -67,4 +67,4 @@ spec:
         - name: OTEL_METRICS_EXPORTER
           value: "none" # 메트릭 전송 끄기
         - name: OTEL_LOGS_EXPORTER
-          value: "none" # 로그 전송 끄기
+          value: "otlp" # 로그 전송 설정
