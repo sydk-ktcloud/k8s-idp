@@ -1,10 +1,22 @@
-const { execSync } = require("child_process");
+const { exec } = require("child_process");
 
-function runJson(cmd) {
-  const raw = execSync(cmd, {
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "pipe"],
+function runCommand(command) {
+  return new Promise((resolve, reject) => {
+    exec(
+      command,
+      { maxBuffer: 1024 * 1024 * 10 },
+      (error, stdout, stderr) => {
+        if (error) {
+          return reject(new Error(stderr || error.message));
+        }
+        resolve(stdout);
+      }
+    );
   });
+}
+
+async function runJson(command) {
+  const raw = await runCommand(command);
   return JSON.parse(raw);
 }
 
@@ -16,19 +28,20 @@ module.exports = async function checkEsoSecretStatusTool() {
     let clusterSecretStores = [];
 
     try {
-      esoPods = runJson("kubectl get pods -n external-secrets -o json").items || [];
+      esoPods = (await runJson("kubectl get pods -n external-secrets -o json")).items || [];
     } catch (_) {}
 
     try {
-      externalSecrets = runJson("kubectl get externalsecret -A -o json").items || [];
+      externalSecrets = (await runJson("kubectl get externalsecret -A -o json")).items || [];
     } catch (_) {}
 
     try {
-      secretStores = runJson("kubectl get secretstore -A -o json").items || [];
+      secretStores = (await runJson("kubectl get secretstore -A -o json")).items || [];
     } catch (_) {}
 
     try {
-      clusterSecretStores = runJson("kubectl get clustersecretstore -A -o json").items || [];
+      clusterSecretStores =
+        (await runJson("kubectl get clustersecretstore -A -o json")).items || [];
     } catch (_) {}
 
     const runningEsoPods = esoPods.filter(
@@ -46,11 +59,15 @@ module.exports = async function checkEsoSecretStatusTool() {
     ];
 
     if (externalSecrets.length === 0) {
-      lines.push("현재 ExternalSecret 리소스가 없어 Secret 자동 동기화는 아직 구성되지 않았을 가능성이 높습니다.");
+      lines.push(
+        "현재 ExternalSecret 리소스가 없어 Secret 자동 동기화는 아직 구성되지 않았을 가능성이 높습니다."
+      );
     }
 
     if (secretStores.length === 0 && clusterSecretStores.length === 0) {
-      lines.push("현재 SecretStore/ClusterSecretStore가 없어 ESO가 외부 시크릿 백엔드와 연결되지 않았을 가능성이 높습니다.");
+      lines.push(
+        "현재 SecretStore/ClusterSecretStore가 없어 ESO가 외부 시크릿 백엔드와 연결되지 않았을 가능성이 높습니다."
+      );
     }
 
     if (externalSecrets.length > 0) {

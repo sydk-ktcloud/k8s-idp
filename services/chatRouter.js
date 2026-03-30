@@ -209,8 +209,7 @@ async function routeChatMessage(text, scope = {}) {
     // general_chat 로 빠지거나 tool이 비어 있으면 fallback 보정
     const shouldFallback =
       !decision ||
-      !decision.tool ||
-      decision.tool === "general_chat";
+      !decision.tool;
 
     if (shouldFallback) {
       const parsed = await parseUserRequestWithAI(normalizedText);

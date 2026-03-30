@@ -223,7 +223,7 @@ Rules:
 - If user says "그거", "걔", "그 pod", "그 서비스", "로그 보여줘", "분석해줘", use memoryContext.
 - Prefer tool use for Kubernetes state, pod, logs, metrics, failures, health.
 - If user mentions a specific service name and asks about pods or state, prefer "get_service_pods".
-- If user uses Korean words like "관련", "서비스", "해당", "상태", "pod 보여줘" with a service, prefer "get_service_pods".
+- If user uses Korean words like "관련", "서비스", "해당", "상태", "pod 보여줘", "파드 보여줘" with a service, prefer "get_service_pods".
 - If user asks "메트릭", "metric", "사용량", "CPU", "메모리" and memoryContext has lastService, use "service_metrics".
 - If user asks about "템플릿", "template", "ArgoCD 애플리케이션 템플릿", "Kubernetes 리소스 템플릿", use "explain_template".
 - If user asks about ArgoCD sync/synced/동기화 상태, use "argocd_sync_status".

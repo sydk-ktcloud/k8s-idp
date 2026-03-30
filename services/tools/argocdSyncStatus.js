@@ -1,12 +1,23 @@
-const { execSync } = require("child_process");
+const { exec } = require("child_process");
+
+function runCommand(command) {
+  return new Promise((resolve, reject) => {
+    exec(
+      command,
+      { maxBuffer: 1024 * 1024 * 10 },
+      (error, stdout, stderr) => {
+        if (error) {
+          return reject(new Error(stderr || error.message));
+        }
+        resolve(stdout);
+      }
+    );
+  });
+}
 
 module.exports = async function argocdSyncStatusTool() {
   try {
-    const raw = execSync("kubectl get applications -A -o json", {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
+    const raw = await runCommand("kubectl get applications -A -o json");
     const parsed = JSON.parse(raw);
     const items = parsed.items || [];
 

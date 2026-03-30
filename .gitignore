@@ -51,8 +51,10 @@ _test/
 # Kubeconfig files with tokens
 kubeconfig/kubeconfig-*
 !kubeconfig/README.md
-=======
+
 node_modules/
 .env
 .DS_Store
+azure-sp.json
+data/guildSettings.json
 

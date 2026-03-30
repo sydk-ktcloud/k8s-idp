@@ -18,6 +18,63 @@ for (const file of commandFiles) {
     .setName(command.name)
     .setDescription(command.description);
 
+  if (Array.isArray(command.options)) {
+    for (const option of command.options) {
+      if (option.type === "string") {
+        slashCommand.addStringOption((opt) => {
+          opt
+            .setName(option.name)
+            .setDescription(option.description)
+            .setRequired(!!option.required);
+
+          if (option.autocomplete) {
+            opt.setAutocomplete(true);
+          }
+
+          if (Array.isArray(option.choices)) {
+            for (const choice of option.choices) {
+              opt.addChoices({
+                name: choice.name,
+                value: choice.value,
+              });
+            }
+          }
+
+          return opt;
+        });
+      }
+
+      if (option.type === "integer") {
+        slashCommand.addIntegerOption((opt) => {
+          opt
+            .setName(option.name)
+            .setDescription(option.description)
+            .setRequired(!!option.required);
+
+          if (Array.isArray(option.choices)) {
+            for (const choice of option.choices) {
+              opt.addChoices({
+                name: choice.name,
+                value: choice.value,
+              });
+            }
+          }
+
+          return opt;
+        });
+      }
+
+      if (option.type === "boolean") {
+        slashCommand.addBooleanOption((opt) =>
+          opt
+            .setName(option.name)
+            .setDescription(option.description)
+            .setRequired(!!option.required)
+        );
+      }
+    }
+  }
+
   commands.push(slashCommand.toJSON());
 }
 
