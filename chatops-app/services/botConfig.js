@@ -11,6 +11,7 @@ function ensureConfigFile() {
         {
           guildId: "",
           chatChannelId: "",
+          lifecycleChannelId: "",
         },
         null,
         2

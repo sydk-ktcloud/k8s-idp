@@ -6,7 +6,9 @@
 const k8s = require('@kubernetes/client-node');
 const https = require('https');
 
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+// DISCORD_LIFECYCLE_WEBHOOK_URL: 라이프사이클 전용 채널 webhook
+// (기존 chatops 운영 알람 채널과 분리)
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_LIFECYCLE_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL;
 const DRY_RUN = process.env.DRY_RUN === 'true';
 
 const IDP_GROUP = 'k8s-idp.example.org';

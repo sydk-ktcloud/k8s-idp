@@ -22,11 +22,11 @@ spec:
               image: ghcr.io/sydk-ktcloud/lifecycle-scanner:latest
               imagePullPolicy: Always
               env:
-                - name: DISCORD_WEBHOOK_URL
+                - name: DISCORD_LIFECYCLE_WEBHOOK_URL
                   valueFrom:
                     secretKeyRef:
                       name: lifecycle-scanner-secret
-                      key: discord-webhook-url
+                      key: discord-lifecycle-webhook-url
                 - name: DRY_RUN
                   value: "false"
               resources:

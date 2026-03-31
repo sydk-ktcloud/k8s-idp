@@ -47,6 +47,14 @@ module.exports = {
       await interaction.editReply(
         `✅ \`${kind}/${ns}/${name}\`의 만료일을 **${newDate}**로 연장했습니다.`
       );
+
+      // lifecycle 채널에도 알림
+      if (interaction.client?.sendToLifecycleChannel) {
+        await interaction.client.sendToLifecycleChannel(
+          `📅 **만료일 연장** — \`${kind}/${ns}/${name}\`\n` +
+          `새 만료일: **${newDate}** | 연장자: ${interaction.user?.tag || "unknown"}`
+        );
+      }
     } catch (error) {
       console.error("extend 실패:", error.message);
       await interaction.editReply("❌ 만료일 연장 실패: " + error.message);

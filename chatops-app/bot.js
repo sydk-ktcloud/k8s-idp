@@ -12,6 +12,7 @@ const { getLogs } = require("./services/logs");
 const { analyzeLogs } = require("./services/gpt");
 const { getGuildSetting } = require("./services/guildSettings");
 const { routeChatMessage } = require("./services/chatRouter");
+const { getBotConfig } = require("./services/botConfig");
 
 const client = new Client({
   intents: [
@@ -22,6 +23,24 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
+// lifecycle 채널로 메시지 전송하는 헬퍼
+// /setlifecyclechannel 로 지정된 채널에 전송, 미지정 시 무시
+async function sendToLifecycleChannel(content) {
+  try {
+    const config = getBotConfig();
+    const channelId = config.lifecycleChannelId;
+    if (!channelId) return;
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel?.isTextBased()) {
+      await channel.send(String(content).slice(0, 2000));
+    }
+  } catch (err) {
+    console.error("[lifecycle channel] 전송 실패:", err.message);
+  }
+}
+
+client.sendToLifecycleChannel = sendToLifecycleChannel;
 
 const commandsPath = path.join(__dirname, "commands");
 const commandFiles = fs
@@ -95,9 +114,25 @@ client.on("interactionCreate", async (interaction) => {
   try {
     // 1. 버튼 처리
     if (interaction.isButton()) {
-      const [action, namespace, pod] = String(
-        interaction.customId || ""
-      ).split("|");
+      const [action, ...rest] = String(interaction.customId || "").split("|");
+
+      // lifecycle: delete 확인/취소 버튼
+      if (action === "confirm-delete" || action === "cancel-delete") {
+        const deleteResourceCmd = client.commands.get("delete-resource");
+        if (deleteResourceCmd?.handleButton) {
+          await deleteResourceCmd.handleButton(interaction);
+          if (action === "confirm-delete") {
+            const [, kind, ns, name] = ["", ...rest];
+            await sendToLifecycleChannel(
+              `🗑️ **리소스 수동 삭제** — \`${kind}/${ns}/${name}\`\n` +
+              `삭제 요청자: ${interaction.user?.tag || "unknown"}`
+            );
+          }
+        }
+        return;
+      }
+
+      const [namespace, pod] = rest;
 
       if (action === "analyze") {
         await interaction.deferReply();
