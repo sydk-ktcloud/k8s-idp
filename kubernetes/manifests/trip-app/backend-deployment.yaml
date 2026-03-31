@@ -19,14 +19,6 @@ kind: Deployment
 metadata:
   name: trip-backend
   namespace: trip-app
-  labels:
-    app: trip-backend
-    team: platform
-    owner: team-appdev
-    cost-center: internal-platform
-    env: prod
-    system: trip-app
-    service: trip-backend
 spec:
   replicas: 1
   selector:
@@ -36,12 +28,6 @@ spec:
     metadata:
       labels:
         app: trip-backend
-        team: platform
-        owner: team-appdev
-        cost-center: internal-platform
-        env: prod
-        system: trip-app
-        service: trip-backend
     spec:
       containers:
       - name: trip-backend

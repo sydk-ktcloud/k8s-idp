@@ -1,0 +1,105 @@
+# MinIO → GCS 오프사이트 백업 복제
+# 매일 04:00 UTC에 실행 (Velero 01:00, Longhorn 03:00 백업 완료 후)
+# MinIO 버킷을 GCS로 동기화하여 온프레미스 장애 시 클라우드에서 복구 가능
+#
+# 사전 조건:
+#   1. GCS 버킷 생성:
+#      gsutil mb -l asia-northeast3 -c nearline gs://sydk-velero-offsite
+#      gsutil mb -l asia-northeast3 -c nearline gs://sydk-longhorn-offsite
+#
+#   2. GCP Service Account 생성 + 키 발급:
+#      gcloud iam service-accounts create minio-gcs-replicator \
+#        --display-name="MinIO to GCS Replicator"
+#      gcloud projects add-iam-policy-binding sydk-ktcloud \
+#        --member="serviceAccount:minio-gcs-replicator@sydk-ktcloud.iam.gserviceaccount.com" \
+#        --role="roles/storage.objectAdmin"
+#      gcloud iam service-accounts keys create gcs-key.json \
+#        --iam-account=minio-gcs-replicator@sydk-ktcloud.iam.gserviceaccount.com
+#
+#   3. Secret 생성:
+#      kubectl create secret generic gcs-replicator-credentials -n minio-storage \
+#        --from-file=gcs-key.json=gcs-key.json
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-gcs-replication
+  namespace: minio-storage
+  labels:
+    app: minio-gcs-replication
+    team: platform
+    owner: team-sre
+    system: backup
+    service: replication
+spec:
+  schedule: "0 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels:
+            app: minio-gcs-replication
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: mc-mirror
+            image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "=== MinIO → GCS 오프사이트 백업 복제 시작 ==="
+
+              # MinIO alias 설정
+              mc alias set minio http://minio.minio-storage:9000 \
+                "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+
+              # GCS alias 설정 (S3 호환 interop 사용)
+              mc alias set gcs https://storage.googleapis.com \
+                "$GCS_ACCESS_KEY" "$GCS_SECRET_KEY"
+
+              # Velero 백업 복제
+              echo "[1/2] Velero 백업 복제 중..."
+              mc mirror --overwrite --remove minio/velero gcs/sydk-velero-offsite
+              echo "[1/2] Velero 백업 복제 완료"
+
+              # Longhorn 볼륨 백업 복제
+              echo "[2/2] Longhorn 백업 복제 중..."
+              mc mirror --overwrite --remove minio/longhorn-backups gcs/sydk-longhorn-offsite
+              echo "[2/2] Longhorn 백업 복제 완료"
+
+              echo "=== 오프사이트 백업 복제 완료 ==="
+            env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_USER
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_PASSWORD
+            - name: GCS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gcs-replicator-credentials
+                  key: gcs-access-key
+            - name: GCS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gcs-replicator-credentials
+                  key: gcs-secret-key
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi
