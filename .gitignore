@@ -53,10 +53,10 @@ kubeconfig/kubeconfig-*
 kubeconfig/gke-burst
 kubeconfig/gke_gcloud_auth_plugin_cache
 !kubeconfig/README.md
-# OIDC template has no tokens - safe to commit
-!kubeconfig/kubeconfig-oidc
-=======
+
 node_modules/
 .env
 .DS_Store
+azure-sp.json
+data/guildSettings.json
 
