@@ -1,0 +1,70 @@
+# On-Prem 클러스터 Heartbeat (Dead Man's Switch)
+#
+# 5분마다 GCS에 타임스탬프를 업로드하여 클러스터 생존 신호를 보냄.
+# GCS 파일이 15분 이상 갱신되지 않으면 → 온프레미스 장애로 판단.
+#
+# GCP Cloud Monitoring 알림 조건:
+#   metric: storage.googleapis.com/storage/object/updated_time
+#   condition: object age > 15분
+#   → Discord/Email 알림 발송
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-heartbeat
+  namespace: minio-storage
+  labels:
+    app: cluster-heartbeat
+    team: platform
+    system: monitoring
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app: cluster-heartbeat
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: heartbeat
+            image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # GCS alias 설정
+              mc alias set gcs https://storage.googleapis.com \
+                "$GCS_ACCESS_KEY" "$GCS_SECRET_KEY"
+
+              # heartbeat 파일 생성 및 업로드
+              TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              HOSTNAME=${HOSTNAME:-unknown}
+              echo "{\"timestamp\":\"$TIMESTAMP\",\"cluster\":\"k8s-idp-onprem\",\"status\":\"alive\",\"pod\":\"$HOSTNAME\"}" > /tmp/heartbeat.json
+
+              mc cp /tmp/heartbeat.json gcs/sydk-velero-offsite/heartbeat.json
+              echo "Heartbeat sent: $TIMESTAMP"
+            env:
+            - name: GCS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gcs-replicator-credentials
+                  key: gcs-access-key
+            - name: GCS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gcs-replicator-credentials
+                  key: gcs-secret-key
+            resources:
+              requests:
+                cpu: 50m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 64Mi
