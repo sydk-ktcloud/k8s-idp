@@ -33,7 +33,6 @@ backend:
       #     $file: <file-path>/ca/server.crt
 kubecost:
   baseUrl: http://kubecost-frontend.kubecost.svc.cluster.local:9090
-
 auth:
   environment: production
   session:
