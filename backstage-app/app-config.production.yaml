@@ -38,7 +38,7 @@ proxy:
       changeOrigin: true
 
 kubecost:
-  base:Url: /api/proxy/kubecost
+  baseUrl: /api/proxy/kubecost
 
 auth:
   environment: production
