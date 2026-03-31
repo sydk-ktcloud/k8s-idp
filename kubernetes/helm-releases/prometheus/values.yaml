@@ -120,12 +120,12 @@ prometheus:
 # Prometheus Operator
 prometheusOperator:
   podLabels:
-      team: platform
-      owner: team-sre
-      cost-center: internal-platform
-      env: prod
-      system: observability
-      service: prometheus-operator
+    team: platform
+    owner: team-sre
+    cost-center: internal-platform
+    env: prod
+    system: observability
+    service: prometheus-operator
   resources:
     limits:
       cpu: 200m
