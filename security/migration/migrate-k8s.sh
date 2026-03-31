@@ -47,6 +47,16 @@ check_dependencies() {
         log_error "필수 도구가 없습니다: ${missing[*]}"
         exit 1
     fi
+
+    # VAULT_ADDR가 127.0.0.1인 경우 port-forward 연결 여부 확인
+    if [[ "${VAULT_ADDR}" == *"127.0.0.1"* ]]; then
+        if ! vault status &>/dev/null; then
+            log_error "Vault에 연결할 수 없습니다 (${VAULT_ADDR})"
+            log_error "port-forward가 실행 중인지 확인하세요:"
+            log_error "  kubectl port-forward svc/vault -n vault 8200:8200"
+            exit 1
+        fi
+    fi
 }
 
 # =============================================================================
@@ -65,36 +75,48 @@ check_vault_auth() {
 }
 
 # =============================================================================
-# 5. ClusterSecretStore 및 vault-token k8s Secret 생성
-# [보안] --from-literal 대신 stdin으로 토큰 전달 (히스토리 노출 방지)
+# 5. ClusterSecretStore 확인 및 이관용 제한 토큰 생성
+# [수정] Root Token을 ESO에 직접 사용하지 않음.
+#        이관 작업용 단기 토큰(allow_secrets 정책)을 생성하여 k8s Secret에 저장.
+#        ClusterSecretStore는 기존 Kubernetes 인증 방식을 유지하며 덮어쓰지 않음.
+#        (secret-store.yaml 참고 - caBundle, kubernetes auth 방식 사용)
 # =============================================================================
 setup_cluster_secret_store() {
-    log_info "[단계 1] ClusterSecretStore 및 인증용 토큰 생성"
+    log_info "[단계 1] 이관용 제한 토큰 생성 및 ClusterSecretStore 확인"
 
     kubectl create namespace "$ESO_NS" 2>/dev/null || true
 
-    # [보안] vault token을 stdin으로 전달 → shell history에 값이 남지 않음
-    # ~/.vault-token 파일이 존재하면 우선 사용, 없으면 $VAULT_TOKEN 환경변수 사용
-    local vault_token_value
-    if [ -f "${HOME}/.vault-token" ]; then
-        vault_token_value=$(cat "${HOME}/.vault-token")
-    elif [ -n "${VAULT_TOKEN:-}" ]; then
-        vault_token_value="$VAULT_TOKEN"
-    else
-        log_error "Vault 토큰을 찾을 수 없습니다. (~/.vault-token 또는 \$VAULT_TOKEN)"
+    # [보안] Root Token이 아닌 allow_secrets 정책의 단기 토큰 생성
+    # vault token create는 ~/.vault-token 또는 $VAULT_TOKEN을 자동으로 사용
+    local migration_token
+    migration_token=$(vault token create \
+        -policy="allow_secrets" \
+        -ttl="2h" \
+        -display-name="eso-migration" \
+        -format=json \
+        | jq -r '.auth.client_token')
+
+    if [ -z "$migration_token" ]; then
+        log_error "이관용 토큰 생성 실패. Vault 권한을 확인하세요."
         exit 1
     fi
 
-    # [보안] printf를 사용하여 토큰을 stdin으로 전달 (echo는 일부 환경에서 히스토리에 기록됨)
+    # [보안] printf를 사용하여 토큰을 stdin으로 전달 (shell history 노출 방지)
     kubectl create secret generic vault-token \
         -n "$ESO_NS" \
-        --from-file=token=<(printf '%s' "$vault_token_value") \
+        --from-file=token=<(printf '%s' "$migration_token") \
         --dry-run=client -o yaml | kubectl apply -f - &>/dev/null
 
-    # 메모리에서 즉시 해제
-    unset vault_token_value
+    unset migration_token
+    log_success "이관용 제한 토큰(TTL 2h) Secret 생성/갱신 완료"
 
-    log_success "vault-token Secret 생성/갱신 완료"
+    # ClusterSecretStore가 이미 존재하면 덮어쓰지 않음
+    # (secret-store.yaml의 Kubernetes 인증 방식을 유지)
+    if kubectl get clustersecretstore "$ESO_SECRETSTORE" &>/dev/null; then
+        log_warn "ClusterSecretStore '${ESO_SECRETSTORE}' 가 이미 존재합니다. 덮어쓰지 않습니다."
+        log_success "ClusterSecretStore 확인 완료"
+        return
+    fi
 
     kubectl apply -f - >/dev/null <<EOF
 apiVersion: external-secrets.io/v1
@@ -119,7 +141,7 @@ spec:
           namespace: ${ESO_NS}
 EOF
 
-    log_success "ClusterSecretStore 생성/갱신 완료"
+    log_success "ClusterSecretStore 생성 완료"
 }
 
 # =============================================================================
@@ -159,20 +181,21 @@ is_keyword_matched() {
 # =============================================================================
 # 7. Vault에 시크릿 저장
 # [보안 핵심] base64 디코딩된 값을 변수에 저장하지 않고 파이프라인으로 직접 전달
-# [보안] @base64d 제거 → base64 인코딩 상태 그대로 저장 (바이너리 데이터 손상 방지)
-# [수정] vault kv put 의 stdin 플래그는 @- (대시 단독은 동작 안 함)
+# [수정 1] vault kv put stdin 플래그: @- (대시 단독은 동작 안 함)
+# [수정 2] .data 값을 @base64d로 디코딩 후 저장
+#          k8s .data는 이미 base64 인코딩된 값임.
+#          디코딩 없이 저장하면 ESO가 재생성 시 이중 인코딩되어 앱 장애 발생.
 # =============================================================================
 store_to_vault() {
     local ns="$1"
     local secret="$2"
     local vault_path="$3"
 
-    # kubectl → jq → vault kv put @- 파이프라인
-    # base64 인코딩된 상태 그대로 저장하여 바이너리 손상 방지
-    # jq: k8s secret의 .data 필드를 {"key":"base64value",...} JSON으로 변환
+    # kubectl → jq(base64 디코딩) → vault kv put @- 파이프라인
+    # jq: k8s secret의 .data 필드를 디코딩하여 {"key":"plainvalue",...} JSON으로 변환
     if ! kubectl get secret "$secret" -n "$ns" -o json 2>/dev/null \
-         | jq -r '.data // {} | to_entries | map({key: .key, value: .value}) | from_entries' \
-         | vault kv put "$vault_path" - > /dev/null; then
+         | jq -r '.data // {} | to_entries | map({key: .key, value: (.value | @base64d)}) | from_entries' \
+         | vault kv put "$vault_path" @- > /dev/null; then
         return 1
     fi
     return 0
