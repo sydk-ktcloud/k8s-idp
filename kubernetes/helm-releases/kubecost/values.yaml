@@ -7,28 +7,40 @@ global:
   clusterName: "k8s-idp"
   defaultStorageClass: "longhorn"
   acknowledged: true  # Required for Kubecost 3.0+
-
+  
+  # 1. Global 레벨 라벨 (공통 상속용 베이스)
   podLabels:
     team: platform
     owner: team-finops
     cost-center: internal-platform
     env: prod
     system: finops
-    service: kubecost
 
-# Long-term metrics storage (replaces old kubecost-cost-analyzer PVC)
-localStore:
-  enabled: true
-  persistentVolume:
-    size: 32Gi
-    enabled: true
-    storageClass: "longhorn"
-    annotations:
-      helm.sh/resource-policy: keep
+# 2. v3.x 마이크로서비스 개별 라벨 강제 주입
+frontend:
+  podLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: kubecost-frontend
+  service:
+    type: ClusterIP
+    port: 9090
+    sessionAffinity:
+      enabled: true  # Required for OIDC auth
+      timeoutSeconds: 10800
 
-# Short-term metrics storage (<2 days WAL)
 finopsagent:
   enabled: true
+  podLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: finopsagent
   persistence:
     enabled: true
     storageClass: "longhorn"
@@ -36,9 +48,15 @@ finopsagent:
     annotations:
       helm.sh/resource-policy: keep
 
-# Aggregator - ClickHouse database (BLOCK STORAGE REQUIRED)
 aggregator:
   enabled: true
+  podLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: aggregator
   persistentConfigsStorage:
     storageClass: "longhorn"
     storageRequest: 1Gi
@@ -46,22 +64,56 @@ aggregator:
     storageClass: "longhorn"
     storageRequest: 128Gi
 
-# Cloud cost configs
 cloudCost:
   enabled: true
+  podLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: cloud-cost
   persistentConfigsStorage:
     enabled: true
     storageClass: "longhorn"
     size: 1Gi
 
-# Frontend Service - ClusterIP (access via OAuth2 Proxy)
-frontend:
-  service:
-    type: ClusterIP
-    port: 9090
-    sessionAffinity:
-      enabled: true  # Required for OIDC auth
-      timeoutSeconds: 10800
+clusterController:
+  enabled: true
+  podLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: cluster-controller
+
+forecasting:
+  enabled: true
+  podLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: forecasting
+
+localStore:
+  enabled: true
+  podLabels:
+    team: platform
+    owner: team-finops
+    cost-center: internal-platform
+    env: prod
+    system: finops
+    service: local-store
+  persistentVolume:
+    size: 32Gi
+    enabled: true
+    storageClass: "longhorn"
+    annotations:
+      helm.sh/resource-policy: keep
+
 # OIDC disabled - using OAuth2 Proxy instead
 oidc:
   enabled: false
