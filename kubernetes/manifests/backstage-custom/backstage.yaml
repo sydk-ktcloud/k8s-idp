@@ -301,6 +301,8 @@ spec:
         env: prod
         system: platform
         service: backstage-backend
+    annotations:
+      checksum/config: "v1"
 
     spec:
       serviceAccountName: backstage
