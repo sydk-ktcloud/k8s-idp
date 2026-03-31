@@ -263,6 +263,18 @@ spec:
     - ports:
         - protocol: TCP
           port: 3100
+    # loki-canary readiness probe (kubelet → canary:3500)
+    - ports:
+        - protocol: TCP
+          port: 3500
+    # memcached inbound (loki-chunks-cache, loki-results-cache 포함 - 동일 라벨 선택됨)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+      ports:
+        - protocol: TCP
+          port: 11211
   egress:
     - ports:
         - protocol: TCP
@@ -288,6 +300,14 @@ spec:
       ports:
         - protocol: TCP
           port: 9000
+    # memcached 캐시 접근 (loki-chunks-cache, loki-results-cache)
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+      ports:
+        - protocol: TCP
+          port: 11211
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -350,6 +370,10 @@ spec:
           port: 4317
         - protocol: TCP
           port: 4318
+    # alloy readiness probe (kubelet → alloy:12345)
+    - ports:
+        - protocol: TCP
+          port: 12345
   egress:
     - to:
         - namespaceSelector: {}
