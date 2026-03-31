@@ -2,17 +2,8 @@
 # Kubecost native OIDC has issues, using oauth2-proxy instead
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: oauth2-proxy-kubecost
-  namespace: kubecost
-type: Opaque
-stringData:
-  COOKIE_SECRET: "qVN7wJm6dYUt77MbwHp5KbwF/SW5Z75V"
-  CLIENT_ID: "kubecost"
-  CLIENT_SECRET: "kubecost-client-secret-12345"
-
+# Secret 'oauth2-proxy-kubecost'은 ExternalSecret(Vault)에 의해 자동 생성됩니다.
+# 참조: security/vault-infra/eso/external-secrets/oauth2-proxy-kubecost.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -17,7 +17,7 @@ configs:
       name: Dex
       issuer: http://100.64.0.1:30556
       clientID: argocd
-      clientSecret: argocd-client-secret-12345
+      clientSecret: $argocd-oidc-secret:oidc.clientSecret
       requestedScopes:
         - openid
         - profile
