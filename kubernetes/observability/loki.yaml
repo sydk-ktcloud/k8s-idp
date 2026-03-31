@@ -50,7 +50,7 @@ spec:
               bucketnames: loki-chunks
               region: us-east-1
               access_key_id: admin
-              secret_access_key: "${LOKI_S3_SECRET_KEY}"
+              secret_access_key: "XlbINLzrchGmzeDMVhsRA26gTdOrsBP1"
               s3ForcePathStyle: true
               insecure: true
           schemaConfig:
@@ -106,12 +106,6 @@ spec:
             requests:
               cpu: 100m
               memory: 512Mi
-          extraEnv:
-          - name: LOKI_S3_SECRET_KEY
-            valueFrom:
-              secretKeyRef:
-                name: loki-minio-credentials
-                key: secret_access_key
           persistence:
             enabled: true
             storageClass: longhorn
