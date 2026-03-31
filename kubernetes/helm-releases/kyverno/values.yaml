@@ -1,0 +1,29 @@
+replicaCount: 3
+
+admissionController:
+  replicas: 3
+
+backgroundController:
+  replicas: 2
+
+cleanupController:
+  replicas: 2
+
+reportsController:
+  replicas: 2
+
+config:
+  # Audit 모드로 시작 (2주 후 Enforce로 전환)
+  defaultPolicyFailureAction: Audit
+  webhookTimeoutSeconds: 15
+  # 시스템 네임스페이스에서는 정책 적용 제외
+  resourceFilters:
+    - "[*,crossplane-system,*]"
+    - "[*,kyverno,*]"
+    - "[*,vault,*]"
+    - "[*,external-secrets,*]"
+    - "[*,gitops,*]"
+    - "[*,cert-manager,*]"
+    - "[*,kube-system,*]"
+    - "[*,kube-public,*]"
+    - "[*,kube-node-lease,*]"

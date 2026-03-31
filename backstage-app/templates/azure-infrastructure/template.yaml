@@ -251,6 +251,41 @@ spec:
           description: 데이터베이스 스토리지 크기입니다.
       visible: ${{ parameters.resourceType === 'azuredatabase' }}
 
+    - title: 수명주기 설정
+      required:
+        - lifecycleTier
+        - costCenter
+        - owner
+      properties:
+        lifecycleTier:
+          title: 환경 티어
+          type: string
+          default: dev
+          enum:
+            - dev
+            - staging
+            - prod
+          enumNames:
+            - "dev — 기본 7일, 최대 30일"
+            - "staging — 기본 30일, 최대 90일"
+            - "prod — 무제한 (플랫폼팀 승인 필요)"
+        expiresAt:
+          title: 만료일 (비워두면 티어 기본값 적용)
+          type: string
+          ui:widget: date
+        owner:
+          title: 담당자 (GitHub username)
+          type: string
+        costCenter:
+          title: 비용 센터
+          type: string
+          enum:
+            - platform
+            - developer
+            - sre
+            - finops
+            - security
+
     - title: 저장소 설정
       required:
         - repoUrl
@@ -288,6 +323,10 @@ spec:
           dbSkuName: ${{ parameters.dbSkuName }}
           dbLocation: ${{ parameters.dbLocation }}
           dbStorageMb: ${{ parameters.dbStorageMb }}
+          lifecycleTier: ${{ parameters.lifecycleTier }}
+          expiresAt: ${{ parameters.expiresAt }}
+          owner: ${{ parameters.owner }}
+          costCenter: ${{ parameters.costCenter }}
 
     - id: publish
       name: Pull Request 생성

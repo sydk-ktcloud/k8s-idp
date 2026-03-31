@@ -1,0 +1,79 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-lifecycle-labels
+  annotations:
+    policies.kyverno.io/title: Require Lifecycle Labels
+    policies.kyverno.io/category: Resource Lifecycle
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      k8s-idp.example.org 그룹의 모든 Claim CR에는 수명주기 관리에 필요한
+      레이블(lifecycle-tier, expires-at, cost-center, team, owner)이 필수입니다.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-lifecycle-tier
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      validate:
+        message: "lifecycle-tier 레이블이 필요합니다. 허용 값: dev, staging, prod"
+        pattern:
+          metadata:
+            labels:
+              lifecycle-tier: "dev | staging | prod"
+
+    - name: check-expires-at
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      validate:
+        message: "expires-at 레이블이 필요합니다. 형식: YYYY-MM-DD (예: 2026-04-30)"
+        pattern:
+          metadata:
+            labels:
+              expires-at: "?*"
+
+    - name: check-cost-center
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      validate:
+        message: "cost-center 레이블이 필요합니다. 허용 값: platform, developer, sre, finops, security"
+        pattern:
+          metadata:
+            labels:
+              cost-center: "platform | developer | sre | finops | security"
+
+    - name: check-team
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      validate:
+        message: "team 레이블이 필요합니다."
+        pattern:
+          metadata:
+            labels:
+              team: "?*"
+
+    - name: check-owner
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      validate:
+        message: "owner 레이블이 필요합니다."
+        pattern:
+          metadata:
+            labels:
+              owner: "?*"

@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-claim-namespace
+  annotations:
+    policies.kyverno.io/title: Restrict Claim Namespace
+    policies.kyverno.io/category: Isolation
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      k8s-idp.example.org Claim CR을 시스템 네임스페이스에 생성하는 것을 차단합니다.
+      gitops, monitoring, auth, vault, kyverno 등 시스템 네임스페이스는 불가합니다.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-system-namespaces
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      validate:
+        message: >-
+          k8s-idp Claim은 시스템 네임스페이스에 생성할 수 없습니다.
+          (금지 네임스페이스: gitops, monitoring, auth, vault, kyverno,
+           external-secrets, cert-manager, crossplane-system, kube-system)
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.metadata.namespace }}"
+                operator: In
+                value:
+                  - gitops
+                  - monitoring
+                  - auth
+                  - vault
+                  - kyverno
+                  - external-secrets
+                  - cert-manager
+                  - crossplane-system
+                  - kube-system
+                  - kube-public
+                  - kube-node-lease
+                  - secrets

@@ -1,0 +1,78 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-expiry-window
+  annotations:
+    policies.kyverno.io/title: Validate Expiry Window
+    policies.kyverno.io/category: Resource Lifecycle
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      dev 티어는 최대 30일, staging 티어는 최대 90일의 TTL만 허용합니다.
+      prod 티어는 expires-at을 "9999-12-31"로 설정해야 합니다.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-prod-expiry
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: prod
+      validate:
+        message: "prod 티어 리소스의 expires-at은 반드시 '9999-12-31'이어야 합니다 (플랫폼팀 승인 필요)."
+        pattern:
+          metadata:
+            labels:
+              expires-at: "9999-12-31"
+
+    - name: check-dev-expiry-window
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+          - key: "{{ request.object.metadata.labels.\"expires-at\" }}"
+            operator: NotEquals
+            value: "9999-12-31"
+      validate:
+        message: "dev 티어 리소스의 만료일은 오늘로부터 30일 이내여야 합니다."
+        deny:
+          conditions:
+            all:
+              - key: "{{ time_after('{{ request.object.metadata.labels.\"expires-at\" }}', time_add('{{ time_now_utc() }}', '720h')) }}"
+                operator: Equals
+                value: true
+
+    - name: check-staging-expiry-window
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: staging
+          - key: "{{ request.object.metadata.labels.\"expires-at\" }}"
+            operator: NotEquals
+            value: "9999-12-31"
+      validate:
+        message: "staging 티어 리소스의 만료일은 오늘로부터 90일 이내여야 합니다."
+        deny:
+          conditions:
+            all:
+              - key: "{{ time_after('{{ request.object.metadata.labels.\"expires-at\" }}', time_add('{{ time_now_utc() }}', '2160h')) }}"
+                operator: Equals
+                value: true

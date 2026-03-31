@@ -1,0 +1,3 @@
+# 클러스터·대형 리소스 승인 필수
+# apps/ 디렉토리의 모든 claim.yaml 변경은 플랫폼팀 승인 필요
+apps/*/claim.yaml @sydk-ktcloud/platform

@@ -29,6 +29,11 @@ metadata:
   namespace: {{ values.namespace }}
   labels:
     backstage.io/kubernetes-id: {{ values.componentName }}
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -61,6 +66,11 @@ metadata:
   namespace: {{ values.namespace }}
   labels:
     backstage.io/kubernetes-id: {{ values.componentName }}
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -95,6 +105,11 @@ metadata:
   namespace: {{ values.namespace }}
   labels:
     backstage.io/kubernetes-id: {{ values.componentName }}
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -120,6 +135,11 @@ metadata:
   namespace: {{ values.namespace }}
   labels:
     backstage.io/kubernetes-id: {{ values.componentName }}
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"
@@ -154,6 +174,11 @@ metadata:
   namespace: {{ values.namespace }}
   labels:
     backstage.io/kubernetes-id: {{ values.componentName }}
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
   annotations:
     k8s-idp.example.org/service-type: "{{ values.serviceType }}"
     k8s-idp.example.org/user-count: "{{ values.userCount }}"

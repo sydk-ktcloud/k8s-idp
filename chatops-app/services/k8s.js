@@ -9,6 +9,80 @@ try {
 }
 
 const coreApi = kc.makeApiClient(k8s.CoreV1Api);
+const customObjectsApi = kc.makeApiClient(k8s.CustomObjectsApi);
+
+const IDP_GROUP = "k8s-idp.example.org";
+const IDP_VERSION = "v1alpha1";
+
+const RESOURCE_KINDS = [
+  { kind: "Cluster",          plural: "clusters" },
+  { kind: "Database",         plural: "databases" },
+  { kind: "Bucket",           plural: "buckets" },
+  { kind: "GCPInstance",      plural: "gcpinstances" },
+  { kind: "EC2Instance",      plural: "ec2instances" },
+  { kind: "S3Bucket",         plural: "s3buckets" },
+  { kind: "EKSCluster",       plural: "eksclusters" },
+  { kind: "RDSDatabase",      plural: "rdsdatabases" },
+  { kind: "AzureVM",          plural: "azurevms" },
+  { kind: "AzureBlobStorage", plural: "azureblobstorages" },
+  { kind: "AKSCluster",       plural: "aksclusters" },
+  { kind: "AzureDatabase",    plural: "azuredatabases" },
+  { kind: "WebApp",           plural: "webapps" },
+  { kind: "PubSub",           plural: "pubsubs" },
+];
+
+async function listProvisionedClaims() {
+  const allClaims = [];
+  for (const { kind, plural } of RESOURCE_KINDS) {
+    try {
+      const response = await customObjectsApi.listClusterCustomObject(
+        IDP_GROUP,
+        IDP_VERSION,
+        plural
+      );
+      const items = response.body?.items || [];
+      for (const item of items) {
+        allClaims.push({ kind, ...item });
+      }
+    } catch (err) {
+      if (err.statusCode !== 404) {
+        console.warn(`[경고] ${kind} 조회 실패:`, err.message || err.statusCode);
+      }
+    }
+  }
+  return allClaims;
+}
+
+async function patchClaimExpiresAt(kind, namespace, name, newDate) {
+  const plural = RESOURCE_KINDS.find((r) => r.kind === kind)?.plural;
+  if (!plural) throw new Error(`알 수 없는 kind: ${kind}`);
+
+  await customObjectsApi.patchNamespacedCustomObject(
+    IDP_GROUP,
+    IDP_VERSION,
+    namespace,
+    plural,
+    name,
+    [{ op: "replace", path: "/metadata/labels/expires-at", value: newDate }],
+    undefined,
+    undefined,
+    undefined,
+    { headers: { "Content-Type": "application/json-patch+json" } }
+  );
+}
+
+async function deleteClaimResource(kind, namespace, name) {
+  const plural = RESOURCE_KINDS.find((r) => r.kind === kind)?.plural;
+  if (!plural) throw new Error(`알 수 없는 kind: ${kind}`);
+
+  await customObjectsApi.deleteNamespacedCustomObject(
+    IDP_GROUP,
+    IDP_VERSION,
+    namespace,
+    plural,
+    name
+  );
+}
 
 function normalizeName(value) {
   return String(value || "").toLowerCase().trim();
@@ -453,4 +527,8 @@ module.exports = {
   checkServiceConnectionBasic,
   findPodsByService,
   getServiceConfigSummary,
+  listProvisionedClaims,
+  patchClaimExpiresAt,
+  deleteClaimResource,
+  RESOURCE_KINDS,
 };
