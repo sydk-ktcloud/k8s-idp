@@ -252,10 +252,23 @@ spec:
       visible: ${{ parameters.resourceType === 'azuredatabase' }}
 
     - title: 수명주기 설정
+      description: |
+        > ⚠️ **이 플랫폼의 모든 클라우드 리소스는 수명주기 정책의 적용을 받습니다.**
+        >
+        > **티어별 최대 TTL**
+        > - **dev**: 최대 30일 — 초과 시 Kyverno에 의해 생성이 **거부**됩니다
+        > - **staging**: 최대 90일 — 초과 시 Kyverno에 의해 생성이 **거부**됩니다
+        > - **prod**: 무제한 — 단, **플랫폼팀 PR 승인 필수**이며 `expires-at`은 `9999-12-31`로 고정됩니다
+        >
+        > **자동 삭제**: 만료일이 지난 리소스는 매일 자동으로 삭제됩니다.
+        > 삭제 **3일 전** · **당일** Discord `#lifecycle-alerts` 채널로 사전 경고가 발송됩니다.
+        >
+        > **연장**: Discord `/extend` 커맨드 사용 *(platform/sre 팀 승인 필요)*
       required:
         - lifecycleTier
         - costCenter
         - owner
+        - acknowledge
       properties:
         lifecycleTier:
           title: 환경 티어
@@ -285,6 +298,11 @@ spec:
             - sre
             - finops
             - security
+        acknowledge:
+          title: 위 수명주기 정책을 이해했으며, 만료 시 리소스가 자동 삭제됨에 동의합니다
+          type: boolean
+          ui:widget: checkbox
+          description: "체크하지 않으면 다음 단계로 진행할 수 없습니다"
 
     - title: 저장소 설정
       required:
