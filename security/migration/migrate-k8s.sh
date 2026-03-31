@@ -229,6 +229,7 @@ spec:
   dataFrom:
     - extract:
         key: ${VAULT_PATH_PREFIX}/${ns}/${secret}
+        decodingStrategy: Base64
 EOF
 
     if ! kubectl apply -f "$yaml_file" >/dev/null; then
