@@ -2,17 +2,8 @@
 # Longhorn doesn't have native OIDC support, so we use oauth2-proxy
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: oauth2-proxy-longhorn
-  namespace: longhorn-system
-type: Opaque
-stringData:
-  COOKIE_SECRET: "UmKmRDyhPkwB8e6Md5w/pTEk/nJBIVt4"
-  CLIENT_ID: "longhorn"
-  CLIENT_SECRET: "longhorn-client-secret-12345"
-
+# Secret 'oauth2-proxy-longhorn'은 ExternalSecret(Vault)에 의해 자동 생성됩니다.
+# 참조: security/vault-infra/eso/external-secrets/oauth2-proxy-longhorn.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment

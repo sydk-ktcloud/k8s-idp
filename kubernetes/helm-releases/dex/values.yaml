@@ -18,10 +18,12 @@ podLabels:
 
 replicaCount: 3
 
-# GitHub OAuth credentials from Kubernetes Secret
+# GitHub OAuth + OIDC client secrets from Vault (ExternalSecret)
 envFrom:
   - secretRef:
       name: dex-github-secret
+  - secretRef:
+      name: dex-oidc-secrets
 
 image:
   repository: ghcr.io/dexidp/dex
@@ -52,23 +54,24 @@ config:
   enablePasswordDB: true
   
   # Static clients for platform services
+  # 시크릿 값은 환경변수로 주입됨 (dex-oidc-secrets ExternalSecret → Vault)
   staticClients:
     - id: argocd
       name: ArgoCD
-      secret: argocd-client-secret-12345
+      secret: $ARGOCD_CLIENT_SECRET
       redirectURIs:
         - http://argocd.gitops.svc.cluster.local/auth/callback
         - http://localhost:8080/auth/callback
         - http://100.64.0.1:30081/auth/callback
-    
+
     - id: grafana
       name: Grafana
-      secret: grafana-client-secret-12345
+      secret: $GRAFANA_CLIENT_SECRET
       redirectURIs:
         - http://grafana.monitoring.svc.cluster.local/login/generic_oauth
         - http://localhost:3000/login/generic_oauth
         - http://100.64.0.1:30080/login/generic_oauth
-    
+
     - id: kubectl
       name: kubectl
       public: true
@@ -78,7 +81,7 @@ config:
 
     - id: kubecost
       name: Kubecost
-      secret: kubecost-client-secret-12345
+      secret: $KUBECOST_CLIENT_SECRET
       redirectURIs:
         - http://100.64.0.1:30090/oidc/authorize
         - http://localhost:9090/oidc/authorize
@@ -87,14 +90,14 @@ config:
 
     - id: longhorn
       name: Longhorn UI
-      secret: longhorn-client-secret-12345
+      secret: $LONGHORN_CLIENT_SECRET
       redirectURIs:
         - http://100.64.0.1:30071/oauth2/callback
         - http://localhost:30071/oauth2/callback
 
     - id: backstage
       name: Backstage Developer Portal
-      secret: backstage-client-secret-12345
+      secret: $BACKSTAGE_CLIENT_SECRET
       redirectURIs:
         - http://100.64.0.1:30070/api/auth/oidc/handler/frame
 
