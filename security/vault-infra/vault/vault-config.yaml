@@ -1,0 +1,146 @@
+apiVersion: vault.banzaicloud.com/v1alpha1
+kind: Vault
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  # [가용성] 3중화 클러스터
+  size: 3
+  image: hashicorp/vault:1.21.1
+  bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.32.0
+  serviceAccount: vault
+
+  # [보안/운영] 자동 봉인 해제 및 안티-어피니티
+  unsealConfig:
+    kubernetes:
+      secretName: vault-unseal-keys
+      secretNamespace: vault
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: vault
+          topologyKey: "kubernetes.io/hostname"
+
+  # [리소스/스토리지] Longhorn 기반 안정적 스토리지
+  resources:
+    vault:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+
+  volumes:
+    - name: vault-tls
+      secret:
+        secretName: vault-tls
+    - name: vault-logs
+      emptyDir: {}
+
+  volumeMounts:
+    - name: vault-raft
+      mountPath: /vault/raft
+    - name: vault-tls
+      mountPath: /vault/tls
+      readOnly: true
+    - name: vault-logs
+      mountPath: /vault/logs
+
+  # [네트워크] HTTPS 활성화 및 Raft 설정
+  config:
+    ui: true
+    audit:
+      file:
+        path: /vault/logs/audit.log
+    listener:
+      tcp:
+        address: "0.0.0.0:8200"
+        tls_disable: false
+        tls_cert_file: /vault/tls/tls.crt
+        tls_key_file: /vault/tls/tls.key
+    disable_mlock: true
+
+    storage:
+      raft:
+        path: /vault/raft
+    api_addr: "https://vault.vault:8200"
+    cluster_addr: "https://${.Env.POD_NAME}:8201"
+
+  volumeClaimTemplates:
+    - metadata:
+        name: vault-raft
+      spec:
+        storageClassName: longhorn
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+
+  # [외부 설정] K8s 인증 및 정책 (플랫폼 팀 설계 반영)
+  externalConfig:
+    auth:
+      - type: kubernetes
+        config:
+          kubernetes_host: "https://kubernetes.default.svc"
+          kubernetes_ca_cert: "@var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        roles:
+          - name: vault-admin
+            bound_service_account_names: ["vault"]
+            bound_service_account_namespaces: ["vault"]
+            policies: ["admin"]
+            ttl: 1h
+          # [수정] 최소 권한 원칙 적용: external-secrets SA로 범위 제한
+          - name: default-app-role
+            bound_service_account_names: ["external-secrets"]
+            bound_service_account_namespaces: ["external-secrets"]
+            policies: ["allow_secrets"]
+            ttl: 1h
+
+    policies:
+      # 1. SRE 관리자용: sudo 제한 및 튜닝/정책관리 권한 포함
+      - name: admin
+        rules: |
+          path "auth/*" { capabilities = ["create", "read", "update", "delete", "list", "sudo"] }
+          path "sys/mounts/*" { capabilities = ["create", "read", "update", "delete", "list", "sudo"] }
+          path "sys/mounts/*/tune" { capabilities = ["update"] }
+          path "sys/health" { capabilities = ["read", "list"] }
+          path "secret/data/*" { capabilities = ["create", "read", "update", "delete", "list"] }
+          path "secret/metadata/*" { capabilities = ["create", "read", "update", "delete", "list"] }
+          path "sys/policies/acl/*" { capabilities = ["create", "read", "update", "delete", "list", "sudo"] }
+          path "identity/*" { capabilities = ["create", "read", "update", "delete", "list"] }
+          path "auth/token/lookup-self" { capabilities = ["read"] }
+          path "auth/token/renew-self"  { capabilities = ["update"] }
+          path "sys/capabilities-self" { capabilities = ["update"] }
+
+      # 2. [수정] Accessor 하드코딩 제거 → namespace 기반 경로 prefix로 변경
+      #    accessor(e542b871)는 클러스터마다 달라지므로 wildcard 경로를 사용합니다.
+      - name: allow_secrets
+        rules: |
+          path "secret/data/+/*" {
+            capabilities = ["read", "list"]
+          }
+          path "secret/metadata/+/*" {
+            capabilities = ["read", "list"]
+          }
+          path "secret/data/common/*" { capabilities = ["read", "list"] }
+          path "auth/token/lookup-self" { capabilities = ["read"] }
+          path "auth/token/renew-self"  { capabilities = ["update"] }
+          path "sys/capabilities-self" { capabilities = ["update"] }
+
+      # 3. 비상용: 모든 권한 (Break-Glass)
+      - name: break-glass
+        rules: |
+          path "*" { capabilities = ["create", "read", "update", "delete", "list", "sudo"] }
+
+    secrets:
+      - path: secret
+        type: kv
+        options:
+          version: 2
+
+  serviceRegistrationEnabled: true
