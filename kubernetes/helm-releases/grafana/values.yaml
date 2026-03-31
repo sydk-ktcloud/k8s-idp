@@ -15,7 +15,12 @@ service:
   nodePort: 30080
 
 adminUser: admin
-adminPassword: admin123
+# adminPassword는 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
+# 초기 배포 시 grafana-oauth-secret에 admin-password 키로 저장 필요
+admin:
+  existingSecret: grafana-oauth-secret
+  userKey: admin-user
+  passwordKey: admin-password
 
 # Dex OAuth Configuration
 grafana.ini:
@@ -36,9 +41,12 @@ grafana.ini:
   server:
     root_url: http://100.64.0.1:30080
 
-# Environment variables for secrets
-env:
-  GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: grafana-client-secret-12345
+# OAuth client secret은 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
+envValueFrom:
+  GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+    secretKeyRef:
+      name: grafana-oauth-secret
+      key: client-secret
 
 # Resources
 resources:

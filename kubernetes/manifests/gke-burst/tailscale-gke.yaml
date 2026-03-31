@@ -1,11 +1,5 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: tailscale-auth
-  namespace: kube-system
-type: Opaque
-stringData:
-  authkey: REPLACE_ME_WITH_HEADSCALE_PREAUTH_KEY
+# Secret 'tailscale-auth'은 ExternalSecret(Vault)에 의해 자동 생성됩니다.
+# 참조: security/vault-infra/eso/external-secrets/tailscale-auth.yaml
 ---
 apiVersion: apps/v1
 kind: DaemonSet

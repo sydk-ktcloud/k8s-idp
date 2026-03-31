@@ -1,0 +1,11 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: backstage
+spec:
+  # NodePort(30070)로 들어오는 브라우저 트래픽은 plain HTTP이므로 PERMISSIVE 사용.
+  # 네임스페이스 내 pod-to-pod(frontend→backend→postgresql)는 양쪽이
+  # ambient mesh에 속해 있어 ztunnel이 자동으로 HBONE mTLS를 적용.
+  mtls:
+    mode: PERMISSIVE

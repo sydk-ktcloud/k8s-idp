@@ -1,0 +1,18 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: oauth2-proxy-kubecost
+  namespace: kubecost
+  labels:
+    managed-by: vault-eso
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: oauth2-proxy-kubecost
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: k8s/kubecost/oauth2-proxy-kubecost

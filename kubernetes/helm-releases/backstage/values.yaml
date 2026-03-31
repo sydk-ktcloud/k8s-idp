@@ -5,7 +5,8 @@
 postgresql:
   enabled: true
   postgresqlUsername: backstage
-  postgresqlPassword: backstage123
+  existingSecret: backstage-postgresql
+  existingSecretKey: postgresql-password
   postgresqlDatabase: backstage
   persistence:
     enabled: true
@@ -182,7 +183,7 @@ appConfig:
         production:
           metadataUrl: http://100.64.0.1:30556/.well-known/openid-configuration
           clientId: backstage
-          clientSecret: backstage-client-secret-12345
+          clientSecret: ${OIDC_CLIENT_SECRET}
           prompt: auto
           signIn:
             resolvers:

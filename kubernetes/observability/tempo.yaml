@@ -55,17 +55,11 @@ spec:
                 endpoint: minio.minio-storage:9000
                 region: us-east-1
                 access_key: admin
-                secret_key: "${TEMPO_S3_SECRET_KEY}"
+                secret_key: "XlbINLzrchGmzeDMVhsRA26gTdOrsBP1"
                 insecure: true
                 forcepathstyle: true
               wal:
                 path: /var/tempo/wal
-          extraEnv:
-          - name: TEMPO_S3_SECRET_KEY
-            valueFrom:
-              secretKeyRef:
-                name: tempo-minio-credentials
-                key: secret_access_key
           receivers:
             otlp:
               protocols:

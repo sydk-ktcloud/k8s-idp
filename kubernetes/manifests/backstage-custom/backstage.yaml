@@ -203,16 +203,8 @@ spec:
       storage: 5Gi
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: backstage-postgresql
-  namespace: backstage
-type: Opaque
-stringData:
-  postgresql-password: backstage123
-  postgresql-postgres-password: backstage123
-
+# Secret 'backstage-postgresql'은 ExternalSecret(Vault)에 의해 자동 생성됩니다.
+# 참조: security/vault-infra/eso/external-secrets/backstage-postgresql.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -284,22 +276,8 @@ spec:
     targetPort: 5432
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: backstage-backend-secrets
-  namespace: backstage
-type: Opaque
-stringData:
-  POSTGRES_HOST: backstage-postgresql
-  POSTGRES_PORT: "5432"
-  POSTGRES_USER: backstage
-  POSTGRES_PASSWORD: backstage123
-  POSTGRES_DB: backstage
-  BACKEND_SECRET: "dev-secret-key-change-in-production"
-  GITHUB_TOKEN: ""
-  OIDC_CLIENT_SECRET: "backstage-client-secret-12345"
-
+# Secret 'backstage-backend-secrets'은 ExternalSecret(Vault)에 의해 자동 생성됩니다.
+# 참조: security/vault-infra/eso/external-secrets/backstage-backend-secrets.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -455,6 +433,22 @@ data:
             - allow: [User, Group]
         - type: file
           target: ./templates/service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/aws-service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/azure-service-wizard/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/aws-infrastructure/template.yaml
+          rules:
+            - allow: [Template]
+        - type: file
+          target: ./templates/azure-infrastructure/template.yaml
           rules:
             - allow: [Template]
         - type: file
