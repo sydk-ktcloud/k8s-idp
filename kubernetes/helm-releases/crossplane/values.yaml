@@ -18,4 +18,5 @@ rbacManager:
   managementPolicy: All
 
 # Enable package manager forpackages:
+packages:
   enabled: true

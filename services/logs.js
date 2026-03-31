@@ -11,14 +11,15 @@ function runCommand(command) {
   });
 }
 
-async function getLogs(pod, namespace) {
+async function getLogs(pod, namespace, tailLines = 200) {
   if (!pod || !namespace) {
     throw new Error("pod 또는 namespace가 없습니다.");
   }
 
-  // 1차: 이전 컨테이너 로그 시도
+  const tail = Number.isFinite(Number(tailLines)) ? Number(tailLines) : 200;
+
   try {
-    const previousCommand = `kubectl logs ${pod} -n ${namespace} --previous`;
+    const previousCommand = `kubectl logs ${pod} -n ${namespace} --previous --tail=${tail}`;
     const previousLogs = await runCommand(previousCommand);
 
     if (previousLogs && previousLogs.trim()) {
@@ -28,9 +29,8 @@ async function getLogs(pod, namespace) {
     console.log("[getLogs] previous 로그 없음, 현재 로그로 재시도:", error.message);
   }
 
-  // 2차: 현재 컨테이너 로그 시도
   try {
-    const currentCommand = `kubectl logs ${pod} -n ${namespace}`;
+    const currentCommand = `kubectl logs ${pod} -n ${namespace} --tail=${tail}`;
     const currentLogs = await runCommand(currentCommand);
 
     if (currentLogs && currentLogs.trim()) {

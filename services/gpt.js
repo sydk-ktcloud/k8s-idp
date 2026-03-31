@@ -48,9 +48,9 @@ async function chatWithAI(userMessage) {
 반드시 한국어로 답변하세요.
 
 역할:
-- Kubernetes, Pod, 로그, 에러, 상태, ArgoCD, Backstage 관련 질문에 답변
+- Kubernetes, Pod, 로그, 에러, 상태, ArgoCD, Backstage, Vault, ESO 관련 질문에 답변
 - 운영자가 이해하기 쉽게 짧고 명확하게 설명
-- 필요한 경우 명령어 예시를 함께 제시
+- 실제 조회가 필요한 운영 질문은 추측하지 말고 tool 사용을 우선해야 합니다
 - 모르는 내용은 추측하지 말고 확인이 필요하다고 답변
         `.trim(),
       },
@@ -94,15 +94,15 @@ Do not explain.
 Do not add extra keys.
 
 Allowed intents:
-- "pods"          : problem pods / abnormal pods / broken pods
-- "allPods"       : all pod list / full pod list
-- "status"        : cluster-wide status / CPU / memory / resources
-- "serviceStatus" : status of a specific service like loki, vault, grafana
-- "findService"   : asking where a service is, what pod/service exists for it
-- "logs"          : show logs of a pod
-- "analyze"       : analyze why a pod failed / root cause / why it died
-- "chat"          : general explanation question
-- "unclear"       : ambiguous or impossible to classify confidently
+- "pods"
+- "allPods"
+- "status"
+- "serviceStatus"
+- "findService"
+- "logs"
+- "analyze"
+- "chat"
+- "unclear"
 
 Extraction rules:
 - "pod": exact or likely pod name if mentioned, else null
@@ -110,44 +110,6 @@ Extraction rules:
 - "service": service/app/component name if mentioned, else null
 - "confidence": one of "high", "medium", "low"
 - "reason": short english_snake_case style string
-
-Important distinctions:
-- "파드목록", "전체 파드", "모든 파드", "all pods" => allPods
-- "문제 있는 파드", "비정상 파드", "이상한 파드" => pods
-- "클러스터 상태", "cpu", "memory", "리소스" => status
-- "loki 상태", "vault 상태", "grafana 상태" => serviceStatus
-- "tempo 어디있어", "loki 어디있어", "vault 어디있어" => findService
-- "vault-2 로그 보여줘" => logs
-- "vault-2 왜 죽어", "원인 분석", "왜 안돼" => analyze
-- "Kubernetes가 뭐야", "ArgoCD가 뭐야" => chat
-
-Examples:
-User: "전체 파드 보여줘"
-JSON: {"intent":"allPods","pod":null,"namespace":null,"service":null,"confidence":"high","reason":"all_pods_request"}
-
-User: "문제 있는 파드 뭐야?"
-JSON: {"intent":"pods","pod":null,"namespace":null,"service":null,"confidence":"high","reason":"problem_pods_request"}
-
-User: "클러스터 상태 어때?"
-JSON: {"intent":"status","pod":null,"namespace":null,"service":null,"confidence":"high","reason":"cluster_status_request"}
-
-User: "loki 상태 확인 좀"
-JSON: {"intent":"serviceStatus","pod":null,"namespace":null,"service":"loki","confidence":"high","reason":"service_status_request"}
-
-User: "tempo는 어디있어"
-JSON: {"intent":"findService","pod":null,"namespace":null,"service":"tempo","confidence":"high","reason":"find_service_request"}
-
-User: "vault-2 로그 보여줘"
-JSON: {"intent":"logs","pod":"vault-2","namespace":null,"service":"vault","confidence":"high","reason":"logs_request"}
-
-User: "vault-2 왜 죽어"
-JSON: {"intent":"analyze","pod":"vault-2","namespace":null,"service":"vault","confidence":"high","reason":"analyze_pod_request"}
-
-User: "Kubernetes가 뭐야?"
-JSON: {"intent":"chat","pod":null,"namespace":null,"service":null,"confidence":"high","reason":"general_question"}
-
-User: "vault 좀 봐줘"
-JSON: {"intent":"unclear","pod":null,"namespace":null,"service":"vault","confidence":"low","reason":"ambiguous_request"}
 
 Return JSON only.
         `.trim(),
@@ -200,8 +162,115 @@ Return JSON only.
   }
 }
 
+async function routeToolWithAI({
+  userMessage,
+  memoryContext = {},
+  recentMessages = [],
+}) {
+  const response = await client.chat.completions.create({
+    model: process.env.AZURE_OPENAI_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `
+You are a Kubernetes ChatOps tool router.
+
+Your job is to select one tool and arguments.
+Return ONLY valid JSON.
+Do not use markdown.
+
+Available tools:
+- "get_problem_pods"
+  args: {}
+
+- "get_all_pods"
+  args: {}
+
+- "get_service_pods"
+  args: { "service": string }
+
+- "get_logs"
+  args: { "pod"?: string, "service"?: string, "namespace"?: string, "tailLines"?: number }
+
+- "analyze_logs"
+  args: { "pod"?: string, "service"?: string, "namespace"?: string, "tailLines"?: number }
+
+- "cluster_status"
+  args: {}
+
+- "service_metrics"
+  args: { "service": string, "namespace"?: string }
+
+- "find_namespace"
+  args: { "service": string }
+
+- "explain_template"
+  args: { "topic"?: string }
+
+- "argocd_sync_status"
+  args: {}
+
+- "check_eso_secret_status"
+  args: {}
+
+- "general_chat"
+  args: { "message": string }
+
+Memory context:
+${JSON.stringify(memoryContext)}
+
+Rules:
+- If user says "그거", "걔", "그 pod", "그 서비스", "로그 보여줘", "분석해줘", use memoryContext.
+- Prefer tool use for Kubernetes state, pod, logs, metrics, failures, health.
+- If user mentions a specific service name and asks about pods or state, prefer "get_service_pods".
+- If user uses Korean words like "관련", "서비스", "해당", "상태", "pod 보여줘", "파드 보여줘" with a service, prefer "get_service_pods".
+- If user asks "메트릭", "metric", "사용량", "CPU", "메모리" and memoryContext has lastService, use "service_metrics".
+- If user asks about "템플릿", "template", "ArgoCD 애플리케이션 템플릿", "Kubernetes 리소스 템플릿", use "explain_template".
+- If user asks about ArgoCD sync/synced/동기화 상태, use "argocd_sync_status".
+- If user asks about secret and eso integration/status/연동 상태, use "check_eso_secret_status".
+- Do not answer operational status questions from general knowledge when a tool should be used.
+- If no cluster/tool action is needed, use "general_chat".
+
+Return JSON shape:
+{
+  "tool": "tool_name",
+  "arguments": {},
+  "reason": "short_reason"
+}
+        `.trim(),
+      },
+      ...recentMessages,
+      {
+        role: "user",
+        content: userMessage,
+      },
+    ],
+    temperature: 0.1,
+    max_tokens: 350,
+    response_format: { type: "json_object" },
+  });
+
+  try {
+    const content = response.choices?.[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+
+    return {
+      tool: parsed.tool || "general_chat",
+      arguments: parsed.arguments || { message: userMessage },
+      reason: parsed.reason || "",
+    };
+  } catch (error) {
+    return {
+      tool: "general_chat",
+      arguments: { message: userMessage },
+      reason: "tool_router_parse_failed",
+    };
+  }
+}
+
 module.exports = {
   analyzeLogs,
   chatWithAI,
   parseUserRequestWithAI,
+  routeToolWithAI,
 };
