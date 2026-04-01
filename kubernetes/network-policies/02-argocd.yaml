@@ -28,6 +28,20 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+     # Prometheus 메트릭 수집
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8082
+        - protocol: TCP
+          port: 8083
+        - protocol: TCP
+          port: 9001
+        - protocol: TCP
+          port: 8084
   egress:
     # 네임스페이스 내 pod 간 통신 허용
     - to:

@@ -17,6 +17,8 @@ spec:
     helm:
       valuesObject:
         alloy:
+          reporting:
+            enabled: false
           extraPorts:
             - name: otlp-grpc
               port: 4317
@@ -114,8 +116,7 @@ spec:
                     insecure = true
                   }
                 }
-              }
-             
+              }   
           resources:
             requests:
               cpu: 100m

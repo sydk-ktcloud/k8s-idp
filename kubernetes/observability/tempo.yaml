@@ -42,10 +42,10 @@ spec:
           resources:
             limits:
               cpu: 200m
-              memory: 256Mi
+              memory: 512Mi
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 256Mi
           retention: 168h
           storage:
             trace:
@@ -67,6 +67,15 @@ spec:
                   endpoint: 0.0.0.0:4317
                 http:
                   endpoint: 0.0.0.0:4318
+          metricsGenerator:
+            enabled: true
+            remoteWriteUrl: "http://prometheus-kube-prometheus-prometheus.monitoring:9090/api/v1/write"
+          overrides:
+            defaults:
+              metrics_generator:
+                processors:
+                  - service-graphs
+                  - span-metrics
         podSecurityContext:
           fsGroup: 10001
           runAsNonRoot: true
