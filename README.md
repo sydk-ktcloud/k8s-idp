@@ -329,6 +329,46 @@ KUBECONFIG=kubeconfig/gke-burst \
   --project=sydk-ktcloud --region=asia-northeast3
 ```
 
+**자동 스케일링 로직**:
+
+온프레미스 부하를 실시간 모니터링하여 GKE burst 클러스터를 자동 확장합니다:
+
+| 트리거 | 임계값 | 동작 |
+|--------|--------|------|
+| **온프레미스 CPU** | > 70% (2분) | → GKE 노드 scale-out |
+| **온프레미스 Memory** | > 80% (2분) | → GKE 노드 scale-out |
+| **Pending Pod** | > 3개 (1분) | → GKE 노드 scale-out |
+| **HTTP 요청률** | > 100 req/s | → Pod 수평 확장 |
+| **유휴 시간** | > 15분 | → scale-to-zero (비용 절감) |
+
+**구현 요소**:
+- **메트릭 수집**: Prometheus recording rules (CPU, Memory, Pending Pod)
+- **Trigger**: KEDA ScaledObject (Tailscale VPN 경유 온프레미스 Prometheus 접근)
+- **Pod 스케일**: HPA (CPU 70%, Memory 80%)
+- **Node 스케일**: GKE Cluster Autoscaler (0~5 preemptible nodes)
+- **Graceful Shutdown**: Preemptible VM 중단 시 30초 termination grace period
+
+**모니터링 및 알림**:
+```bash
+# KEDA ScaledObject 상태 확인
+kubectl --kubeconfig=kubeconfig/gke-burst get scaledobject -n burst-workloads
+
+# HPA 상태 확인
+kubectl --kubeconfig=kubeconfig/gke-burst get hpa -n burst-workloads
+
+# Burst 트리거 alert (Discord)
+# - OnPremCPUHighBurstNeeded
+# - OnPremMemoryHighBurstNeeded
+# - OnPremPendingPodsHighBurstNeeded
+# - GKEBurstIdleNodesCostWaste (비용 낭비 감시)
+```
+
+**파일 구성**:
+- `kubernetes/helm-releases/prometheus/values.yaml` - Recording rules
+- `kubernetes/helm-releases/prometheus/backup-alerts.yaml` - Burst trigger alerts
+- `kubernetes/manifests/gke-burst/keda-scaler.yaml` - KEDA trigger 3개 (CPU, Memory, Pending Pod)
+- `kubernetes/manifests/gke-burst/burst-workload-demo.yaml` - Deployment + HPA + PDB
+
 ## SSO 구성 (Dex)
 
 ### 사용자 계정
