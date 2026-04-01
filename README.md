@@ -774,7 +774,6 @@ Longhorn  Velero                Loki         Tempo
 (PV 백업) (클러스터 상태 백업)  (로그 청크)  (트레이스)
 
 ── 오프사이트 복제 (CronJob) ──────────────────────────────
-   MinIO ──04:00 UTC──→ GCS (sydk-velero-offsite, sydk-longhorn-offsite)
    MinIO ──04:30 UTC──→ S3  (sydk-velero-dr-usw2, sydk-longhorn-dr-usw2)
 ```
 
@@ -868,11 +867,9 @@ MinIO의 데이터 자체는 Longhorn PVC(2-replica) 위에 저장됩니다. Lon
 
 | CronJob | 스케줄 | 소스 (MinIO) | 대상 | 용도 |
 |---------|--------|-------------|------|------|
-| `minio-gcs-replication` | 04:00 UTC | velero, longhorn-backups | GCS (sydk-velero-offsite, sydk-longhorn-offsite) | 오프사이트 백업 |
 | `minio-s3-replication` | 04:30 UTC | velero, longhorn-backups | S3 (sydk-velero-dr-usw2, sydk-longhorn-dr-usw2) | EKS DR 복구용 |
 
 관련 파일:
-- `kubernetes/storage/minio-gcs-replication.yaml` — GCS 복제 CronJob
 - `kubernetes/storage/minio-s3-replication.yaml` — S3 복제 CronJob
 
 ### 백업 모니터링 및 알림
@@ -906,7 +903,6 @@ Grafana에서 **"Backup & Storage"** 폴더 아래 통합 대시보드를 제공
      │                                              ↓
      │                                     Discord 장애 알림
      │
-     ├── MinIO → GCS 복제 (04:00 UTC) ──→ 오프사이트 백업
      └── MinIO → S3 복제 (04:30 UTC) ──→ DR 복구용 백업
                                               │
                                     장애 시 Velero restore
@@ -953,9 +949,9 @@ AWS EventBridge가 5분마다 Lambda를 실행하여 heartbeat 파일의 LastMod
 |------|------|-----------|
 | EKS Control Plane | $73/월 | $73/월 |
 | Nodegroup (Spot t3.small) | $0 (0대) | ~$30/월 (2대) |
-| S3 + GCS 저장 | ~$3-5/월 | ~$3-5/월 |
+| S3 저장 | ~$1-3/월 | ~$1-3/월 |
 | Lambda + EventBridge | ~$0 (프리티어) | ~$0 |
-| **합계** | **~$76-78/월** | **~$106-108/월** |
+| **합계** | **~$74-76/월** | **~$104-106/월** |
 
 > DR 복구 상세 절차는 [`docs/dr-runbook.md`](docs/dr-runbook.md)를 참조하세요.
 

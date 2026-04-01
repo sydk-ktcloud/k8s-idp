@@ -17,11 +17,10 @@
 ## 인프라 구성
 
 ```
-[On-Prem K8s] → [MinIO] ──CronJob 04:00──→ [GCS (오프사이트 백업)]
-                         ──CronJob 04:30──→ [S3 (DR 복구용)]
+[On-Prem K8s] → [MinIO] ──CronJob 04:30──→ [S3 (DR 복구용)]
        │
-       └── Heartbeat (5분) ──→ [GCS] ──→ GCP Cloud Monitoring Alert
-                                          (15분 미수신 시 알림)
+       └── Heartbeat (5분) ──→ [S3] ──→ Lambda + EventBridge
+                                          (15분 미수신 시 Discord 알림)
 
 DR 발동 시:
   [EKS k8s-idp-dr (us-west-2)] ← Velero restore ← S3 sydk-velero-dr-usw2
@@ -34,7 +33,6 @@ DR 발동 시:
 - AWS CLI 설치 및 인증 완료 (`aws configure`)
 - S3 버킷 존재: `sydk-velero-dr-usw2`, `sydk-longhorn-dr-usw2`
 - EKS 클러스터 `k8s-idp-dr` 존재 (us-west-2)
-- GCS 버킷 `sydk-velero-offsite` 존재 (오프사이트 백업)
 
 ---
 
@@ -167,12 +165,8 @@ eksctl scale nodegroup --cluster k8s-idp-dr \
 aws s3 ls s3://sydk-velero-dr-usw2/ --recursive | tail -5
 aws s3 ls s3://sydk-longhorn-dr-usw2/ --recursive | tail -5
 
-# GCS 백업 존재 확인 (오프사이트)
-gsutil ls gs://sydk-velero-offsite/ | tail -5
-gsutil ls gs://sydk-longhorn-offsite/ | tail -5
-
 # Heartbeat 정상 동작 확인
-gsutil cat gs://sydk-velero-offsite/heartbeat.json
+aws s3 cp s3://sydk-velero-dr-usw2/heartbeat/heartbeat.json -
 
 # 온프레미스 CronJob 상태 확인
 kubectl get cronjob -n minio-storage
@@ -187,5 +181,5 @@ kubectl get cronjob -n minio-storage
 | EKS Control Plane | $73/월 | $73/월 |
 | Nodegroup (Spot t3.small) | $0 (0대) | ~$30/월 (2대) |
 | S3 저장 비용 | ~$1-3/월 | ~$1-3/월 |
-| GCS 저장 비용 | ~$1-3/월 | ~$1-3/월 |
-| **합계** | **~$75/월** | **~$107/월** |
+| Lambda + EventBridge | ~$0 (프리티어) | ~$0 |
+| **합계** | **~$74-76/월** | **~$104-106/월** |
