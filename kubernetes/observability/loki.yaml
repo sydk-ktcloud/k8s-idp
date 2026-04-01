@@ -45,18 +45,14 @@ spec:
             retention_period: 720h
           storage:
             type: s3
-            bucketNames:
-              chunks: loki-chunks
-              ruler: loki-chunks
-              admin: loki-chunks
             s3:
-              endpoint: http://minio.minio-storage:9000
+              endpoint: minio.minio-storage:9000
+              bucketnames: loki-chunks
               region: us-east-1
               access_key_id: admin
               secret_access_key: "XlbINLzrchGmzeDMVhsRA26gTdOrsBP1"
               s3ForcePathStyle: true
               insecure: true
-              
           schemaConfig:
             configs:
               # 기존 데이터는 filesystem 스키마 유지 (자연 만료 대기)
@@ -104,23 +100,16 @@ spec:
               system: observability
               service: loki
           resources:
-            requests:
-              cpu: 500m
-              memory: 1Gi
             limits:
-              cpu: 2
-              memory: 2Gi
+              cpu: 200m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
           persistence:
             enabled: true
             storageClass: longhorn
             size: 10Gi
-
-        chunksCache:
-          enabled: false
-
-        resultsCache:
-          enabled: false
-
         gateway:
           enabled: false
         backend:
