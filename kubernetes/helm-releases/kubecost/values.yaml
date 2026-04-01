@@ -65,3 +65,21 @@ frontend:
 # OIDC disabled - using OAuth2 Proxy instead
 oidc:
   enabled: false
+
+# 예산 알림 — 팀별/티어별 비용 한도 초과 시 Discord (chatops-bot 경유) 알림
+notifications:
+  alertConfigs:
+    alerts:
+      # 팀별 월 예산 80% 초과 알림
+      - type: budget
+        threshold: 0.8
+        window: monthly
+        aggregation: label:team
+        webhook: "http://chatops-bot.chatops.svc.cluster.local:3000/kubecost-alert"
+      # dev 티어 월 $300 한도 알림
+      - type: budget
+        threshold: 300
+        window: monthly
+        aggregation: label:lifecycle-tier
+        filter: "label[lifecycle-tier]=dev"
+        webhook: "http://chatops-bot.chatops.svc.cluster.local:3000/kubecost-alert"

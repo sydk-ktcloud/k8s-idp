@@ -15,6 +15,7 @@ backend.add(import('@backstage/plugin-proxy-backend'));
 
 // scaffolder plugin
 backend.add(import('@backstage/plugin-scaffolder-backend'));
+backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
 
 // techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));

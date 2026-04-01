@@ -1,0 +1,117 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-oversized-dev
+  annotations:
+    policies.kyverno.io/title: Deny Oversized Dev Resources
+    policies.kyverno.io/category: Resource Sizing
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      lifecycle-tier=dev 인 리소스의 과도한 사이즈 요청을 차단합니다.
+      GKE/EKS/AKS 클러스터의 nodeCount > 3, 대형 인스턴스 타입 등을 제한합니다.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: deny-large-gke-cluster-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - Cluster
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 GKE 클러스터: nodeCount는 3 이하여야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.nodeCount }}"
+                operator: GreaterThan
+                value: 3
+
+    - name: deny-large-eks-cluster-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - EKSCluster
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 EKS 클러스터: nodeCount는 3 이하, instanceType은 m5.xlarge 미만이어야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.nodeCount }}"
+                operator: GreaterThan
+                value: 3
+              - key: "{{ request.object.spec.instanceType }}"
+                operator: In
+                value:
+                  - m5.xlarge
+                  - m5.2xlarge
+                  - m5.4xlarge
+                  - m5.8xlarge
+                  - m5.16xlarge
+
+    - name: deny-large-aks-cluster-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - AKSCluster
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 AKS 클러스터: nodeCount는 3 이하, vmSize는 Standard_D4 이상 불가입니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.nodeCount }}"
+                operator: GreaterThan
+                value: 3
+              - key: "{{ request.object.spec.vmSize }}"
+                operator: In
+                value:
+                  - Standard_D4s_v3
+                  - Standard_D8s_v3
+                  - Standard_D16s_v3
+                  - Standard_D32s_v3
+
+    - name: deny-large-gcp-vm-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - GCPInstance
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 GCP VM: diskSize는 100GB 이하여야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.diskSize }}"
+                operator: GreaterThan
+                value: 100

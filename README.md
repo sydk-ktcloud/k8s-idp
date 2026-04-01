@@ -30,6 +30,8 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 | **GKE Burst** | ✅ 배포됨 | 온프레미스 부하 초과 시 GKE로 자동 확장 |
 | **ChatOps** | ✅ 배포됨 | Discord 기반 K8s 관리 봇 |
 | **Kubecost** | ✅ 배포됨 | 비용 모니터링 및 최적화 |
+| **Kyverno** | 🔄 Audit 모드 | 리소스 수명주기 정책 적용 (Hard Enforcement) |
+| **Lifecycle Scanner** | 🔄 구성됨 | 만료 리소스 자동 감지·알림·삭제 CronJob |
 
 ## 아키텍처
 
@@ -128,6 +130,15 @@ k8s-idp/
 │   │   │   └── azure/          # AzureVM, AzureBlobStorage, AKSCluster, AzureDatabase
 │   │   └── crossplane-providers/     # GCP / AWS / Azure Provider
 │   ├── argocd-apps/             # ArgoCD Application 정의
+│   │   ├── kyverno.yaml        # Kyverno 설치 (syncWave: 0)
+│   │   ├── kyverno-policies.yaml # Kyverno 정책 (syncWave: 1)
+│   │   └── lifecycle-scanner.yaml # Lifecycle Scanner CronJob
+│   ├── kyverno-policies/        # Kyverno ClusterPolicy 정의
+│   │   ├── lifecycle/          # 수명주기 레이블 필수 + TTL 검증
+│   │   ├── sizing/             # dev 티어 과대 리소스 차단
+│   │   ├── isolation/          # 시스템 네임스페이스 생성 차단
+│   │   └── quotas/             # dev 네임스페이스 ResourceQuota 자동 생성
+│   ├── manifests/lifecycle-scanner/ # Scanner CronJob + RBAC
 │   ├── network-policies/        # Zero Trust 네트워크 정책
 │   ├── observability/           # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
 │   └── storage/                 # 스토리지 (Longhorn, MinIO)
@@ -148,8 +159,16 @@ k8s-idp/
 │       ├── azure-infrastructure/   # Azure 직접 구성 (숙련자용)
 │       ├── service/                # 서비스 컴포넌트 생성
 │       └── service-with-infra/     # 서비스 + GCP 인프라 묶음
+├── lifecycle-scanner/           # 만료 리소스 자동 정리
+│   ├── scan.js                 # 만료 감지·알림·삭제 스크립트
+│   └── Dockerfile              # 스캐너 컨테이너 이미지
 ├── chatops-app/                 # Discord ChatOps 봇
 │   ├── commands/               # 슬래시 커맨드
+│   │   ├── resources.js        # /resources — 전체 claim 목록
+│   │   ├── expiring.js         # /expiring [days] — 만료 임박 리소스
+│   │   ├── extend.js           # /extend — 만료일 연장 (platform/sre)
+│   │   ├── delete-resource.js  # /delete-resource — claim 삭제 (platform)
+│   │   └── setlifecyclechannel.js # /setlifecyclechannel — 알림 채널 설정
 │   └── services/               # K8s/OpenAI 연동
 ├── scripts/                     # 설치 스크립트
 │   ├── setup-k8s.sh            # K8s 클러스터 설치
@@ -187,6 +206,7 @@ k8s-idp/
 | `kubecost` | 비용 모니터링 |
 | `longhorn-system` | 분산 스토리지 |
 | `vault` | 시크릿 관리 (계획) |
+| `kyverno` | 정책 엔진 (Admission Controller) |
 | `minio-storage` | 오브젝트 스토리지 + 백업 S3 허브 |
 | `velero` | 클러스터 상태 백업 |
 | `kube-system` | Cilium CNI, Hubble |
@@ -217,6 +237,8 @@ k8s-idp/
 | `service-template` | 서비스 컴포넌트 | 코드 저장소 + 카탈로그 등록 |
 | `service-with-infra` | 서비스 + GCP 인프라 | 서비스 + 인프라 묶음 |
 
+모든 템플릿에는 **수명주기 설정 단계**가 포함됩니다. 리소스 생성 전 환경 티어(dev/staging/prod), 만료일, 비용 센터, 담당자를 입력하고 정책에 동의해야 합니다.
+
 > **마법사 패턴**: 서비스 유형(web-api/file-service/container-app/data-processing)과 규모(dev/standard/large) 선택만으로 Crossplane Claim이 자동 생성됩니다.
 
 > **템플릿 문법**: 모든 템플릿 파일(`.tmpl`)은 Backstage Scaffolder의 Nunjucks 문법을 사용하며, 파라미터는 `{{ values.paramName }}` 형식으로 참조합니다.
@@ -228,13 +250,24 @@ k8s-idp/
 **목적**: Discord 기반 Kubernetes 운영 자동화
 
 **주요 기능**:
+
+운영 커맨드 (기존):
 - `/pods` - 문제 파드 조회
 - `/allpods` - 전체 파드 조회
 - `/logs` - 파드 로그 확인
 - `/analyze` - AI 로그 분석 (OpenAI)
 - `/status` - 시스템 상태 확인
 
-**기술 스택**: Discord.js, Kubernetes Client, OpenAI API
+수명주기 커맨드 (신규):
+- `/resources` - 팀별 프로비저닝된 전체 Claim 목록 (네임스페이스, kind, 만료일)
+- `/expiring [days]` - N일 이내 만료 리소스 목록 (기본 7일, 🔴🟠🟡 우선순위 표시)
+- `/extend <kind> <name> <ns> <date>` - 만료일 연장 (platform/sre 팀 전용)
+- `/delete-resource <kind> <name> <ns>` - Claim 삭제 (platform 팀 전용, 확인 버튼 포함)
+- `/setlifecyclechannel` - 수명주기 알림 채널 지정 (운영 채널과 분리)
+
+> Discord 채널 분리: 운영 알림(`DISCORD_WEBHOOK_URL`)과 수명주기 알림(`DISCORD_LIFECYCLE_WEBHOOK_URL`)은 별도 채널로 전송됩니다.
+
+**기술 스택**: Discord.js, Kubernetes Client (`CustomObjectsApi`), OpenAI API
 
 ### 3. Crossplane Compositions (멀티 클라우드)
 
@@ -315,6 +348,68 @@ KUBECONFIG=kubeconfig/gke-burst \
 - Grafana (관찰가능성)
 - Backstage (개발자 포털)
 - kubectl (oidc-login)
+
+## 리소스 수명주기 정책
+
+무분별한 클라우드 리소스 프로비저닝 방지 및 자동 만료/정리 체계를 3계층으로 구현합니다.
+
+```
+[Layer 1: Backstage Template]  ← 요청 시점 soft gate (필수 필드 + 정책 동의)
+         ↓ GitHub PR
+[Layer 2: Kyverno Admission]   ← 클러스터 입장 hard gate (필수 레이블 · 사이즈 제한)
+         ↓ ArgoCD Deploy
+[Layer 3: Lifecycle Scanner]   ← 운영 중 자동 감지/알림/삭제 (CronJob + ChatOps)
+```
+
+### Layer 1: 레이블 스키마 + Backstage 템플릿
+
+모든 Crossplane Claim에 아래 레이블이 자동 삽입됩니다:
+
+```yaml
+metadata:
+  labels:
+    team: <team>
+    owner: <github-username>
+    cost-center: platform | developer | sre | finops | security
+    lifecycle-tier: dev | staging | prod
+    expires-at: "YYYY-MM-DD"
+```
+
+| 티어 | 기본 TTL | 최대 TTL | 비고 |
+|------|----------|----------|------|
+| `dev` | 7일 | 30일 | 개발·테스트 |
+| `staging` | 30일 | 90일 | 스테이징 |
+| `prod` | 무제한 | 무제한 | 플랫폼팀 PR 승인 필요 |
+
+Backstage 템플릿(9개 전체)의 수명주기 설정 단계에서 담당자, 비용 센터, 만료일 입력 및 정책 동의(`acknowledge`)를 받습니다. `acknowledge` 미체크 시 "Next" 버튼이 비활성화됩니다(`enum: [true]` JSON Schema 검증).
+
+GitHub Actions `approval-gate.yaml`이 Cluster/EKSCluster/AKSCluster 또는 `lifecycle-tier: prod` 리소스를 포함한 PR 생성 시 `@sydk-ktcloud/platform` 팀 리뷰를 자동 요청합니다.
+
+### Layer 2: Kyverno 정책
+
+| 정책 파일 | 모드 | 내용 |
+|-----------|------|------|
+| `lifecycle/require-lifecycle-labels.yaml` | Audit | 5개 레이블 필수 |
+| `lifecycle/validate-expiry-window.yaml` | Audit | 티어별 최대 TTL 초과 차단 |
+| `sizing/deny-oversized-dev.yaml` | Audit | dev 티어 과대 VM/클러스터 차단 |
+| `isolation/restrict-claim-namespace.yaml` | **Enforce** | 시스템 네임스페이스 생성 차단 |
+| `quotas/dev-namespace-quota.yaml` | Generate | dev 네임스페이스 ResourceQuota 자동 생성 |
+
+> Audit 모드로 2주 운영 후 위반 건수 확인(`kubectl get policyreport -A`) → Enforce 전환 예정.
+
+### Layer 3: Lifecycle Scanner
+
+`lifecycle-scanner/scan.js`가 매일 08:00 UTC CronJob으로 실행됩니다:
+
+| 상태 | 동작 |
+|------|------|
+| 만료 3일 전 | Discord `#lifecycle-alerts` 경고 메시지 |
+| 만료 당일 | 최종 경고 메시지 |
+| 만료 1일 경과 | `deleteNamespacedCustomObject()` → Crossplane이 클라우드 리소스 삭제 |
+
+환경 변수 `DISCORD_LIFECYCLE_WEBHOOK_URL`로 운영 알림 채널과 분리됩니다.
+
+---
 
 ## 보안
 

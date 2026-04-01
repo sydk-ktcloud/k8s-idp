@@ -4,6 +4,12 @@ kind: EC2Instance
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.componentName }}
   instanceType: {{ values.ec2InstanceType }}
@@ -15,6 +21,12 @@ kind: S3Bucket
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.componentName }}
   region: {{ values.s3Region }}
@@ -26,6 +38,12 @@ kind: EKSCluster
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.componentName }}
   region: {{ values.eksRegion }}
@@ -38,6 +56,12 @@ kind: RDSDatabase
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.componentName }}
   engine: {{ values.rdsEngine }}

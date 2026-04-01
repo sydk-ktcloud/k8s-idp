@@ -1,0 +1,104 @@
+name: Lifecycle Approval Gate
+
+on:
+  pull_request:
+    paths:
+      - 'apps/*/claim.yaml'
+
+jobs:
+  check-lifecycle:
+    name: Check Lifecycle Policy
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for cluster/prod resources requiring approval
+        id: check
+        run: |
+          NEEDS_APPROVAL=false
+          REASONS=()
+
+          for file in $(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep 'apps/.*/claim.yaml'); do
+            if [ ! -f "$file" ]; then
+              continue
+            fi
+
+            # 클러스터 kind 확인
+            if grep -qE '^kind: (Cluster|EKSCluster|AKSCluster)' "$file"; then
+              NEEDS_APPROVAL=true
+              KIND=$(grep -E '^kind:' "$file" | head -1 | awk '{print $2}')
+              REASONS+=("- \`$file\`: **$KIND** 리소스 (클러스터 생성은 플랫폼팀 승인 필요)")
+            fi
+
+            # prod 티어 확인
+            if grep -qE 'lifecycle-tier:\s*prod' "$file"; then
+              NEEDS_APPROVAL=true
+              REASONS+=("- \`$file\`: **prod** 티어 (무제한 리소스는 플랫폼팀 승인 필요)")
+            fi
+          done
+
+          if [ "$NEEDS_APPROVAL" = "true" ]; then
+            echo "needs_approval=true" >> $GITHUB_OUTPUT
+            # Join reasons into multiline string
+            REASONS_STR=$(printf '%s\n' "${REASONS[@]}")
+            echo "reasons<<EOF" >> $GITHUB_OUTPUT
+            echo "$REASONS_STR" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "needs_approval=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Request platform team review
+        if: steps.check.outputs.needs_approval == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reasons = `${{ steps.check.outputs.reasons }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## ⚠️ 플랫폼팀 승인 필요
+
+            이 PR에는 플랫폼팀 검토가 필요한 리소스가 포함되어 있습니다:
+
+            ${reasons}
+
+            **@sydk-ktcloud/platform** 팀의 승인 후 머지 가능합니다.
+
+            ### 체크리스트
+            - [ ] 리소스 크기가 적절한가?
+            - [ ] \`expires-at\` 날짜가 설정되었는가?
+            - [ ] \`cost-center\` 가 올바르게 지정되었는가?
+            - [ ] 운영 환경 리소스의 경우 HA 구성이 적용되었는가?`
+            });
+
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              team_reviewers: ['platform']
+            });
+
+      - name: Auto-approve non-critical resources
+        if: steps.check.outputs.needs_approval == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## ✅ 자동 승인 가능
+
+            이 PR의 리소스는 수명주기 정책 자동 검사를 통과했습니다.
+            - dev/staging 티어 리소스
+            - 클러스터 외 일반 리소스
+
+            플랫폼팀 수동 승인 없이 머지 가능합니다.`
+            });

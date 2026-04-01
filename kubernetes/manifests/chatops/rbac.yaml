@@ -16,6 +16,24 @@ rules:
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["get", "list", "watch"]
+  # k8s-idp.example.org Claim CR 조회 + 만료일 패치 + 삭제
+  - apiGroups: ["k8s-idp.example.org"]
+    resources:
+      - clusters
+      - databases
+      - buckets
+      - gcpinstances
+      - ec2instances
+      - s3buckets
+      - eksclusters
+      - rdsdatabases
+      - azurevms
+      - azureblobstorages
+      - aksclusters
+      - azuredatabases
+      - webapps
+      - pubsubs
+    verbs: ["get", "list", "watch", "patch", "delete"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

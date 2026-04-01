@@ -18,6 +18,12 @@ kind: EC2Instance
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.componentName }}
   region: ap-northeast-2
@@ -38,6 +44,12 @@ kind: AzureVM
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   resourceGroupName: {{ values.resourceGroupName }}
   location: koreacentral
@@ -59,6 +71,12 @@ kind: GCPInstance
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
+  labels:
+    team: {{ values.team }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.componentName }}
   region: us-central1

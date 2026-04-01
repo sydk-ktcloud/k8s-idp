@@ -57,6 +57,48 @@ spec:
             - Python (Flask)
             - Go (net/http)
 
+    - title: 수명주기 설정
+      description: "이 플랫폼의 모든 클라우드 리소스는 **수명주기 정책**의 적용을 받습니다. 아래 항목을 설정하고 정책에 동의해야 다음 단계로 진행할 수 있습니다."
+      required:
+        - lifecycleTier
+        - costCenter
+        - acknowledge
+      properties:
+        lifecycleTier:
+          title: 환경 티어
+          type: string
+          default: dev
+          description: "dev: 최대 30일 · staging: 최대 90일 · prod: 무제한 (플랫폼팀 PR 승인 필수) — 제한 초과 시 생성이 거부됩니다"
+          enum:
+            - dev
+            - staging
+            - prod
+          enumNames:
+            - "dev — 기본 7일, 최대 30일"
+            - "staging — 기본 30일, 최대 90일"
+            - "prod — 무제한 (플랫폼팀 승인 필요)"
+        expiresAt:
+          title: 만료일
+          type: string
+          description: "비워두면 티어 기본값이 적용됩니다 (dev: 7일, staging: 30일). 만료된 리소스는 매일 자동 삭제됩니다."
+          ui:widget: date
+        costCenter:
+          title: 비용 센터
+          type: string
+          enum:
+            - platform
+            - developer
+            - sre
+            - finops
+            - security
+        acknowledge:
+          title: 수명주기 정책에 동의합니다
+          type: boolean
+          enum:
+            - true
+          ui:widget: checkbox
+          description: "만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord #lifecycle-alerts로 알림이 발송됩니다. 연장 필요 시 /extend 커맨드를 사용하세요 (platform/sre 팀 승인 필요)."
+
     - title: 저장소 설정
       required:
         - repoUrl
@@ -86,6 +128,9 @@ spec:
           owner: ${{ parameters.owner }}
           language: ${{ parameters.language }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          lifecycleTier: ${{ parameters.lifecycleTier }}
+          expiresAt: ${{ parameters.expiresAt }}
+          costCenter: ${{ parameters.costCenter }}
 
     - id: publish
       name: 저장소 생성
