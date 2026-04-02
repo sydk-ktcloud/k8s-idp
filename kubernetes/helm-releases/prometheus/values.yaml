@@ -72,6 +72,8 @@ prometheus:
 # Alertmanager Configuration
 alertmanager:
   enabled: true
+  # config is managed by Vault + ExternalSecret (not Helm values)
+  # See: secret/k8s/monitoring/alertmanager-prometheus-kube-prometheus-alertmanager
   alertmanagerSpec:
     podMetadata:
       labels:
