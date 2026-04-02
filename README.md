@@ -169,7 +169,9 @@ k8s-idp/
 │   │   ├── lifecycle/          # 수명주기 레이블 필수 + TTL 검증
 │   │   ├── sizing/             # dev 티어 과대 리소스 차단
 │   │   ├── isolation/          # 시스템 네임스페이스 생성 차단
-│   │   └── quotas/             # dev 네임스페이스 ResourceQuota 자동 생성
+│   │   ├── quotas/             # dev 네임스페이스 ResourceQuota 자동 생성
+│   │   ├── rbac/               # escalate/impersonate 차단 (Enforce)
+│   │   └── images/             # latest 태그 차단 (Audit)
 │   ├── manifests/lifecycle-scanner/ # Scanner CronJob + RBAC
 │   ├── network-policies/        # Zero Trust 네트워크 정책
 │   ├── observability/           # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
@@ -514,8 +516,12 @@ GitHub Actions `approval-gate.yaml`이 Cluster/EKSCluster/AKSCluster 또는 `lif
 | `sizing/deny-oversized-dev.yaml` | Audit | dev 티어 과대 VM/클러스터 차단 |
 | `isolation/restrict-claim-namespace.yaml` | **Enforce** | 시스템 네임스페이스 생성 차단 |
 | `quotas/dev-namespace-quota.yaml` | Generate | dev 네임스페이스 ResourceQuota 자동 생성 |
+| `rbac/deny-privilege-escalation-verbs.yaml` | **Enforce** | Role/ClusterRole에 escalate/impersonate 차단 |
+| `images/disallow-latest-tag.yaml` | Audit | `:latest` 태그 이미지 차단 (이미지 태그 고정 후 Enforce 전환) |
 
 > Audit 모드로 2주 운영 후 위반 건수 확인(`kubectl get policyreport -A`) → Enforce 전환 예정.
+> `rbac/deny-privilege-escalation-verbs`와 `isolation/restrict-claim-namespace`는 사이드이펙트 없이 즉시 Enforce.
+> `images/disallow-latest-tag`는 현재 8개 워크로드가 `:latest` 사용 중이므로 이미지 태그 고정 완료 후 Enforce 전환.
 
 ### Layer 3: Lifecycle Scanner
 
