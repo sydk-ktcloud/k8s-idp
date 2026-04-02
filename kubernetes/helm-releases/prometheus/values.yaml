@@ -71,6 +71,7 @@ prometheus:
 
 # Alertmanager Configuration
 alertmanager:
+  enabled: true
   alertmanagerSpec:
     podMetadata:
       labels:
@@ -95,6 +96,10 @@ alertmanager:
       requests:
         cpu: 50m
         memory: 64Mi
+
+    # Discord webhook secret mount
+    secrets:
+    - alertmanager-discord-webhook
 
 # Node Exporter - Disable due to restricted PSP
 nodeExporter:
