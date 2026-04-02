@@ -16,6 +16,7 @@ spec:
       labels:
         severity: critical
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 볼륨 백업 실패: {{ $labels.volume }}"
         description: "MinIO 백업이 5분 이상 Error 상태입니다."
@@ -26,6 +27,7 @@ spec:
       labels:
         severity: critical
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 백업 타겟(MinIO)에 접근 불가"
         description: "MinIO S3 백업 타겟이 2분 이상 응답하지 않습니다."
@@ -36,6 +38,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 노드 {{ $labels.node }} 스토리지 사용률 80% 초과"
         description: "현재 사용률: {{ $value | humanizePercentage }}"
@@ -46,6 +49,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 볼륨 {{ $labels.volume }} 용량 85% 초과"
         description: "볼륨 확장 또는 데이터 정리가 필요합니다."
@@ -59,6 +63,7 @@ spec:
       labels:
         severity: critical
         team: platform
+        category: backup-storage
       annotations:
         summary: "Velero 백업 실패: {{ $labels.schedule }}"
         description: "클러스터 상태 백업이 실패했습니다. 즉시 확인이 필요합니다."
@@ -69,6 +74,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Velero 백업이 25시간 이상 성공하지 않았습니다"
         description: "일일 백업 스케줄 (01:00)이 정상 실행되지 않았습니다."
@@ -81,6 +87,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Loki 로그 수집 속도가 비정상적으로 높습니다"
         description: "현재 초당 스트림 생성 수: {{ $value }}"
@@ -91,6 +98,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Loki PVC 용량 85% 초과"
         description: "Loki WAL/인덱스 PVC 용량을 확인하세요."
