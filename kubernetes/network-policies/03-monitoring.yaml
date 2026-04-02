@@ -11,40 +11,14 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Tailscale NodePort 경유 외부 접근 포함이라 from: [] 유지
+    # podSelector/ipBlock로 더 좁히면 NodePort를 통해 들어오는 사용자 접근이 차단될 수 있음
     - from: []
       ports:
         - protocol: TCP
           port: 9090
   egress:
-    - ports:
-        - protocol: TCP
-          port: 443
-        - protocol: TCP
-          port: 6443
-    - to:
-        - namespaceSelector: {}
-      ports:
-        - protocol: TCP
-          port: 9090
-        - protocol: TCP
-          port: 8080
-        - protocol: TCP
-          port: 9093
-        - protocol: TCP
-          port: 10250
-        - protocol: TCP
-          port: 10249
-        - protocol: TCP
-          port: 10257
-        - protocol: TCP
-          port: 10259
-        - protocol: TCP
-          port: 2381
-        - protocol: TCP
-          port: 10252
-        - protocol: TCP
-          port: 9153
-
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -53,11 +27,96 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # kube-state-metrics 스크레이프 (podSelector로 최소화)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kube-state-metrics
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8081
+    # Alertmanager 접근 (podSelector로 최소화)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alertmanager
+      ports:
+        - protocol: TCP
+          port: 9093
+        - protocol: TCP
+          port: 8080
+    # Loki 메트릭/상태 확인 (podSelector로 최소화)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+      ports:
+        - protocol: TCP
+          port: 3100
+    # Tempo 메트릭 수집 (podSelector로 최소화)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tempo
+      ports:
+        - protocol: TCP
+          port: 3200
+    # Alloy 메트릭/헬스 엔드포인트 (podSelector로 최소화)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy
+      ports:
+        - protocol: TCP
+          port: 12345
+    # monitoring 내 일부 부가 스크레이프 대상은 chart/daemonset이 부여하는 실제 라벨이 환경별로 달라질 수 있음
+    # node-exporter(9100), loki-canary 보조 포트(3500)를 잘못 podSelector로 고정하면 scrape가 끊길 수 있어
+    # 그래서 monitoring namespace 범위 + 포트 제한까지만 적용
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 3500
+        - protocol: TCP
+          port: 9100
+    # ArgoCD 메트릭 수집 (gitops 네임스페이스)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gitops
+      ports:
+        - protocol: TCP
+          port: 8082  # argocd-metrics
+        - protocol: TCP
+          port: 8083  # argocd-server-metrics
+        - protocol: TCP
+          port: 9001  # argocd-notifications
+        - protocol: TCP
+          port: 8084  # argocd-repo-server
     # Longhorn 메트릭 수집
     - to:
         - namespaceSelector:
             matchLabels:
-              name: longhorn-system
+              kubernetes.io/metadata.name: longhorn-system
       ports:
         - protocol: TCP
           port: 9500
@@ -65,22 +124,63 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: velero
+              kubernetes.io/metadata.name: velero
       ports:
         - protocol: TCP
           port: 8085
-    # MinIO 메트릭 수집
+    # MinIO 메트릭 수집 (namespace+pod 라벨로 최소화)
     - to:
         - namespaceSelector:
             matchLabels:
-              name: minio-storage
+              kubernetes.io/metadata.name: minio-storage
           podSelector:
             matchLabels:
               app: minio
       ports:
         - protocol: TCP
           port: 9000
-
+    # trip-app PodMonitor 스크레이프
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: trip-app
+      ports:
+        - protocol: TCP
+          port: 8080
+    # control plane / node 메트릭 (kubelet, scheduler, controller-manager, etcd, kube-proxy, coredns)
+    # 이 대상들은 pod가 아니라 노드 IP 기반이어서 표준 NetworkPolicy의 podSelector/namespaceSelector로 정확히 제한할 수 없음
+    # 노드 CIDR를 하드코딩하면 환경 변경 시 쉽게 깨질 수 있으므로, 외부 서비스 CIDR만 제외하고 필요한 포트만 허용
+    # kube-apiserver는 아래 CiliumNetworkPolicy(toEntities: kube-apiserver)로 별도 제어
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.96.0.0/12  # service CIDR 제외 (pod → pod 통신은 위 규칙으로 처리)
+      ports:
+        - protocol: TCP
+          port: 10250 # kubelet
+        - protocol: TCP
+          port: 10249 # kube-proxy
+        - protocol: TCP
+          port: 10257 # controller-manager
+        - protocol: TCP
+          port: 10259 # scheduler
+        - protocol: TCP
+          port: 2381  # etcd metrics
+        - protocol: TCP
+          port: 9153  # coredns
+    # memcached exporter (pod 라벨로 좁혀서 허용)
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - memcached-chunks-cache
+                  - memcached-results-cache
+      ports:
+        - protocol: TCP
+          port: 9150
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -95,6 +195,7 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Prometheus만 Alertmanager에 접근 가능하도록 podSelector로 제한
     - from:
         - podSelector:
             matchLabels:
@@ -105,6 +206,7 @@ spec:
         - protocol: TCP
           port: 8080
   egress:
+    # DNS
     # Discord webhook (HTTPS 아웃바운드)
     - ports:
         - protocol: TCP
@@ -117,7 +219,6 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -132,6 +233,7 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Prometheus만 kube-state-metrics에 접근 가능하도록 podSelector로 제한
     - from:
         - podSelector:
             matchLabels:
@@ -142,11 +244,16 @@ spec:
         - protocol: TCP
           port: 8081
   egress:
+    # kube-apiserver 접근 (클러스터 리소스 watch/list)
+    # kube-apiserver는 노드 IP라 podSelector로 제어 불가
+    # CNP(monitoring-allow-kube-apiserver)는 prometheus/alloy만 대상이므로
+    # kube-state-metrics는 포트 제한으로 최소화
     - ports:
         - protocol: TCP
           port: 443
         - protocol: TCP
           port: 6443
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -155,7 +262,6 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -170,6 +276,8 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # webhook(8080)은 kube-apiserver가 호출, kubelet health check(10250)은 노드에서 옴
+    # 둘 다 노드/apiserver 소스라 podSelector로 제한 불가 → from: [] 유지
     - from: []
       ports:
         - protocol: TCP
@@ -177,11 +285,14 @@ spec:
         - protocol: TCP
           port: 10250
   egress:
+    # kube-apiserver 접근 (ServiceMonitor, PrometheusRule 등 CRD watch)
+    # kube-apiserver는 reserved identity라 표준 NetworkPolicy로 세밀하게 식별하기 어려워 포트 제한으로 최소화
     - ports:
         - protocol: TCP
           port: 443
         - protocol: TCP
           port: 6443
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -190,7 +301,6 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -205,28 +315,14 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Tailscale NodePort 경유 외부 UI 접근이라 from: [] 유지
+    # NodePort 트래픽은 원본 소스가 podSelector로 안정적으로 식별되지 않아 잘못 좁히면 UI가 바로 차단될 수 있음
     - from: []
       ports:
         - protocol: TCP
           port: 3000
   egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: prometheus
-      ports:
-        - protocol: TCP
-          port: 9090
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              name: auth
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: dex
-      ports:
-        - protocol: TCP
-          port: 5556
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -235,13 +331,15 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # Prometheus 쿼리 (podSelector로 최소화)
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: tempo
+              app.kubernetes.io/name: prometheus
       ports:
         - protocol: TCP
-          port: 3200
+          port: 9090
+    # Loki 로그 쿼리 (podSelector로 최소화)
     - to:
         - podSelector:
             matchLabels:
@@ -249,7 +347,33 @@ spec:
       ports:
         - protocol: TCP
           port: 3100
-
+    # Tempo 트레이스 쿼리 (podSelector로 최소화)
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tempo
+      ports:
+        - protocol: TCP
+          port: 3200
+    # Dex OAuth 토큰 교환/userinfo (namespace+pod 라벨로 최소화)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: auth
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dex
+      ports:
+        - protocol: TCP
+          port: 5556
+    # Dex OAuth auth_url NodePort 경유 (values.yaml: auth_url http://100.64.0.1:30556)
+    # Dex 로그인 시작 URL은 Tailscale 주소를 사용하므로 CGNAT 대역(100.64.0.0/10) + 포트 30556까지만 허용
+    - to:
+        - ipBlock:
+            cidr: 100.64.0.0/10
+      ports:
+        - protocol: TCP
+          port: 30556
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -264,14 +388,46 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - ports:
+    # Grafana → Loki 쿼리 (podSelector로 최소화)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+      ports:
         - protocol: TCP
           port: 3100
-    # loki-canary readiness probe (kubelet → canary:3500)
-    - ports:
+    # Alloy → Loki 로그 전송 (podSelector로 최소화)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy
+      ports:
+        - protocol: TCP
+          port: 3100
+    # Prometheus → Loki 메트릭 수집 (podSelector로 최소화)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 3100
+    # loki-canary는 chart가 별도 component 라벨/워크로드 identity를 부여할 수 있어
+    # 환경별 실제 pod 라벨이 다르면 selector 오탐으로 canary가 끊길 수 있으므로 monitoring namespace 범위 + 포트 3100만 허용
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 3100
+    # 3500은 loki-canary readiness / 보조 상태 확인 트래픽에 사용되고, kubelet(노드)에서도 들어올 수 있음
+    # 노드 소스는 podSelector로 식별 불가하므로 from: [] 유지
+    - from: []
+      ports:
         - protocol: TCP
           port: 3500
-    # memcached inbound (loki-chunks-cache, loki-results-cache 포함 - 동일 라벨 선택됨)
+    # memcached: loki pod끼리만 통신하도록 podSelector로 최소화
     - from:
         - podSelector:
             matchLabels:
@@ -280,11 +436,7 @@ spec:
         - protocol: TCP
           port: 11211
   egress:
-    - ports:
-        - protocol: TCP
-          port: 443
-        - protocol: TCP
-          port: 6443
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -293,18 +445,25 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-    # MinIO S3 청크 스토리지 접근
+    # kube-apiserver 접근 (loki single-binary 내부 k8s API 참조)
+    # kube-apiserver는 reserved identity라 표준 NetworkPolicy로 세밀하게 제한하기 어려워 포트만 최소화
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    # MinIO S3 청크 스토리지 (namespace+pod 라벨로 최소화)
     - to:
         - namespaceSelector:
             matchLabels:
-              name: minio-storage
+              kubernetes.io/metadata.name: minio-storage
           podSelector:
             matchLabels:
               app: minio
       ports:
         - protocol: TCP
           port: 9000
-    # memcached 캐시 접근 (loki-chunks-cache, loki-results-cache)
+    # memcached 캐시 (loki pod끼리만, podSelector로 최소화)
     - to:
         - podSelector:
             matchLabels:
@@ -312,7 +471,6 @@ spec:
       ports:
         - protocol: TCP
           port: 11211
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -327,14 +485,30 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - ports:
+    # Grafana → Tempo 조회 API (podSelector로 최소화)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+      ports:
         - protocol: TCP
           port: 3200
+    # Alloy → Tempo OTLP gRPC 전송 (현재 alloy 설정의 실제 경로)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy
+      ports:
         - protocol: TCP
           port: 4317
+    # OTLP HTTP(4318)는 현재 직접 송신 앱이 늘어날 수 있고 namespace가 다양할 수 있음
+    # 지금 단계에서 과도하게 podSelector로 고정하면 향후 앱 온보딩 시 바로 수집이 끊길 수 있어 포트 제한만 유지
+    - from: []
+      ports:
         - protocol: TCP
           port: 4318
   egress:
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -343,18 +517,25 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-    # MinIO S3 트레이스 스토리지 접근
+    # MinIO S3 트레이스 스토리지 (namespace+pod 라벨로 최소화)
     - to:
         - namespaceSelector:
             matchLabels:
-              name: minio-storage
+              kubernetes.io/metadata.name: minio-storage
           podSelector:
             matchLabels:
               app: minio
       ports:
         - protocol: TCP
           port: 9000
-
+    # Prometheus remote write (metricsGenerator, podSelector로 최소화)
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -369,29 +550,19 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - ports:
+    # OTel 수신(4317/4318): trip-app 등 여러 네임스페이스에서 트레이스 전송
+    # kubelet readiness probe(12345): 노드에서 들어오는 트래픽
+    # 둘 다 소스가 다양하거나 노드라 from: [] 유지, 포트만 제한
+    - from: []
+      ports:
         - protocol: TCP
           port: 4317
         - protocol: TCP
           port: 4318
-    # alloy readiness probe (kubelet → alloy:12345)
-    - ports:
         - protocol: TCP
           port: 12345
   egress:
-    - to:
-        - namespaceSelector: {}
-      ports:
-        - protocol: TCP
-          port: 3100
-        - protocol: TCP
-          port: 4317
-        - protocol: TCP
-          port: 9090
-        - protocol: TCP
-          port: 443
-        - protocol: TCP
-          port: 6443
+    # DNS
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -400,9 +571,20 @@ spec:
       ports:
         - protocol: UDP
           port: 53
-
+    # Loki 로그 전송 (namespace+pod 라벨로 최소화)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+      ports:
+        - protocol: TCP
+          port: 3100
 ---
 # Istio ambient mode: ztunnel HBONE 터널 허용 (Tempo → MinIO pod:15008)
+# NetworkPolicy는 HBONE 터널 포트를 인식하지 못해 CiliumNetworkPolicy로 별도 처리
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -423,6 +605,7 @@ spec:
         protocol: TCP
 ---
 # Istio ambient mode: ztunnel HBONE 터널 허용 (Loki → MinIO pod:15008)
+# NetworkPolicy는 HBONE 터널 포트를 인식하지 못해 CiliumNetworkPolicy로 별도 처리
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -456,8 +639,20 @@ spec:
           - prometheus
           - alloy
   egress:
+  # kube-apiserver: Prometheus는 ServiceMonitor/PrometheusRule CRD를 watch하고
+  # Alloy는 k8s pod discovery(discovery.kubernetes)를 위해 kube-apiserver에 접근
+  # Cilium reserved identity "kube-apiserver"는 표준 NetworkPolicy ipBlock으로 매칭 불가
+  # → CiliumNetworkPolicy의 toEntities로만 정확히 제어 가능
   - toEntities:
     - kube-apiserver
+  # cluster: Prometheus가 클러스터 내 노드 IP로 kubelet/control-plane 메트릭을 수집할 때
+  # 노드 IP는 pod가 아니라 NetworkPolicy podSelector로 제어 불가하고
+  # Cilium에서 노드 트래픽은 "cluster" entity로 분류됨
+  # ipBlock으로 좁히면 노드 CIDR를 하드코딩해야 해서 유지보수가 어려움
+  # → toEntities: cluster로 클러스터 내부 노드 트래픽만 허용, 외부 인터넷은 차단
+  - toEntities:
+    - cluster
+  # Alloy → Tempo OTel 전송 (pod endpoint로 최소화)
   - toEndpoints:
     - matchLabels:
         app.kubernetes.io/name: tempo
@@ -465,3 +660,28 @@ spec:
     - ports:
       - port: "4317"
         protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loki-cache-allow
+  namespace: monitoring
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - memcached-chunks-cache
+          - memcached-results-cache
+  policyTypes:
+    - Ingress
+  ingress:
+    # Prometheus만 memcached exporter(9150)에 접근 가능하도록 podSelector로 제한
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9150
