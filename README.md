@@ -103,7 +103,8 @@ k8s-idp/
 │   ├── libvirt/                 # VM 생성 (vm-setup.sh, cloud-init)
 │   ├── kubernetes/              # K8s 초기 설정 (kubeadm, cilium)
 │   ├── headscale/               # VPN 서버 설정
-│   └── headplane/               # VPN 관리 Web UI
+│   ├── headplane/               # VPN 관리 Web UI
+│   └── aws-dr/                  # AWS DR 인프라 (EKS, Lambda, S3)
 ├── security/                    # 보안 구성
 │   └── vault/                   # Vault HA 설정 (helm, docs)
 ├── kubernetes/                  # K8s 매니페스트
