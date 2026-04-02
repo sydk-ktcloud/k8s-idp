@@ -1,0 +1,52 @@
+# EKS DR - Velero Configuration
+# GCS offsite 백업에서 복구 + failback 시 EKS → GCS 백업 생성
+#
+# DR 활성화: velero restore create dr-restore --from-backup <latest>
+# Failback:  velero backup create failback-$(date +%Y%m%d) --include-namespaces trip-app,backstage
+
+configuration:
+  backupStorageLocation:
+  - name: gcs-offsite
+    provider: gcp
+    bucket: sydk-velero-offsite
+    credential:
+      name: velero-gcs-credentials
+      key: gcp
+
+  volumeSnapshotLocation:
+  - name: aws-ebs
+    provider: aws
+    config:
+      region: ap-northeast-2
+
+initContainers:
+- name: velero-plugin-for-gcp
+  image: velero/velero-plugin-for-gcp:v1.9.0
+  volumeMounts:
+  - name: plugins
+    mountPath: /target
+- name: velero-plugin-for-aws
+  image: velero/velero-plugin-for-aws:v1.9.0
+  volumeMounts:
+  - name: plugins
+    mountPath: /target
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Velero 스케줄 (EKS 활성 시에만 의미 있음)
+schedules:
+  eks-dr-backup:
+    disabled: false
+    schedule: "0 */6 * * *"    # 6시간마다 백업 (failback 대비)
+    template:
+      includedNamespaces:
+      - trip-app
+      - backstage
+      ttl: 72h                  # 3일 보관
+      storageLocation: gcs-offsite

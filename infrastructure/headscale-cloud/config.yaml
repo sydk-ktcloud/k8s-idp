@@ -1,0 +1,48 @@
+# Cloud Headscale Configuration
+# GCP e2-micro에서 항시 가동 — On-prem 다운 시에도 VPN mesh 유지
+# On-prem Headscale(192.168.45.245)의 SPOF 해소용
+
+server_url: http://CLOUD_HEADSCALE_STATIC_IP:8080
+listen_addr: 0.0.0.0:8080
+metrics_listen_addr: 127.0.0.1:9090
+grpc_listen_addr: 0.0.0.0:50443
+grpc_allow_insecure: true
+
+# Database configuration
+database:
+  type: sqlite
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+
+# Policy configuration
+policy:
+  mode: file
+  path: /etc/headscale/acl_policy.hujson
+
+# Logging
+log_level: info
+
+# IP prefix allocation (On-prem Headscale과 동일)
+prefixes:
+  v4: 100.64.0.0/10
+  v6: fd7a:115c:a1e0::/64
+
+# DNS configuration
+dns:
+  base_domain: k8s.local
+  nameservers:
+    global:
+      - 1.1.1.1
+      - 8.8.8.8
+  magic_dns: true
+
+# Noise protocol (Tailscale v2)
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+
+# DERP relay (Tailscale 공용 DERP 사용)
+derp:
+  server:
+    enabled: false
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default
