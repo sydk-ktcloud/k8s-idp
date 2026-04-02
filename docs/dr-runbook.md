@@ -2,10 +2,11 @@
 
 ## 개요
 
-온프레미스 클러스터 장애 시 EKS(AWS)에서 핵심 서비스를 복구하는 절차서.
+온프레미스 클러스터 장애 시 EKS DR에서 핵심 서비스를 복구하고,
+EKS에서도 GKE Burst 클러스터로 overflow 스케일링을 유지하는 절차서.
 
-**복구 대상:** trip-app (frontend + backend + DB), Backstage  
-**복구하지 않는 것:** monitoring, chatops, Longhorn, Crossplane (온프레미스 복구 후)
+**복구 대상:** trip-app (frontend + backend + DB), Backstage
+**복구하지 않는 것:** monitoring (EKS 경량 Prometheus만 배포), chatops, Longhorn, Crossplane
 
 | 지표 | 목표 |
 |---|---|
@@ -14,172 +15,251 @@
 
 ---
 
-## 인프라 구성
+## 아키텍처
 
 ```
-[On-Prem K8s] → [MinIO] ──CronJob 04:30──→ [S3 (DR 복구용)]
-       │
-       └── Heartbeat (5분) ──→ [S3] ──→ Lambda + EventBridge
-                                          (15분 미수신 시 Discord 알림)
+┌──────────────────────────────────────────────────────────┐
+│                    Cloud Headscale                         │
+│              (GCP e2-micro, 항시 가동)                      │
+│                   VPN Control Plane                        │
+└────────┬──────────────┬──────────────┬────────────────────┘
+         │              │              │
+    ┌────▼────┐   ┌─────▼─────┐  ┌────▼────┐
+    │ On-prem │   │ GKE Burst │  │ EKS DR  │
+    │ (primary)│   │ (overflow) │  │(dormant)│
+    │ tag:     │   │ tag:       │  │ tag:    │
+    │ onprem   │   │ gke-burst  │  │ eks-dr  │
+    └─────────┘   └────────────┘  └─────────┘
 
-DR 발동 시:
-  [EKS k8s-idp-dr (us-west-2)] ← Velero restore ← S3 sydk-velero-dr-usw2
+평시:  On-prem → [Prometheus] → GKE KEDA → Burst
+DR시:  EKS DR → [Prometheus] → GKE KEDA → Burst
 ```
+
+**핵심 컴포넌트:**
+- **Cloud Headscale**: On-prem SPOF 해소, GCP에서 항시 가동
+- **Prometheus Proxy (GKE)**: KEDA 메트릭 소스를 ConfigMap으로 전환
+- **`active:` recording rules**: On-prem/EKS 동일 메트릭 이름
 
 ---
 
 ## 사전 조건
 
-- AWS CLI 설치 및 인증 완료 (`aws configure`)
-- S3 버킷 존재: `sydk-velero-dr-usw2`, `sydk-longhorn-dr-usw2`
-- EKS 클러스터 `k8s-idp-dr` 존재 (us-west-2)
+- GCP 프로젝트 `sydk-ktcloud` 접근 권한
+- `gcloud`, `kubectl`, `velero` CLI 설치
+- GCS 버킷 `sydk-velero-offsite`, `sydk-longhorn-offsite` 존재
+- Cloud Headscale 가동 중 (`infrastructure/headscale-cloud/setup.sh`)
+- AWS Secrets Manager에 DR 시크릿 미러링 완료
+- EKS Crossplane claim 배포 완료 (nodeCount: 0, dormant)
 
 ---
 
-## 장애 판단 기준
+## DR 활성화 절차 (On-prem 장애 시)
 
-온프레미스 클러스터는 5분마다 GCS에 heartbeat를 전송합니다.
-GCP Cloud Monitoring에서 15분 이상 heartbeat가 갱신되지 않으면 알림이 발송됩니다.
+> **자동화 스크립트:** `./scripts/dr-activate.sh`
 
-**확인 방법:**
+### Step 1: 장애 감지
+
+- Dead Man's Switch: heartbeat CronJob이 GCS에 5분마다 업로드
+- GCP Cloud Monitoring: 15분 이상 업데이트 없으면 알림 발생
+- Discord `#클러스터-알림` 채널에서 확인
+
+### Step 2: EKS 노드 활성화
+
 ```bash
-# GCS heartbeat 파일 확인
-gsutil cat gs://sydk-velero-offsite/heartbeat.json
-# timestamp가 15분 이상 경과 → 장애로 판단
+# EKS 노드 그룹 scale up (3-5분 소요)
+kubectl patch ekscluster eks-dr -n default --type merge \
+  -p '{"spec":{"nodeCount": 3}}'
 
-# 직접 클러스터 접근 시도
-kubectl --context platform-context get nodes
+# 상태 확인
+kubectl get ekscluster eks-dr -n default -w
 ```
 
----
-
-## DR 복구 절차
-
-### Step 1: EKS 클러스터 접속
+### Step 3: EKS kubeconfig 가져오기
 
 ```bash
-aws eks update-kubeconfig --name k8s-idp-dr \
-  --region us-west-2 \
-  --alias eks-dr
-
-kubectl --context eks-dr get nodes
+# Crossplane이 생성한 kubeconfig Secret
+EKS_SECRET=$(kubectl get secret -n crossplane-system -o name | grep eks-cluster-conn | head -1)
+kubectl get "$EKS_SECRET" -n crossplane-system -o jsonpath='{.data.kubeconfig}' | base64 -d > kubeconfig/eks-dr
+export KUBECONFIG=kubeconfig/eks-dr
 ```
 
-### Step 2: Nodegroup 스케일업 (평시 0대)
+### Step 4: EKS 인프라 배포
 
 ```bash
-# 평시 0대 → DR 시 2대로 스케일업
-eksctl scale nodegroup --cluster k8s-idp-dr \
-  --region us-west-2 \
-  --name dr-spot \
-  --nodes 2
+# Tailscale VPN + NetworkPolicy + SecretStore
+kubectl apply -k kubernetes/manifests/eks-dr/
 
-# 노드 Ready 대기
-kubectl --context eks-dr get nodes -w
+# Prometheus (경량)
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  -n monitoring -f kubernetes/manifests/eks-dr/prometheus-values.yaml
+
+# Velero (GCS offsite 복구용)
+helm install velero vmware-tanzu/velero \
+  -n velero -f kubernetes/manifests/eks-dr/velero-values.yaml
 ```
 
-### Step 3: Velero 설치
+### Step 5: 워크로드 복구
 
 ```bash
-kubectl --context eks-dr create namespace velero
-
-# AWS credentials Secret
-kubectl --context eks-dr create secret generic velero-credentials -n velero \
-  --from-literal=cloud="[default]
-aws_access_key_id=<AWS_ACCESS_KEY_ID>
-aws_secret_access_key=<AWS_SECRET_ACCESS_KEY>"
-
-# Velero 설치 (S3 백업에서 복구)
-velero install \
-  --provider aws \
-  --bucket sydk-velero-dr-usw2 \
-  --secret-file ./velero-credentials \
-  --plugins velero/velero-plugin-for-aws:v1.9.0 \
-  --backup-location-config region=us-west-2 \
-  --kubeconfig ~/.kube/config \
-  --kubecontext eks-dr
-```
-
-### Step 4: 백업 목록 확인
-
-```bash
-velero backup get --kubecontext eks-dr
-# 가장 최근 백업 확인
-```
-
-### Step 5: 핵심 네임스페이스만 복구
-
-```bash
+# 최신 백업에서 복구
+velero backup get
 velero restore create dr-restore \
-  --from-backup <가장-최근-백업-이름> \
+  --from-backup <최신-백업-이름> \
   --include-namespaces trip-app,backstage \
-  --restore-volumes=true \
-  --kubecontext eks-dr
+  --restore-volumes=true
 
-# 복구 상태 확인
-velero restore describe dr-restore --kubecontext eks-dr
+# 확인
+kubectl get pods -n trip-app
+kubectl get pods -n backstage
 ```
 
-### Step 6: 서비스 동작 확인
+### Step 6: GKE Burst 메트릭 소스 전환
 
 ```bash
-kubectl --context eks-dr get pods -n trip-app
-kubectl --context eks-dr get pods -n backstage
+# EKS Prometheus ClusterIP 확인
+EKS_PROM_IP=$(kubectl get svc -n monitoring prometheus-kube-prometheus-prometheus -o jsonpath='{.spec.clusterIP}')
 
-# trip-app 접근 테스트
-kubectl --context eks-dr port-forward svc/trip-backend-service -n trip-app 8080:8080
+# GKE prometheus-proxy upstream을 EKS로 전환
+kubectl --kubeconfig=kubeconfig/gke-burst patch configmap prometheus-upstream \
+  -n burst-workloads -p "{\"data\":{\"upstream_url\":\"http://${EKS_PROM_IP}:9090\"}}"
+kubectl --kubeconfig=kubeconfig/gke-burst rollout restart deploy/prometheus-proxy -n burst-workloads
+```
+
+### Step 7: 확인
+
+```bash
+# EKS 서비스 정상 동작
+kubectl get pods -n trip-app
+curl http://localhost:8080/health  # port-forward 후
+
+# GKE KEDA가 EKS 메트릭을 읽는지 확인
+kubectl --kubeconfig=kubeconfig/gke-burst get scaledobject -n burst-workloads
+```
+
+---
+
+## Failback 절차 (On-prem 복구 시)
+
+> **자동화 스크립트:** `./scripts/dr-failback.sh`
+
+### Step 1: On-prem 상태 확인
+
+```bash
+kubectl get nodes  # 4노드 모두 Ready 확인
+kubectl get pods -n monitoring  # Prometheus 정상 확인
+```
+
+### Step 2: EKS 최종 백업
+
+```bash
+# EKS에서 DR 중 생성된 데이터 백업
+kubectl --kubeconfig=kubeconfig/eks-dr exec -n velero deploy/velero -- \
+  velero backup create failback-$(date +%Y%m%d) \
+  --include-namespaces trip-app,backstage \
+  --storage-location gcs-offsite \
+  --wait
+```
+
+### Step 3: On-prem 데이터 복구
+
+```bash
+# Failback 백업에서 On-prem으로 복구
+velero restore create failback-restore \
+  --from-backup failback-$(date +%Y%m%d) \
+  --include-namespaces trip-app,backstage
+
+# 확인
+kubectl get pods -n trip-app
+kubectl get pods -n backstage
+```
+
+### Step 4: GKE 메트릭 소스 복귀
+
+```bash
+# On-prem Prometheus로 복귀
+kubectl --kubeconfig=kubeconfig/gke-burst patch configmap prometheus-upstream \
+  -n burst-workloads -p '{"data":{"upstream_url":"http://10.102.177.113:9090"}}'
+kubectl --kubeconfig=kubeconfig/gke-burst rollout restart deploy/prometheus-proxy -n burst-workloads
+```
+
+### Step 5: EKS 정리
+
+```bash
+# EKS 워크로드 삭제
+kubectl --kubeconfig=kubeconfig/eks-dr delete namespace trip-app --ignore-not-found
+kubectl --kubeconfig=kubeconfig/eks-dr delete namespace backstage --ignore-not-found
+
+# EKS 노드 scale-to-zero (dormant로 복귀)
+kubectl patch ekscluster eks-dr -n default --type merge \
+  -p '{"spec":{"nodeCount": 0}}'
+```
+
+### Step 6: 최종 확인
+
+```bash
+# On-prem 서비스 정상
+kubectl get pods -n trip-app
 curl http://localhost:8080/health
-```
 
-### Step 7: 외부 접근 설정 (선택)
+# GKE KEDA가 On-prem 메트릭을 읽는지 확인
+kubectl --kubeconfig=kubeconfig/gke-burst get scaledobject -n burst-workloads
 
-EKS에서 LoadBalancer 사용:
+# Heartbeat CronJob 동작 확인
+gsutil cat gs://sydk-velero-offsite/heartbeat.json
 
-```bash
-kubectl --context eks-dr patch svc trip-backend-service -n trip-app \
-  -p '{"spec":{"type":"LoadBalancer"}}'
-```
-
----
-
-## 온프레미스 복구 후 되돌리기
-
-```bash
-# EKS 워크로드 정리
-kubectl --context eks-dr delete namespace trip-app
-kubectl --context eks-dr delete namespace backstage
-
-# Nodegroup 스케일다운 (비용 $0)
-eksctl scale nodegroup --cluster k8s-idp-dr \
-  --region us-west-2 \
-  --name dr-spot \
-  --nodes 0
+# EKS dormant 상태 확인
+kubectl get ekscluster eks-dr -n default
 ```
 
 ---
 
-## 백업 파이프라인 사전 확인 (월 1회)
+## Cloud Headscale 관리
+
+### 상태 확인
 
 ```bash
-# S3 백업 존재 확인 (DR 복구용)
-aws s3 ls s3://sydk-velero-dr-usw2/ --recursive | tail -5
-aws s3 ls s3://sydk-longhorn-dr-usw2/ --recursive | tail -5
+# GCE 인스턴스 상태
+gcloud compute instances describe headscale-cloud --zone=asia-northeast3-a --project=sydk-ktcloud
 
-# Heartbeat 정상 동작 확인
-aws s3 cp s3://sydk-velero-dr-usw2/heartbeat/heartbeat.json -
+# 연결된 노드 확인
+gcloud compute ssh headscale-cloud --zone=asia-northeast3-a --project=sydk-ktcloud \
+  --command='docker exec headscale headscale nodes list'
+```
 
-# 온프레미스 CronJob 상태 확인
-kubectl get cronjob -n minio-storage
+### Auth Key 갱신 (720시간마다)
+
+```bash
+# 기존 키 확인
+gcloud compute ssh headscale-cloud --zone=asia-northeast3-a --project=sydk-ktcloud \
+  --command='docker exec headscale headscale preauthkeys list --user default'
+
+# 새 키 생성 (tag별)
+gcloud compute ssh headscale-cloud --zone=asia-northeast3-a --project=sydk-ktcloud \
+  --command='docker exec headscale headscale preauthkeys create --user default --reusable --expiration 720h --tags tag:onprem'
 ```
 
 ---
 
-## 비용 요약
+## GCS 백업 사전 확인 (월 1회)
 
-| 항목 | 평시 | DR 발동 시 |
-|---|---|---|
-| EKS Control Plane | $73/월 | $73/월 |
-| Nodegroup (Spot t3.small) | $0 (0대) | ~$30/월 (2대) |
-| S3 저장 비용 | ~$1-3/월 | ~$1-3/월 |
-| Lambda + EventBridge | ~$0 (프리티어) | ~$0 |
-| **합계** | **~$74-76/월** | **~$104-106/월** |
+```bash
+# 백업 존재 확인
+gsutil ls gs://sydk-velero-offsite/ | tail -5
+gsutil ls gs://sydk-longhorn-offsite/ | tail -5
+
+# 최신 백업 날짜 확인
+gsutil ls -l gs://sydk-velero-offsite/ | sort -k2 | tail -1
+
+# Heartbeat 확인
+gsutil cat gs://sydk-velero-offsite/heartbeat.json
+```
+
+---
+
+## Split-brain 방지
+
+On-prem이 부분 복구되어 EKS와 동시에 서비스하는 상황 방지:
+
+1. Heartbeat CronJob에 `dr-mode` 체크 추가 검토
+2. On-prem 서비스 시작 전 GCS에서 DR 모드 플래그 확인
+3. Failback은 반드시 수동 실행 (`./scripts/dr-failback.sh`)으로 제어
