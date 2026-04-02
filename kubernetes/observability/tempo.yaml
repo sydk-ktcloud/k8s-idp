@@ -24,6 +24,19 @@ spec:
           system: observability
           service: tempo
         tempo:
+          extraArgs:
+            config.expand-env: "true"
+          extraEnv:
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tempo-minio-credentials
+                  key: access_key
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tempo-minio-credentials
+                  key: secret_access_key
           securityContext:
             runAsUser: 10001
             runAsGroup: 10001
@@ -77,17 +90,6 @@ spec:
                 processors:
                   - service-graphs
                   - span-metrics
-        extraEnv:
-          - name: S3_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: tempo-minio-credentials
-                key: access_key
-          - name: S3_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: tempo-minio-credentials
-                key: secret_access_key
         podSecurityContext:
           fsGroup: 10001
           runAsNonRoot: true
