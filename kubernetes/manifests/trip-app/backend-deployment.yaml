@@ -44,6 +44,7 @@ spec:
       containers:
       - name: trip-backend
         image: kylekim1223/trip-backend:2026-04-02
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
@@ -65,4 +66,8 @@ spec:
         - name: OTEL_METRICS_EXPORTER
           value: "none" # 메트릭 전송 끄기
         - name: OTEL_LOGS_EXPORTER
-          value: "otlp" # 로그 전송 설정
+          value: "none" # 로그 전송 설정
+        - name: OTEL_TRACES_EXPORTER
+          value: "otlp"
+        - name: OTEL_TRACES_SAMPLER
+          value: "always_on"
