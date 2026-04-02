@@ -14,9 +14,7 @@ service:
   port: 80
   nodePort: 30080
 
-adminUser: admin
-# adminPassword는 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
-# 초기 배포 시 grafana-oauth-secret에 admin-password 키로 저장 필요
+# admin credential은 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
 admin:
   existingSecret: grafana-oauth-secret
   userKey: admin-user
