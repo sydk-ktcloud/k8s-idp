@@ -18,7 +18,7 @@ import {
 import { TechDocsAddons } from '@backstage/plugin-techdocs-react';
 import { ReportIssue } from '@backstage/plugin-techdocs-module-addons-contrib';
 import { UserSettingsPage } from '@backstage/plugin-user-settings';
-import { apis } from './apis';
+import { apis, oidcAuthApiRef } from './apis';
 import { entityPage } from './components/catalog/EntityPage';
 import { Root } from './components/Root';
 import { HomePage } from './components/home/HomePage';
@@ -28,6 +28,7 @@ import { InfraAssistantWidget } from './components/InfraAssistantWidget';
 import {
   AlertDisplay,
   OAuthRequestDialog,
+  SignInPage,
 } from '@backstage/core-components';
 import { createApp } from '@backstage/app-defaults';
 import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
@@ -49,6 +50,21 @@ const app = createApp({
     bind(orgPlugin.externalRoutes, {
       catalogIndex: catalogPlugin.routes.catalogIndex,
     });
+  },
+  components: {
+    SignInPage: props => (
+      <SignInPage
+        {...props}
+        providers={[
+          {
+            id: 'oidc',
+            title: 'Dex SSO',
+            message: 'Sign in with Dex (GitHub)',
+            apiRef: oidcAuthApiRef,
+          },
+        ]}
+      />
+    ),
   },
 });
 
