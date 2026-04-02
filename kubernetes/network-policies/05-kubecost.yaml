@@ -22,10 +22,11 @@ spec:
           port: 443
         - protocol: TCP
           port: 6443
+    # oauth2-proxy → kubecost 내부 pod 간 통신
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: kubecost
+              app.kubernetes.io/instance: kubecost
       ports:
         - protocol: TCP
           port: 9090
