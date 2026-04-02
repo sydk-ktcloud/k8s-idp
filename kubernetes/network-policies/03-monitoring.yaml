@@ -207,6 +207,10 @@ spec:
           port: 8080
   egress:
     # DNS
+    # Discord webhook (HTTPS 아웃바운드)
+    - ports:
+        - protocol: TCP
+          port: 443
     - to:
         - namespaceSelector: {}
           podSelector:

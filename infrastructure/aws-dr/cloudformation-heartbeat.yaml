@@ -1,0 +1,219 @@
+# Heartbeat 모니터링 인프라 (Lambda + EventBridge + IAM + S3)
+# 적용: aws cloudformation deploy --template-file infrastructure/aws-dr/cloudformation-heartbeat.yaml \
+#         --stack-name k8s-idp-heartbeat --capabilities CAPABILITY_NAMED_IAM \
+#         --region us-west-2 \
+#         --parameter-overrides DiscordWebhookUrl=<WEBHOOK_URL>
+# 삭제: aws cloudformation delete-stack --stack-name k8s-idp-heartbeat --region us-west-2
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "k8s-idp On-Prem Heartbeat Monitor - Dead Man's Switch"
+
+Parameters:
+  DiscordWebhookUrl:
+    Type: String
+    NoEcho: true
+    Description: Discord Webhook URL for alerts
+  S3Bucket:
+    Type: String
+    Default: sydk-velero-dr-usw2
+    Description: S3 bucket for heartbeat and DR backups
+  ThresholdMinutes:
+    Type: Number
+    Default: 15
+    Description: Minutes without heartbeat before alerting
+  SummaryIntervalMinutes:
+    Type: Number
+    Default: 60
+    Description: Interval for periodic OK summary to Discord
+
+Resources:
+  # --- S3 Buckets ---
+  VeleroDRBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: sydk-velero-dr-usw2
+      Tags:
+        - Key: system
+          Value: dr
+        - Key: team
+          Value: platform
+
+  LonghornDRBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: sydk-longhorn-dr-usw2
+      Tags:
+        - Key: system
+          Value: dr
+        - Key: team
+          Value: platform
+
+  # --- IAM Role ---
+  HeartbeatLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: heartbeat-monitor-lambda-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: heartbeat-s3-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:HeadObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3Bucket}/heartbeat/*"
+
+  # --- Lambda Function ---
+  HeartbeatMonitorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: heartbeat-monitor
+      Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt HeartbeatLambdaRole.Arn
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref S3Bucket
+          S3_KEY: heartbeat/heartbeat.json
+          STATE_KEY: heartbeat/monitor-state.json
+          THRESHOLD_MINUTES: !Ref ThresholdMinutes
+          SUMMARY_INTERVAL_MINUTES: !Ref SummaryIntervalMinutes
+          DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import urllib.request
+          import boto3
+          from datetime import datetime, timezone
+
+          s3 = boto3.client('s3', region_name='us-west-2')
+
+          def lambda_handler(event, context):
+              bucket = os.environ.get('S3_BUCKET')
+              key = os.environ.get('S3_KEY')
+              state_key = os.environ.get('STATE_KEY')
+              threshold = int(os.environ.get('THRESHOLD_MINUTES', '15'))
+              summary_interval = int(os.environ.get('SUMMARY_INTERVAL_MINUTES', '60'))
+              webhook = os.environ.get('DISCORD_WEBHOOK_URL', '')
+              now = datetime.now(timezone.utc)
+              state = load_state(bucket, state_key)
+
+              try:
+                  resp = s3.head_object(Bucket=bucket, Key=key)
+                  last_mod = resp['LastModified']
+                  age = (now - last_mod).total_seconds() / 60
+
+                  if age > threshold:
+                      msg = (
+                          ":rotating_light: **온프레미스 클러스터 장애 감지**\n"
+                          f"Heartbeat가 **{int(age)}분** 동안 갱신되지 않았습니다.\n"
+                          f"마지막 수신: {last_mod.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+                          f"임계값: {threshold}분\n\n"
+                          "**DR 복구 절차를 확인하세요:** `docs/dr-runbook.md`"
+                      )
+                      send_discord(webhook, msg)
+                      save_state(bucket, state_key, {'last_alert': now.isoformat(), 'status': 'ALERT'})
+                      return {'status': 'ALERT', 'age_minutes': int(age)}
+
+                  was_alert = state.get('status') == 'ALERT'
+                  last_summary = state.get('last_summary', '')
+                  mins_since = float('inf')
+                  if last_summary:
+                      try:
+                          mins_since = (now - datetime.fromisoformat(last_summary)).total_seconds() / 60
+                      except: pass
+
+                  if was_alert:
+                      msg = (
+                          ":white_check_mark: **온프레미스 클러스터 복구 확인**\n"
+                          f"Heartbeat 정상 수신 재개 ({int(age)}분 전 갱신)\n"
+                          f"시각: {now.strftime('%Y-%m-%d %H:%M UTC')}"
+                      )
+                      send_discord(webhook, msg)
+                      save_state(bucket, state_key, {'last_summary': now.isoformat(), 'status': 'OK'})
+                  elif mins_since >= summary_interval:
+                      msg = (
+                          ":green_circle: **클러스터 정상 운영 중**\n"
+                          f"마지막 Heartbeat: {int(age)}분 전\n"
+                          f"시각: {now.strftime('%Y-%m-%d %H:%M UTC')}"
+                      )
+                      send_discord(webhook, msg)
+                      save_state(bucket, state_key, {'last_summary': now.isoformat(), 'status': 'OK'})
+
+                  return {'status': 'OK', 'age_minutes': int(age)}
+
+              except s3.exceptions.ClientError as e:
+                  if e.response['Error']['Code'] == '404':
+                      send_discord(webhook, ":rotating_light: **Heartbeat 파일 없음** - 클러스터 상태 확인 필요")
+                      return {'status': 'ALERT', 'reason': 'no_heartbeat_file'}
+                  raise
+              except Exception as e:
+                  return {'status': 'ERROR', 'error': str(e)}
+
+          def load_state(bucket, key):
+              try:
+                  obj = s3.get_object(Bucket=bucket, Key=key)
+                  return json.loads(obj['Body'].read().decode())
+              except: return {}
+
+          def save_state(bucket, key, data):
+              s3.put_object(Bucket=bucket, Key=key, Body=json.dumps(data).encode(), ContentType='application/json')
+
+          def send_discord(url, message):
+              if not url: return
+              req = urllib.request.Request(url, data=json.dumps({'content': message}).encode(),
+                  headers={'Content-Type': 'application/json', 'User-Agent': 'k8s-idp-heartbeat/1.0'})
+              urllib.request.urlopen(req)
+
+      Tags:
+        - Key: system
+          Value: dr
+        - Key: team
+          Value: platform
+
+  # --- EventBridge Rule (5분마다 Lambda 트리거) ---
+  HeartbeatCheckRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: heartbeat-check
+      ScheduleExpression: "rate(5 minutes)"
+      State: ENABLED
+      Targets:
+        - Id: heartbeat-monitor
+          Arn: !GetAtt HeartbeatMonitorFunction.Arn
+
+  # --- Lambda Permission for EventBridge ---
+  HeartbeatLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref HeartbeatMonitorFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HeartbeatCheckRule.Arn
+
+Outputs:
+  LambdaFunctionArn:
+    Value: !GetAtt HeartbeatMonitorFunction.Arn
+  EventBridgeRuleArn:
+    Value: !GetAtt HeartbeatCheckRule.Arn
+  VeleroBucket:
+    Value: !Ref VeleroDRBucket
+  LonghornBucket:
+    Value: !Ref LonghornDRBucket
