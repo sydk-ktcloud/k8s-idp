@@ -75,17 +75,29 @@ spec:
               loki.process "parse_logs" {
                 forward_to = [loki.write.default.receiver]
 
-                stage.json {
-                  expressions = {
-                    level   = "level",
-                    trace_id = "trace_id",
+                stage.match {
+                  selector = "{job!=\"\"}"
+                  pipeline_name = "json_logs"
+ 
+                  stage.json {
+                    expressions = {
+                      level    = "level",
+                      trace_id = "trace_id",
+                      span_id  = "span_id",
+                    }
                   }
-                }
-
-                stage.labels {
-                  values = {
-                    level   = "level",
-                    trace_id = "trace_id",
+ 
+                  stage.labels {
+                    values = {
+                      level = "level",
+                    }
+                  }
+ 
+                  stage.structured_metadata {
+                    values = {
+                      trace_id = "trace_id",
+                      span_id  = "span_id",
+                    }
                   }
                 }
               }

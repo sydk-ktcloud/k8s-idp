@@ -32,7 +32,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: monitoring
+              kubernetes.io/metadata.name: monitoring
       ports:
         - protocol: TCP
           port: 8082
@@ -59,7 +59,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: auth
+              kubernetes.io/metadata.name: auth
           podSelector:
             matchLabels:
               app.kubernetes.io/name: dex
