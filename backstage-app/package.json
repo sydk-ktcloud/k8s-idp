@@ -54,5 +54,8 @@
       "prettier --write"
     ]
   },
-  "packageManager": "yarn@4.4.1"
+  "packageManager": "yarn@4.4.1",
+  "dependencies": {
+    "react-draggable": "^4.5.0"
+  }
 }

@@ -23,15 +23,14 @@ import { entityPage } from './components/catalog/EntityPage';
 import { Root } from './components/Root';
 import { HomePage } from './components/home/HomePage';
 import { ProvisioningDashboard } from './components/dashboard/ProvisioningDashboard';
+import { InfraAssistantWidget } from './components/InfraAssistantWidget';
 
 import {
   AlertDisplay,
   OAuthRequestDialog,
-  SignInPage,
 } from '@backstage/core-components';
 import { createApp } from '@backstage/app-defaults';
 import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
-import { oidcAuthApiRef } from './apis';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
@@ -50,21 +49,6 @@ const app = createApp({
     bind(orgPlugin.externalRoutes, {
       catalogIndex: catalogPlugin.routes.catalogIndex,
     });
-  },
-  components: {
-    SignInPage: props => (
-      <SignInPage
-        {...props}
-        providers={[
-          {
-            id: 'oidc',
-            title: 'Dex SSO',
-            message: 'Sign in with Dex (GitHub)',
-            apiRef: oidcAuthApiRef,
-          },
-        ]}
-      />
-    ),
   },
 });
 
@@ -107,6 +91,7 @@ export default app.createRoot(
     <OAuthRequestDialog />
     <AppRouter>
       <Root>{routes}</Root>
+      <InfraAssistantWidget />
     </AppRouter>
   </>,
 );

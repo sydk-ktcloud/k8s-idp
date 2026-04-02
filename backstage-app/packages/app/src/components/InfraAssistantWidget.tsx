@@ -1,0 +1,285 @@
+import React, { useEffect, useRef, useState } from 'react';
+import Draggable from 'react-draggable';
+import type { DraggableData, DraggableEvent } from 'react-draggable';
+import Paper from '@material-ui/core/Paper';
+import IconButton from '@material-ui/core/IconButton';
+import TextField from '@material-ui/core/TextField';
+import Button from '@material-ui/core/Button';
+import Typography from '@material-ui/core/Typography';
+import ChatIcon from '@material-ui/icons/Chat';
+import CloseIcon from '@material-ui/icons/Close';
+import { sendMessage } from '../../../../plugins/infra-assistant/src/api/InfraAssistantApi';
+
+type ChatMessage = {
+  role: 'user' | 'assistant';
+  text: string;
+};
+
+type Position = {
+  x: number;
+  y: number;
+};
+
+const BUBBLE_SIZE = 60;
+const PANEL_WIDTH = 380;
+const PANEL_HEIGHT = 600;
+const GAP = 24;
+
+export const InfraAssistantWidget = () => {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      text: '안녕하세요. Infra Assistant입니다. 필요한 내용을 질문해주세요.',
+    },
+  ]);
+  const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  const bubbleNodeRef = useRef<HTMLDivElement>(null);
+  const panelNodeRef = useRef<HTMLDivElement>(null);
+  const bubbleDraggedRef = useRef(false);
+
+  useEffect(() => {
+    const initialX = window.innerWidth - BUBBLE_SIZE - GAP;
+    const initialY = window.innerHeight - BUBBLE_SIZE - GAP;
+    setPosition({ x: initialX, y: initialY });
+    setMounted(true);
+  }, []);
+
+  const sendMessageHandler = async () => {
+    if (!input.trim()) return;
+
+    const userText = input.trim();
+
+    setMessages(prev => [...prev, { role: 'user', text: userText }]);
+    setInput('');
+
+    try {
+      const historyForApi = messages.map(msg => ({
+        role: msg.role,
+        content: msg.text,
+      }));
+
+      const response = await sendMessage(historyForApi, userText);
+
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', text: response.message },
+      ]);
+    } catch (error) {
+      console.error('Infra Assistant error:', error);
+
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: `Infra Assistant 호출 실패: ${
+            error instanceof Error ? error.message : '알 수 없는 오류'
+          }`,
+        },
+      ]);
+    }
+  };
+
+  const handleBubbleClick = () => {
+    if (bubbleDraggedRef.current) {
+      bubbleDraggedRef.current = false;
+      return;
+    }
+    setOpen(true);
+  };
+
+  const handleBubbleStart = () => {
+    bubbleDraggedRef.current = false;
+  };
+
+  const handleBubbleDrag = (_e: DraggableEvent, data: DraggableData) => {
+    if (Math.abs(data.deltaX) > 0 || Math.abs(data.deltaY) > 0) {
+      bubbleDraggedRef.current = true;
+    }
+  };
+
+  const handleBubbleStop = (_e: DraggableEvent, data: DraggableData) => {
+    setPosition({ x: data.x, y: data.y });
+  };
+
+  const handlePanelStop = (_e: DraggableEvent, data: DraggableData) => {
+    setPosition({ x: data.x, y: data.y });
+  };
+
+  if (!mounted) return null;
+
+  return (
+    <>
+      {!open && (
+        <Draggable
+          nodeRef={bubbleNodeRef}
+          position={position}
+          bounds={{
+            left: 0,
+            top: 0,
+            right: Math.max(0, window.innerWidth - BUBBLE_SIZE),
+            bottom: Math.max(0, window.innerHeight - BUBBLE_SIZE),
+          }}
+          onStart={handleBubbleStart}
+          onDrag={handleBubbleDrag}
+          onStop={handleBubbleStop}
+        >
+          <div
+            ref={bubbleNodeRef}
+            style={{
+              position: 'fixed',
+              left: 0,
+              top: 0,
+              zIndex: 1300,
+            }}
+          >
+            <IconButton
+              onClick={handleBubbleClick}
+              style={{
+                width: BUBBLE_SIZE,
+                height: BUBBLE_SIZE,
+                borderRadius: '50%',
+                backgroundColor: '#1976d2',
+                color: '#fff',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              }}
+            >
+              <ChatIcon />
+            </IconButton>
+          </div>
+        </Draggable>
+      )}
+
+      {open && (
+        <Draggable
+          nodeRef={panelNodeRef}
+          position={position}
+          bounds={{
+            left: 0,
+            top: 0,
+            right: Math.max(0, window.innerWidth - PANEL_WIDTH),
+            bottom: Math.max(0, window.innerHeight - PANEL_HEIGHT),
+          }}
+          onStop={handlePanelStop}
+          cancel="input,textarea,button,svg,path"
+        >
+          <div
+            ref={panelNodeRef}
+            style={{
+              position: 'fixed',
+              left: 0,
+              top: 0,
+              zIndex: 1300,
+            }}
+          >
+            <Paper
+              elevation={6}
+              style={{
+                width: PANEL_WIDTH,
+                height: PANEL_HEIGHT,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 16,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  height: 56,
+                  backgroundColor: '#1976d2',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 16px',
+                  flexShrink: 0,
+                }}
+              >
+                <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                  Infra Assistant
+                </Typography>
+                <IconButton
+                  onClick={() => setOpen(false)}
+                  style={{ color: '#fff' }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </div>
+
+              <div
+                style={{
+                  flex: 1,
+                  padding: 16,
+                  overflowY: 'auto',
+                  backgroundColor: '#f7f9fb',
+                }}
+              >
+                {messages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      justifyContent:
+                        msg.role === 'user' ? 'flex-end' : 'flex-start',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        maxWidth: '75%',
+                        padding: '10px 14px',
+                        borderRadius: 16,
+                        backgroundColor:
+                          msg.role === 'user' ? '#1976d2' : '#e9eef5',
+                        color: msg.role === 'user' ? '#fff' : '#111',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  padding: 12,
+                  borderTop: '1px solid #e0e0e0',
+                  display: 'flex',
+                  gap: 8,
+                  backgroundColor: '#fff',
+                  flexShrink: 0,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  placeholder="질문을 입력하세요..."
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      sendMessageHandler();
+                    }
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={sendMessageHandler}
+                >
+                  전송
+                </Button>
+              </div>
+            </Paper>
+          </div>
+        </Draggable>
+      )}
+    </>
+  );
+};
