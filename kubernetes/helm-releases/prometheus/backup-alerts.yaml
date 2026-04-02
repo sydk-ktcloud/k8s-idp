@@ -16,6 +16,7 @@ spec:
       labels:
         severity: critical
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 볼륨 백업 실패: {{ $labels.volume }}"
         description: "MinIO 백업이 5분 이상 Error 상태입니다."
@@ -26,6 +27,7 @@ spec:
       labels:
         severity: critical
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 백업 타겟(MinIO)에 접근 불가"
         description: "MinIO S3 백업 타겟이 2분 이상 응답하지 않습니다."
@@ -36,6 +38,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 노드 {{ $labels.node }} 스토리지 사용률 80% 초과"
         description: "현재 사용률: {{ $value | humanizePercentage }}"
@@ -46,6 +49,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Longhorn 볼륨 {{ $labels.volume }} 용량 85% 초과"
         description: "볼륨 확장 또는 데이터 정리가 필요합니다."
@@ -59,6 +63,7 @@ spec:
       labels:
         severity: critical
         team: platform
+        category: backup-storage
       annotations:
         summary: "Velero 백업 실패: {{ $labels.schedule }}"
         description: "클러스터 상태 백업이 실패했습니다. 즉시 확인이 필요합니다."
@@ -69,6 +74,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Velero 백업이 25시간 이상 성공하지 않았습니다"
         description: "일일 백업 스케줄 (01:00)이 정상 실행되지 않았습니다."
@@ -81,6 +87,7 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Loki 로그 수집 속도가 비정상적으로 높습니다"
         description: "현재 초당 스트림 생성 수: {{ $value }}"
@@ -91,6 +98,71 @@ spec:
       labels:
         severity: warning
         team: platform
+        category: backup-storage
       annotations:
         summary: "Loki PVC 용량 85% 초과"
         description: "Loki WAL/인덱스 PVC 용량을 확인하세요."
+
+  - name: onprem.burst.trigger
+    interval: 30s
+    rules:
+    - alert: OnPremCPUHighBurstNeeded
+      expr: onprem:node_cpu_utilization:avg > 0.70
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+        trigger: gke-burst
+      annotations:
+        summary: "On-prem CPU {{ $value | humanizePercentage }} 초과 - GKE Burst 필요"
+        description: "On-prem 노드 평균 CPU 사용률이 2분간 70%를 초과했습니다."
+
+    - alert: OnPremMemoryHighBurstNeeded
+      expr: onprem:node_memory_utilization:avg > 0.80
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+        trigger: gke-burst
+      annotations:
+        summary: "On-prem Memory {{ $value | humanizePercentage }} 초과 - GKE Burst 필요"
+        description: "On-prem 노드 평균 메모리 사용률이 2분간 80%를 초과했습니다."
+
+    - alert: OnPremPendingPodsHighBurstNeeded
+      expr: onprem:pending_pods:count > 3
+      for: 1m
+      labels:
+        severity: warning
+        team: platform
+        trigger: gke-burst
+      annotations:
+        summary: "On-prem Pending Pod {{ $value }}개 - GKE Burst 스케일아웃 필요"
+        description: "스케줄링되지 못한 Pod가 1분 이상 3개를 초과합니다."
+
+  - name: gke.burst.cost
+    interval: 1m
+    rules:
+    - alert: GKEBurstIdleNodesCostWaste
+      expr: |
+        (sum(kube_node_labels{label_cloud_google_com_gke_preemptible="true"}) or vector(0)) > 0
+        and
+        (sum(kube_pod_status_phase{phase="Running",namespace="burst-workloads"}) or vector(0)) == 0
+      for: 15m
+      labels:
+        severity: warning
+        team: platform
+        cost_center: gke-burst
+      annotations:
+        summary: "GKE Burst 클러스터 15분 유휴 - 불필요한 비용 발생"
+        description: "Preemptible 노드가 실행 중이지만 burst-workloads에 Running Pod가 없습니다."
+
+    - alert: GKEBurstNodeCountHigh
+      expr: sum(kube_node_labels{label_cloud_google_com_gke_preemptible="true"}) >= 4
+      for: 30m
+      labels:
+        severity: warning
+        team: platform
+        cost_center: gke-burst
+      annotations:
+        summary: "GKE Burst 노드 {{ $value }}개 30분 이상 실행 - 비용 초과 주의"
+        description: "maxNodeCount(5) 한계에 근접했습니다. Kubecost 대시보드를 확인하세요."

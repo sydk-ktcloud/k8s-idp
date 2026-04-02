@@ -2,7 +2,7 @@
 
 ## 개요
 
-온프레미스 클러스터 장애 시 GKE에서 핵심 서비스를 복구하는 절차서.
+온프레미스 클러스터 장애 시 EKS(AWS)에서 핵심 서비스를 복구하는 절차서.
 
 **복구 대상:** trip-app (frontend + backend + DB), Backstage  
 **복구하지 않는 것:** monitoring, chatops, Longhorn, Crossplane (온프레미스 복구 후)
@@ -14,79 +14,129 @@
 
 ---
 
+## 인프라 구성
+
+```
+[On-Prem K8s] → [MinIO] ──CronJob 04:30──→ [S3 (DR 복구용)]
+       │
+       └── Heartbeat (5분) ──→ [S3] ──→ Lambda + EventBridge
+                                          (15분 미수신 시 Discord 알림)
+
+DR 발동 시:
+  [EKS k8s-idp-dr (us-west-2)] ← Velero restore ← S3 sydk-velero-dr-usw2
+```
+
+---
+
 ## 사전 조건
 
-- GCP 프로젝트 `sydk-ktcloud` 접근 권한
-- `gcloud` CLI 설치 및 인증 완료
-- GCS 버킷 `sydk-velero-offsite`, `sydk-longhorn-offsite` 존재
-- GKE Autopilot 클러스터 `k8s-idp-dr` 존재 (asia-northeast3)
+- AWS CLI 설치 및 인증 완료 (`aws configure`)
+- S3 버킷 존재: `sydk-velero-dr-usw2`, `sydk-longhorn-dr-usw2`
+- EKS 클러스터 `k8s-idp-dr` 존재 (us-west-2)
+
+---
+
+## 장애 판단 기준
+
+온프레미스 클러스터는 5분마다 GCS에 heartbeat를 전송합니다.
+GCP Cloud Monitoring에서 15분 이상 heartbeat가 갱신되지 않으면 알림이 발송됩니다.
+
+**확인 방법:**
+```bash
+# GCS heartbeat 파일 확인
+gsutil cat gs://sydk-velero-offsite/heartbeat.json
+# timestamp가 15분 이상 경과 → 장애로 판단
+
+# 직접 클러스터 접근 시도
+kubectl --context platform-context get nodes
+```
 
 ---
 
 ## DR 복구 절차
 
-### Step 1: GKE 클러스터 접속
+### Step 1: EKS 클러스터 접속
 
 ```bash
-gcloud container clusters get-credentials k8s-idp-dr \
-  --region asia-northeast3 \
-  --project sydk-ktcloud
+aws eks update-kubeconfig --name k8s-idp-dr \
+  --region us-west-2 \
+  --alias eks-dr
 
-kubectl get nodes
+kubectl --context eks-dr get nodes
 ```
 
-### Step 2: Velero 설치
+### Step 2: Nodegroup 스케일업 (평시 0대)
 
 ```bash
-# GCS 자격증명 Secret
-kubectl create namespace velero
-kubectl create secret generic velero-gcs-credentials -n velero \
-  --from-file=gcp=gcs-key.json
+# 평시 0대 → DR 시 2대로 스케일업
+eksctl scale nodegroup --cluster k8s-idp-dr \
+  --region us-west-2 \
+  --name dr-spot \
+  --nodes 2
 
-# Velero 설치 (GCS 백업에서 복구)
+# 노드 Ready 대기
+kubectl --context eks-dr get nodes -w
+```
+
+### Step 3: Velero 설치
+
+```bash
+kubectl --context eks-dr create namespace velero
+
+# AWS credentials Secret
+kubectl --context eks-dr create secret generic velero-credentials -n velero \
+  --from-literal=cloud="[default]
+aws_access_key_id=<AWS_ACCESS_KEY_ID>
+aws_secret_access_key=<AWS_SECRET_ACCESS_KEY>"
+
+# Velero 설치 (S3 백업에서 복구)
 velero install \
-  --provider gcp \
-  --bucket sydk-velero-offsite \
-  --secret-file gcs-key.json \
-  --plugins velero/velero-plugin-for-gcp:v1.9.0
+  --provider aws \
+  --bucket sydk-velero-dr-usw2 \
+  --secret-file ./velero-credentials \
+  --plugins velero/velero-plugin-for-aws:v1.9.0 \
+  --backup-location-config region=us-west-2 \
+  --kubeconfig ~/.kube/config \
+  --kubecontext eks-dr
 ```
 
-### Step 3: 백업 목록 확인
+### Step 4: 백업 목록 확인
 
 ```bash
-velero backup get
+velero backup get --kubecontext eks-dr
 # 가장 최근 백업 확인
 ```
 
-### Step 4: 핵심 네임스페이스만 복구
+### Step 5: 핵심 네임스페이스만 복구
 
 ```bash
 velero restore create dr-restore \
   --from-backup <가장-최근-백업-이름> \
   --include-namespaces trip-app,backstage \
-  --restore-volumes=true
+  --restore-volumes=true \
+  --kubecontext eks-dr
 
 # 복구 상태 확인
-velero restore describe dr-restore
+velero restore describe dr-restore --kubecontext eks-dr
 ```
 
-### Step 5: 서비스 동작 확인
+### Step 6: 서비스 동작 확인
 
 ```bash
-kubectl get pods -n trip-app
-kubectl get pods -n backstage
+kubectl --context eks-dr get pods -n trip-app
+kubectl --context eks-dr get pods -n backstage
 
 # trip-app 접근 테스트
-kubectl port-forward svc/trip-backend-service -n trip-app 8080:8080
+kubectl --context eks-dr port-forward svc/trip-backend-service -n trip-app 8080:8080
 curl http://localhost:8080/health
 ```
 
-### Step 6: 외부 접근 설정 (선택)
+### Step 7: 외부 접근 설정 (선택)
 
-GKE에서 NodePort 대신 LoadBalancer 사용:
+EKS에서 LoadBalancer 사용:
 
 ```bash
-kubectl patch svc trip-backend-service -n trip-app \
+kubectl --context eks-dr patch svc trip-backend-service -n trip-app \
   -p '{"spec":{"type":"LoadBalancer"}}'
 ```
 
@@ -95,22 +145,41 @@ kubectl patch svc trip-backend-service -n trip-app \
 ## 온프레미스 복구 후 되돌리기
 
 ```bash
-# GKE 워크로드 정리
-kubectl delete namespace trip-app --kubeconfig kubeconfig/gke-burst
-kubectl delete namespace backstage --kubeconfig kubeconfig/gke-burst
+# EKS 워크로드 정리
+kubectl --context eks-dr delete namespace trip-app
+kubectl --context eks-dr delete namespace backstage
 
-# GKE 클러스터는 파드 없으면 비용 $0이므로 삭제하지 않아도 됨
+# Nodegroup 스케일다운 (비용 $0)
+eksctl scale nodegroup --cluster k8s-idp-dr \
+  --region us-west-2 \
+  --name dr-spot \
+  --nodes 0
 ```
 
 ---
 
-## GCS 백업 사전 확인 (월 1회)
+## 백업 파이프라인 사전 확인 (월 1회)
 
 ```bash
-# 백업 존재 확인
-gsutil ls gs://sydk-velero-offsite/ | tail -5
-gsutil ls gs://sydk-longhorn-offsite/ | tail -5
+# S3 백업 존재 확인 (DR 복구용)
+aws s3 ls s3://sydk-velero-dr-usw2/ --recursive | tail -5
+aws s3 ls s3://sydk-longhorn-dr-usw2/ --recursive | tail -5
 
-# 최신 백업 날짜 확인
-gsutil ls -l gs://sydk-velero-offsite/ | sort -k2 | tail -1
+# Heartbeat 정상 동작 확인
+aws s3 cp s3://sydk-velero-dr-usw2/heartbeat/heartbeat.json -
+
+# 온프레미스 CronJob 상태 확인
+kubectl get cronjob -n minio-storage
 ```
+
+---
+
+## 비용 요약
+
+| 항목 | 평시 | DR 발동 시 |
+|---|---|---|
+| EKS Control Plane | $73/월 | $73/월 |
+| Nodegroup (Spot t3.small) | $0 (0대) | ~$30/월 (2대) |
+| S3 저장 비용 | ~$1-3/월 | ~$1-3/월 |
+| Lambda + EventBridge | ~$0 (프리티어) | ~$0 |
+| **합계** | **~$74-76/월** | **~$104-106/월** |

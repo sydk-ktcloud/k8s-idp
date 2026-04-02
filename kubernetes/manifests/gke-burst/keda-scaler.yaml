@@ -9,16 +9,63 @@ spec:
     kind: Deployment
     name: burst-demo
   minReplicaCount: 0
-  maxReplicaCount: 10
-  cooldownPeriod: 300
+  maxReplicaCount: 5
+  cooldownPeriod: 900        # 15분 유휴 후 scale-to-zero (비용 최적화)
+  pollingInterval: 30        # 30초마다 메트릭 평가
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 120   # 기존 300s → 120s로 단축
+          policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+          - type: Pods
+            value: 2
+            periodSeconds: 60
+          selectPolicy: Min
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 15
+          selectPolicy: Max
   triggers:
+  # 트리거 1: burst-workloads HTTP 요청률 (기존 로직 유지)
   - type: prometheus
     metadata:
-      serverAddress: http://prometheus.monitoring.svc.cluster.local:9090
-      metricName: http_requests_total
+      serverAddress: http://10.102.177.113:9090
+      metricName: http_requests_total_rate
       threshold: "100"
       query: |
         sum(rate(http_requests_total{namespace="burst-workloads"}[1m]))
+    authenticationRef:
+      name: keda-prometheus-trigger
+
+  # 트리거 2: On-prem 노드 CPU 과부하 (핵심 신규 - On-prem 부하 감지)
+  - type: prometheus
+    metadata:
+      serverAddress: http://10.102.177.113:9090
+      metricName: onprem_cpu_utilization
+      threshold: "0.70"
+      query: onprem:node_cpu_utilization:avg
+    authenticationRef:
+      name: keda-prometheus-trigger
+
+  # 트리거 3: On-prem Pending Pod 백로그
+  - type: prometheus
+    metadata:
+      serverAddress: http://10.102.177.113:9090
+      metricName: onprem_pending_pods_count
+      threshold: "3"
+      query: onprem:pending_pods:count
+    authenticationRef:
+      name: keda-prometheus-trigger
 ---
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
@@ -26,7 +73,9 @@ metadata:
   name: keda-prometheus-trigger
   namespace: burst-workloads
 spec:
-  secretTargetRef:
-  - parameter: bearerToken
-    name: keda-prometheus-secret
-    key: bearerToken
+  # On-prem Prometheus가 인증 없이 운영되는 경우 secretTargetRef 생략 가능
+  # 인증이 필요한 경우 아래 주석 해제:
+  # secretTargetRef:
+  # - parameter: bearerToken
+  #   name: keda-prometheus-secret
+  #   key: bearerToken
