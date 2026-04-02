@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/v1/products")
+@RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
     private final ProductService productService;
@@ -46,7 +46,7 @@ public class ProductController {
     }
 
     // 카테고리별 조회
-    @GetMapping("category/{category}")
+    @GetMapping("/category/{category}")
     @Operation(summary = "카테고리별 조회")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "성공"),
@@ -59,6 +59,18 @@ public class ProductController {
     }
 
     // 지역별 조회
+    @GetMapping("/region/{region}")
+    @Operation(summary = "지역별 조회")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "상품 없음")
+    })
+    public ResponseEntity<ApiResponse<List<ProductDto>>> getProductsByRegion(@PathVariable String region) {
+        return ResponseEntity.ok(
+                ApiResponse.success("SUCESS", "지역별 상품 조회에 성공했습니다.", productService.getProductsByRegion(region))
+        );
+    }
+}
     @GetMapping("/region/{region}")
     @Operation(summary = "지역별 조회")
     @ApiResponses({
