@@ -517,11 +517,36 @@ GitHub Actions `approval-gate.yaml`이 Cluster/EKSCluster/AKSCluster 또는 `lif
 | `isolation/restrict-claim-namespace.yaml` | **Enforce** | 시스템 네임스페이스 생성 차단 |
 | `quotas/dev-namespace-quota.yaml` | Generate | dev 네임스페이스 ResourceQuota 자동 생성 |
 | `rbac/deny-privilege-escalation-verbs.yaml` | **Enforce** | Role/ClusterRole에 escalate/impersonate 차단 |
-| `images/disallow-latest-tag.yaml` | Audit | `:latest` 태그 이미지 차단 (이미지 태그 고정 후 Enforce 전환) |
+| `images/disallow-latest-tag.yaml` | **Enforce** | `:latest` 태그 이미지 차단 (전체 워크로드 태그 고정 완료) |
 
-> Audit 모드로 2주 운영 후 위반 건수 확인(`kubectl get policyreport -A`) → Enforce 전환 예정.
-> `rbac/deny-privilege-escalation-verbs`와 `isolation/restrict-claim-namespace`는 사이드이펙트 없이 즉시 Enforce.
-> `images/disallow-latest-tag`는 현재 8개 워크로드가 `:latest` 사용 중이므로 이미지 태그 고정 완료 후 Enforce 전환.
+> Audit 모드 정책은 2주 운영 후 위반 건수 확인(`kubectl get policyreport -A`) → Enforce 전환 예정.
+> `rbac/deny-privilege-escalation-verbs`, `isolation/restrict-claim-namespace`, `images/disallow-latest-tag`는 즉시 Enforce.
+
+#### 이미지 태그 고정 현황
+
+`disallow-latest-tag` 정책 Enforce를 위해 모든 클러스터 내 워크로드 이미지를 명시적 버전 태그로 고정했습니다.
+
+| 워크로드 | 이미지 | 태그 | 태깅 방식 |
+|---------|--------|------|----------|
+| trip-backend | `kylekim1223/trip-backend` | `2026-04-02` | 수동 빌드 날짜 태그 |
+| trip-front (×3) | `kylekim1223/trip-front` | `v1.0.0` | Docker Hub retag |
+| chatops-bot | `kylekim1223/chatops-bot` | `sha-43a56b2` | CI 자동 빌드 (GitHub Actions) |
+| backstage-backend (×2) | `kylekim1223/backstage-backend` | `sha-5535754` | CI 자동 빌드 (GitHub Actions) |
+| actions-runner | `summerwind/actions-runner` | `v2.333.1-ubuntu-24.04` | 업스트림 릴리스 |
+| lifecycle-scanner | `ghcr.io/sydk-ktcloud/lifecycle-scanner` | `v1.0.0` | 첫 빌드 시 태그 예약 |
+| minio-mc (Job) | `minio/mc` | `RELEASE.2025-08-13T08-35-41Z` | 업스트림 릴리스 |
+
+> **CI 이미지 업데이트**: `backstage`와 `chatops`는 CI에서 `sha-<commit>` 태그를 자동 push하지만 deployment YAML은 수동 업데이트 필요. ArgoCD Image Updater 도입으로 자동화 가능.
+
+#### Prometheus 메트릭 연동
+
+Kyverno 4개 컨트롤러(admission/background/cleanup/reports)에 ServiceMonitor가 활성화되어 있습니다.
+`release: prometheus` 레이블로 기존 Prometheus가 자동 수집합니다.
+
+주요 메트릭:
+- `kyverno_policy_results_total` — 정책별 pass/fail/warn 카운트
+- `kyverno_admission_requests_total` — Admission 요청 수
+- `kyverno_controller_reconcile_total` — Background 컨트롤러 reconcile 횟수
 
 ### Layer 3: Lifecycle Scanner
 
