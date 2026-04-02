@@ -13,14 +13,14 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 | **인프라** | VM (KVM/libvirt) | ✅ 배포됨 | 4VM: 1 CP + 3 Workers |
 | **네트워크** | Cilium CNI + Hubble | ✅ 배포됨 | eBPF 기반 네트워킹 + 관찰가능성 |
 | **서비스 메시** | Istio Ambient Mesh | ✅ 배포됨 | mTLS 암호화, Sidecar 없음 |
-| **VPN** | Headscale + Headplane | ✅ 배포됨 | Self-hosted Tailscale + Web UI |
+| **VPN** | Cloud Headscale (GCP) + Headplane | ✅ 배포됨 | GCP 항시 가동, On-prem SPOF 해소 |
 | **SSO** | Dex OIDC | ✅ 배포됨 | 7명 사용자, 다중 서비스 연동 |
 | **GitOps** | ArgoCD | ✅ 배포됨 | Application of Apps 패턴 |
 | **시크릿** | Vault | 🔄 구성됨 | HA Raft 구성, 배포 대기 |
 | **저장소** | Longhorn + MinIO | ✅ 배포됨 | 블록 스토리지 + 오브젝트 스토리지 |
 | **관찰가능성** | Prometheus + Grafana + LGTM | ✅ 배포됨 | Metrics, Logs, Traces |
 | **백업** | Longhorn Backup + Velero | ✅ 배포됨 | PV 백업 + 클러스터 상태 백업 |
-| **DR** | EKS Active-Passive + S3/GCS 오프사이트 | ✅ 구성됨 | Dead Man's Switch + Discord 알림 |
+| **DR** | EKS Active-Passive + GCS 오프사이트 | ✅ 구성됨 | Dormant EKS → DR 활성화 → GKE Burst 연결 |
 
 ### 개발자 플랫폼
 
@@ -28,7 +28,7 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 |----------|------|------|
 | **Backstage** | ✅ 배포됨 | 개발자 포털, 서비스 카탈로그, 셀프서비스 |
 | **Crossplane** | ✅ 배포됨 | 클라우드 리소스 프로비저닝 (GCP / AWS / Azure) |
-| **GKE Burst** | ✅ 배포됨 | 온프레미스 부하 초과 시 GKE로 자동 확장 |
+| **GKE Burst** | ✅ 배포됨 | On-prem/EKS 부하 초과 시 trip-app GKE 자동 확장 |
 | **ChatOps** | ✅ 배포됨 | Discord 기반 K8s 관리 봇 |
 | **Kubecost** | ✅ 배포됨 | 비용 모니터링 및 최적화 |
 | **Kyverno** | 🔄 Audit 모드 | 리소스 수명주기 정책 적용 (Hard Enforcement) |
@@ -82,17 +82,45 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 │  │  │  │ (Block)    │         │  Erasure Coding, PDB minAvail:2) │       │ ││
 │  │  │  └────────────┘         └──────────────────────────────────┘       │ ││
 │  │  └────────────────────────────────────────────────────────────────────┘ ││
-│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
-│  │  │           GKE Burst  [KEDA + Tailscale VPN]                         │ ││
-│  │  │  온프레미스 부하 초과 시 GKE 클러스터로 워크로드 자동 확장              │ ││
-│  │  └────────────────────────────────────────────────────────────────────┘ ││
 │  └───────────────────────────────────────────────────────────────────────────┘│
-│                              │                                              │
-│  ┌───────────────────────────┴───────────────────────────────────────────┐  │
-│  │                    Headscale (VPN / Mesh Network)                      │  │
-│  │                         + Headplane (Web UI)                            │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+── 멀티 클러스터 구성 ──
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    Cloud Headscale (GCP e2-micro, 항시 가동)                │
+│                         VPN Control Plane (SPOF 해소)                      │
+└───────┬──────────────────────┬──────────────────────┬─────────────────────┘
+        │ tag:onprem           │ tag:gke-burst         │ tag:eks-dr
+┌───────▼───────────┐  ┌──────▼──────────────┐  ┌─────▼──────────────┐
+│  On-prem (Primary) │  │  GKE Burst (GCP)    │  │  EKS DR (AWS)      │
+│  4VM, K8s v1.32    │  │  asia-northeast3    │  │  ap-northeast-2    │
+│                    │  │  preemptible nodes   │  │  dormant (노드 0)   │
+│  ┌──────────────┐  │  │                     │  │                    │
+│  │  trip-app    │  │  │  ┌───────────────┐  │  │  DR 활성화 시:      │
+│  │  Backstage   │──┼──▶  │ trip-app      │  │  │  ┌──────────────┐  │
+│  │  Monitoring  │  │  │  │ overflow Pods │  │  │  │ trip-app     │  │
+│  │  ChatOps     │  │  │  └───────────────┘  │  │  │ Backstage    │  │
+│  │  Crossplane  │  │  │                     │  │  │ Prometheus   │  │
+│  └──────────────┘  │  │  ┌───────────────┐  │  │  │ (경량)       │  │
+│                    │  │  │ KEDA          │  │  │  └──────┬───────┘  │
+│  ┌──────────────┐  │  │  │ ScaledObject  │  │  │         │         │
+│  │ Prometheus   │  │  │  └──────┬────────┘  │  │  부하 초과 시      │
+│  │ active:*     │──┼──▶        │            │  │  GKE burst 발동   │
+│  │ recording    │  │  │  ┌─────▼─────────┐  │  │         │         │
+│  │ rules        │  │  │  │ Prometheus    │  │  │  ┌──────▼───────┐  │
+│  └──────────────┘  │  │  │ Proxy (nginx) │◀─┼──┼──│ Prometheus   │  │
+│                    │  │  └───────────────┘  │  │  │ active:*     │  │
+└────────────────────┘  └─────────────────────┘  └──────────────────┘
+
+평시 흐름:
+  On-prem Prometheus ──▶ GKE Prometheus Proxy ──▶ KEDA ──▶ trip-app burst
+
+DR 흐름 (On-prem 장애):
+  EKS Prometheus ──▶ GKE Prometheus Proxy ──▶ KEDA ──▶ trip-app burst
+
+Failback (On-prem 복구):
+  GKE Proxy upstream → On-prem 복귀, EKS scale-to-zero (dormant)
 ```
 
 ## 디렉토리 구조
@@ -102,7 +130,8 @@ k8s-idp/
 ├── infrastructure/               # 인프라 설정
 │   ├── libvirt/                 # VM 생성 (vm-setup.sh, cloud-init)
 │   ├── kubernetes/              # K8s 초기 설정 (kubeadm, cilium)
-│   ├── headscale/               # VPN 서버 설정
+│   ├── headscale/               # VPN 서버 설정 (On-prem, 백업용)
+│   ├── headscale-cloud/         # Cloud Headscale (GCP 항시 가동, VPN SPOF 해소)
 │   ├── headplane/               # VPN 관리 Web UI
 │   └── aws-dr/                  # AWS DR 인프라 (EKS, Lambda, S3)
 ├── security/                    # 보안 구성
@@ -125,7 +154,8 @@ k8s-idp/
 │   │   ├── cert-manager/       # 인증서 관리
 │   │   ├── cilium/             # CNI/Hubble 설정
 │   │   ├── pdb/                # PodDisruptionBudget (서비스별 HA 보호)
-│   │   ├── gke-burst/            # GKE Burst 클러스터 매니페스트 (KEDA, Tailscale)
+│   │   ├── eks-dr/              # EKS DR 매니페스트 (Tailscale, Prometheus, Velero, NetworkPolicy)
+│   │   ├── gke-burst/            # GKE Burst 매니페스트 (KEDA, Tailscale, Prometheus Proxy)
 │   │   ├── istio-ambient/       # Istio Ambient Mesh (mTLS, NetworkPolicy)
 │   │   ├── crossplane-compositions/  # XRD/Composition (GCP 8종, AWS 4종, Azure 4종)
 │   │   │   ├── aws/            # EC2Instance, S3Bucket, EKSCluster, RDSDatabase
@@ -177,7 +207,9 @@ k8s-idp/
 │   ├── setup-headscale.sh      # VPN 서버 설정
 │   ├── enable-hubble-ui.sh     # Hubble UI 활성화
 │   ├── apply-network-policies.sh # Zero Trust 정책 적용
-│   └── setup-github-runner.sh  # GitHub Actions Runner
+│   ├── setup-github-runner.sh  # GitHub Actions Runner
+│   ├── dr-activate.sh          # DR 활성화 (EKS scale-up → 복구 → GKE 전환)
+│   └── dr-failback.sh          # Failback (On-prem 복구 → EKS 정리)
 ├── kubeconfig/                  # 팀별 Kubeconfig
 ├── docs/                        # 문서
 │   ├── remote-access-guide.md  # 원격 접속 가이드
@@ -305,12 +337,17 @@ k8s-idp/
 
 ### 4. GKE Burst 확장
 
-**목적**: 온프레미스 클러스터 부하 초과 시 GKE로 워크로드 burst 확장
+**목적**: Primary 클러스터(On-prem 또는 EKS DR) 부하 초과 시 trip-app을 GKE로 overflow 확장
 
 **동작 방식**:
 1. `ClusterBurst` Claim 생성 → Crossplane이 GKE 클러스터 자동 프로비저닝
 2. Cluster + NodePool (autoscaling 0~5) 구성
 3. 연결 정보(`kubeconfig`)가 `default/gke-burst-kubeconfig` Secret에 자동 저장
+
+**메트릭 소스 전환** (Prometheus Proxy 패턴):
+- KEDA는 항상 `prometheus-proxy.burst-workloads:9090`을 바라봄
+- Proxy의 upstream은 ConfigMap으로 관리 — 평시 On-prem, DR시 EKS
+- Recording rule prefix `active:*`로 통일 → On-prem/EKS 모두 동일한 query
 
 **리소스 구성**:
 - **XRD**: `xclusterbursts.k8s-idp.example.org`
@@ -332,19 +369,20 @@ KUBECONFIG=kubeconfig/gke-burst \
 
 **자동 스케일링 로직**:
 
-온프레미스 부하를 실시간 모니터링하여 GKE burst 클러스터를 자동 확장합니다:
+Primary 클러스터 부하를 실시간 모니터링하여 GKE burst 클러스터를 자동 확장합니다:
 
 | 트리거 | 임계값 | 동작 |
 |--------|--------|------|
-| **온프레미스 CPU** | > 70% (2분) | → GKE 노드 scale-out |
-| **온프레미스 Memory** | > 80% (2분) | → GKE 노드 scale-out |
+| **Primary CPU** | > 70% (2분) | → GKE 노드 scale-out |
+| **Primary Memory** | > 80% (2분) | → GKE 노드 scale-out |
 | **Pending Pod** | > 3개 (1분) | → GKE 노드 scale-out |
 | **HTTP 요청률** | > 100 req/s | → Pod 수평 확장 |
 | **유휴 시간** | > 15분 | → scale-to-zero (비용 절감) |
 
 **구현 요소**:
-- **메트릭 수집**: Prometheus recording rules (CPU, Memory, Pending Pod)
-- **Trigger**: KEDA ScaledObject (Tailscale VPN 경유 온프레미스 Prometheus 접근)
+- **메트릭 수집**: Prometheus `active:*` recording rules (On-prem/EKS 동일)
+- **Trigger**: KEDA ScaledObject → Prometheus Proxy (upstream 전환 가능)
+- **Fallback**: 메트릭 소스 전환 중 scale-down 방지 (`failureThreshold: 5, replicas: 1`)
 - **Pod 스케일**: HPA (CPU 70%, Memory 80%)
 - **Node 스케일**: GKE Cluster Autoscaler (0~5 preemptible nodes)
 - **Graceful Shutdown**: Preemptible VM 중단 시 30초 termination grace period
@@ -365,10 +403,50 @@ kubectl --kubeconfig=kubeconfig/gke-burst get hpa -n burst-workloads
 ```
 
 **파일 구성**:
-- `kubernetes/helm-releases/prometheus/values.yaml` - Recording rules
-- `kubernetes/helm-releases/prometheus/backup-alerts.yaml` - Burst trigger alerts
+- `kubernetes/helm-releases/prometheus/values.yaml` - `active:*` recording rules
+- `kubernetes/helm-releases/prometheus/burst-alerts.yaml` - Burst trigger + cost alerts
 - `kubernetes/manifests/gke-burst/keda-scaler.yaml` - KEDA trigger 3개 (CPU, Memory, Pending Pod)
+- `kubernetes/manifests/gke-burst/prometheus-proxy.yaml` - nginx proxy + ConfigMap (upstream 전환)
 - `kubernetes/manifests/gke-burst/burst-workload-demo.yaml` - Deployment + HPA + PDB
+
+### 5. EKS DR (Disaster Recovery)
+
+**목적**: On-prem 전체 장애 시 핵심 서비스(trip-app, Backstage)를 EKS에서 복구
+
+**평시 상태**: Dormant — Crossplane claim만 존재, `nodeCount: 0`, 비용 $0
+
+**DR 활성화 시 복구 대상**:
+
+| 복구 O | 복구 X (불필요) |
+|--------|----------------|
+| trip-app (frontend + backend + DB) | Monitoring (경량 Prometheus만 배포) |
+| Backstage (개발자 포털) | ChatOps, Longhorn, Crossplane |
+
+| 지표 | 목표 |
+|------|------|
+| RPO | 24시간 (일일 Velero 백업) |
+| RTO | 30분 |
+
+**DR 흐름**:
+1. Heartbeat CronJob 15분 무응답 → GCP Cloud Monitoring → Discord 알림
+2. `./scripts/dr-activate.sh` 실행
+3. EKS 노드 3대 scale-up (Crossplane) → Velero로 GCS 백업 복구
+4. GKE Prometheus Proxy upstream → EKS Prometheus로 전환
+5. EKS 부하 초과 시 GKE burst 자동 발동
+
+**Failback 흐름** (On-prem 복구 시):
+1. `./scripts/dr-failback.sh` 실행
+2. EKS에서 최종 백업 → On-prem에서 복구
+3. GKE Proxy upstream → On-prem Prometheus로 복귀
+4. EKS 워크로드 삭제 → `nodeCount: 0` (dormant)
+
+**파일 구성**:
+- `kubernetes/manifests/eks-dr/` - EKS DR 매니페스트 (Tailscale, Prometheus, Velero, NetworkPolicy)
+- `kubernetes/argocd-apps/eks-dr.yaml` - ArgoCD App (sync disabled, DR시 수동 sync)
+- `infrastructure/headscale-cloud/` - Cloud Headscale (GCP, VPN SPOF 해소)
+- `scripts/dr-activate.sh` - DR 활성화 자동화 스크립트
+- `scripts/dr-failback.sh` - Failback 자동화 스크립트
+- `docs/dr-runbook.md` - DR/Failback 절차서
 
 ## SSO 구성 (Dex)
 
