@@ -30,19 +30,21 @@ prometheus:
     retentionSize: "45GiB"
 
     # Burst trigger를 위한 recording rules
+    # active: prefix — On-prem/EKS DR 모두 동일한 metric 이름 사용
+    # GKE KEDA가 prometheus-proxy를 통해 이 메트릭을 조회
     additionalPrometheusRulesMap:
-      onprem-burst-recording:
+      active-burst-recording:
         groups:
-        - name: onprem.burst.recording
+        - name: active.burst.recording
           interval: 15s
           rules:
-          - record: onprem:node_cpu_utilization:avg
+          - record: active:node_cpu_utilization:avg
             expr: |
               1 - avg(rate(node_cpu_seconds_total{mode="idle"}[2m]))
-          - record: onprem:node_memory_utilization:avg
+          - record: active:node_memory_utilization:avg
             expr: |
               1 - (avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes))
-          - record: onprem:pending_pods:count
+          - record: active:pending_pods:count
             expr: |
               count(kube_pod_status_phase{phase="Pending",namespace!~"kube-system|monitoring|gitops"}) or vector(0)
 
@@ -71,9 +73,6 @@ prometheus:
 
 # Alertmanager Configuration
 alertmanager:
-  enabled: true
-  # config is managed by Vault + ExternalSecret (not Helm values)
-  # See: secret/k8s/monitoring/alertmanager-prometheus-kube-prometheus-alertmanager
   alertmanagerSpec:
     podMetadata:
       labels:
@@ -98,10 +97,6 @@ alertmanager:
       requests:
         cpu: 50m
         memory: 64Mi
-
-    # Discord webhook secret mount
-    secrets:
-    - alertmanager-discord-webhook
 
 # Node Exporter - Disable due to restricted PSP
 nodeExporter:

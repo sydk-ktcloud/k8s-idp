@@ -1,0 +1,67 @@
+# EKS DR - kube-prometheus-stack (경량)
+# 목적: GKE KEDA가 조회할 active: recording rules 제공
+# Grafana/Alertmanager 비활성 (알림은 GKE Alertmanager가 담당)
+
+grafana:
+  enabled: false
+
+alertmanager:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    retentionSize: "10GiB"
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 15Gi
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+
+    # active: prefix recording rules (On-prem과 동일한 이름)
+    # GKE KEDA는 prometheus-proxy를 통해 이 메트릭을 조회
+    additionalPrometheusRulesMap:
+      active-burst-recording:
+        groups:
+        - name: active.burst.recording
+          interval: 15s
+          rules:
+          - record: active:node_cpu_utilization:avg
+            expr: |
+              1 - avg(rate(node_cpu_seconds_total{mode="idle"}[2m]))
+          - record: active:node_memory_utilization:avg
+            expr: |
+              1 - (avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes))
+          - record: active:pending_pods:count
+            expr: |
+              count(kube_pod_status_phase{phase="Pending",namespace!~"kube-system|monitoring"}) or vector(0)
+
+nodeExporter:
+  enabled: true
+
+kube-state-metrics:
+  releaseLabel: true
+
+prometheusOperator:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi

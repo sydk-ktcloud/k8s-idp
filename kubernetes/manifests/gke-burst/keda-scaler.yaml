@@ -12,11 +12,15 @@ spec:
   maxReplicaCount: 5
   cooldownPeriod: 900        # 15분 유휴 후 scale-to-zero (비용 최적화)
   pollingInterval: 30        # 30초마다 메트릭 평가
+  # 메트릭 소스 전환 중 (On-prem↔EKS) KEDA가 스케일다운하지 않도록 fallback 설정
+  fallback:
+    failureThreshold: 5
+    replicas: 1
   advanced:
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
-          stabilizationWindowSeconds: 120   # 기존 300s → 120s로 단축
+          stabilizationWindowSeconds: 120
           policies:
           - type: Percent
             value: 50
@@ -36,10 +40,11 @@ spec:
             periodSeconds: 15
           selectPolicy: Max
   triggers:
-  # 트리거 1: burst-workloads HTTP 요청률 (기존 로직 유지)
+  # 트리거 1: burst-workloads HTTP 요청률
   - type: prometheus
     metadata:
-      serverAddress: http://10.102.177.113:9090
+      # prometheus-proxy: ConfigMap으로 upstream 전환 (On-prem ↔ EKS)
+      serverAddress: http://prometheus-proxy.burst-workloads:9090
       metricName: http_requests_total_rate
       threshold: "100"
       query: |
@@ -47,23 +52,23 @@ spec:
     authenticationRef:
       name: keda-prometheus-trigger
 
-  # 트리거 2: On-prem 노드 CPU 과부하 (핵심 신규 - On-prem 부하 감지)
+  # 트리거 2: 활성 클러스터 CPU 과부하 (On-prem 또는 EKS DR)
   - type: prometheus
     metadata:
-      serverAddress: http://10.102.177.113:9090
-      metricName: onprem_cpu_utilization
+      serverAddress: http://prometheus-proxy.burst-workloads:9090
+      metricName: active_cpu_utilization
       threshold: "0.70"
-      query: onprem:node_cpu_utilization:avg
+      query: active:node_cpu_utilization:avg
     authenticationRef:
       name: keda-prometheus-trigger
 
-  # 트리거 3: On-prem Pending Pod 백로그
+  # 트리거 3: 활성 클러스터 Pending Pod 백로그
   - type: prometheus
     metadata:
-      serverAddress: http://10.102.177.113:9090
-      metricName: onprem_pending_pods_count
+      serverAddress: http://prometheus-proxy.burst-workloads:9090
+      metricName: active_pending_pods_count
       threshold: "3"
-      query: onprem:pending_pods:count
+      query: active:pending_pods:count
     authenticationRef:
       name: keda-prometheus-trigger
 ---
@@ -73,7 +78,7 @@ metadata:
   name: keda-prometheus-trigger
   namespace: burst-workloads
 spec:
-  # On-prem Prometheus가 인증 없이 운영되는 경우 secretTargetRef 생략 가능
+  # prometheus-proxy는 인증 불필요 (클러스터 내부 통신)
   # 인증이 필요한 경우 아래 주석 해제:
   # secretTargetRef:
   # - parameter: bearerToken
