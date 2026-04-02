@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: {{ values.namespace }}
 
 resources:
+  - namespace.yaml
   - claim.yaml
 
 commonLabels:

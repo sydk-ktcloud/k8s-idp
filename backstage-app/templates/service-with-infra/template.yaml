@@ -315,7 +315,7 @@ spec:
           owner: ${{ parameters.owner }}
           language: ${{ parameters.language }}
           resourceType: ${{ parameters.resourceType }}
-          namespace: default
+          namespace: ${{ parameters.componentName }}
           databaseVersion: ${{ parameters.databaseVersion }}
           tier: ${{ parameters.tier }}
           dbRegion: ${{ parameters.dbRegion }}

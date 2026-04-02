@@ -5,7 +5,8 @@ metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}
@@ -23,7 +24,8 @@ metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}
@@ -40,7 +42,8 @@ metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}
@@ -58,7 +61,8 @@ metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}

@@ -216,7 +216,7 @@ spec:
         values:
           componentName: ${{ parameters.componentName }}
           description: ${{ parameters.description }}
-          namespace: default
+          namespace: ${{ parameters.componentName }}
           serviceType: ${{ parameters.serviceType }}
           userCount: ${{ parameters.userCount }}
           trafficPattern: ${{ parameters.trafficPattern }}
@@ -227,9 +227,7 @@ spec:
           expiresAt: ${{ parameters.expiresAt }}
           owner: ${{ parameters.owner }}
           costCenter: ${{ parameters.costCenter }}
-          destination:
-            owner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
-            repo: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Pull Request 생성

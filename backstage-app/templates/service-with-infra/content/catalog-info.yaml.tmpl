@@ -5,6 +5,7 @@ metadata:
   description: {{ values.description }}
   annotations:
     github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
+    backstage.io/kubernetes-id: {{ values.name }}
 spec:
   owner: {{ values.owner }}
   domain: default
@@ -20,9 +21,15 @@ metadata:
   annotations:
     github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
+    backstage.io/kubernetes-id: {{ values.name }}-service
+    kubecost.com/service-label: {{ values.name }}-service
+    kubecost.com/namespace: {{ values.namespace }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
+
 spec:
   type: service
-  lifecycle: experimental
+  lifecycle: {{ values.lifecycleTier }}
   owner: {{ values.owner }}
   system: {{ values.name }}
   dependsOn:
@@ -38,8 +45,14 @@ metadata:
     - {{ values.resourceType }}
   annotations:
     github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
+    backstage.io/source-location: url:https://github.com/{{ values.destination.owner }}/{{ values.destination.repo }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
+    kubecost.com/service-label: {{ values.name }}-infra
+    kubecost.com/namespace: {{ values.namespace }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
 spec:
   type: {{ values.resourceType }}
-  lifecycle: experimental
+  lifecycle: {{ values.lifecycleTier }}
   owner: {{ values.owner }}
   system: {{ values.name }}

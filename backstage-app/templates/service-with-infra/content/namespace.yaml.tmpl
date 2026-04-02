@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ values.name }}
+  labels:
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}

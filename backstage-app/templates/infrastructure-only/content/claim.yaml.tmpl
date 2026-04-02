@@ -5,7 +5,8 @@ metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.componentName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}
@@ -16,6 +17,7 @@ spec:
   region: {{ values.vmRegion }}
   zone: {{ values.vmZone }}
   diskSize: {{ values.vmDiskSize }}
+
 {% elif values.resourceType == 'bucket' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Bucket
@@ -23,7 +25,8 @@ metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.componentName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}
@@ -33,14 +36,15 @@ spec:
   location: {{ values.bucketLocation }}
   storageClass: {{ values.bucketStorageClass }}
   versioning: {{ values.bucketVersioning }}
-{% elif values.resourceType == 'cluster' -%}
+{% elif values.resourceType === 'cluster' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Cluster
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.componentName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}
@@ -50,14 +54,15 @@ spec:
   location: {{ values.clusterLocation }}
   nodeCount: {{ values.clusterNodeCount }}
   machineType: {{ values.clusterMachineType }}
-{% elif values.resourceType == 'database' -%}
+{% elif values.resourceType === 'database' -%}
 apiVersion: k8s-idp.example.org/v1alpha1
 kind: Database
 metadata:
   name: {{ values.componentName }}
   namespace: {{ values.namespace }}
   labels:
-    team: {{ values.team }}
+    app.kubernetes.io/name: {{ values.componentName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
     owner: {{ values.owner }}
     cost-center: {{ values.costCenter }}
     lifecycle-tier: {{ values.lifecycleTier }}

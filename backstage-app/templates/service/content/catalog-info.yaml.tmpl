@@ -8,8 +8,14 @@ metadata:
     - service
   annotations:
     github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
+    backstage.io/source-location: url:https://github.com/{{ values.destination.owner }}/{{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
+    backstage.io/kubernetes-id: {{ values.name }}
+    kubecost.com/service-label: {{ values.name }}
+    kubecost.com/namespace: {{ values.name }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
 spec:
   type: service
-  lifecycle: experimental
+  lifecycle: {{ values.lifecycleTier }}
   owner: {{ values.owner }}
