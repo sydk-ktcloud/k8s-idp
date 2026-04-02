@@ -9,21 +9,9 @@ metadata:
     policies.kyverno.io/description: >-
       컨테이너 이미지에 :latest 태그 또는 태그 미지정을 차단합니다.
       재현 불가능한 배포를 방지하고 이미지 추적 가능성을 보장합니다.
-
-      현재 Audit 모드: 아래 8개 이미지가 :latest 사용 중이므로 즉시 Enforce 시
-      Pod 재생성이 차단됩니다. 이미지 태그 고정 후 Enforce로 전환하세요.
-
-      영향받는 이미지:
-      - kylekim1223/trip-backend:latest (trip-app)
-      - kylekim1223/trip-front:latest (trip-app, 3곳)
-      - kylekim1223/chatops-bot:latest (chatops)
-      - kylekim1223/backstage-backend:latest (backstage)
-      - summerwind/actions-runner:latest (actions-runner)
-      - ghcr.io/sydk-ktcloud/lifecycle-scanner:latest (lifecycle-scanner)
+      모든 기존 워크로드의 이미지 태그가 고정되었으므로 Enforce 모드로 운영합니다.
 spec:
-  # ⚠️ Audit 모드 — 기존 워크로드 8개가 :latest 사용 중
-  # 이미지 태그 고정 완료 후 Enforce로 전환
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: validate-image-tag
