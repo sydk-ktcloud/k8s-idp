@@ -138,7 +138,7 @@ spec:
     spec:
       containers:
       - name: backstage
-        image: kylekim1223/backstage-backend:latest
+        image: kylekim1223/backstage-backend:sha-5535754
         imagePullPolicy: Always
         env:
         - name: APP_CONFIG_backend_database_client

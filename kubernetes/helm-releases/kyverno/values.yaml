@@ -2,15 +2,47 @@ replicaCount: 3
 
 admissionController:
   replicas: 3
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
 
 backgroundController:
   replicas: 2
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
 
 cleanupController:
   replicas: 2
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
 
 reportsController:
   replicas: 2
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
 
 config:
   # Audit 모드로 시작 (2주 후 Enforce로 전환)

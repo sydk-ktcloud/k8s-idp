@@ -19,7 +19,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: scanner
-              image: ghcr.io/sydk-ktcloud/lifecycle-scanner:latest
+              image: ghcr.io/sydk-ktcloud/lifecycle-scanner:v1.0.0
               imagePullPolicy: Always
               env:
                 - name: DISCORD_LIFECYCLE_WEBHOOK_URL
