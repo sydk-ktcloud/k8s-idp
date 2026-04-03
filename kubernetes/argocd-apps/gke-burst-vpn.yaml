@@ -11,7 +11,8 @@ spec:
     repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
     path: kubernetes/manifests/gke-burst
     directory:
-      recurse: true
+      recurse: false
+      include: "tailscale-gke.yaml"
   destination:
     server: https://34.47.90.121
     namespace: kube-system

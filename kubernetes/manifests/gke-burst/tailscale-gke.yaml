@@ -39,8 +39,7 @@ spec:
             - name: TS_ACCEPT_DNS
               value: "true"
             - name: TS_EXTRA_ARGS
-              # TODO: setup.sh 실행 후 CLOUD_HEADSCALE_IP를 실제 static IP로 교체
-              value: "--login-server=http://CLOUD_HEADSCALE_IP:8080 --advertise-tags=tag:gke-burst"
+              value: "--login-server=http://34.64.109.168:8080 --advertise-tags=tag:gke-burst"
           securityContext:
             capabilities:
               add:
