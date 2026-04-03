@@ -14,6 +14,7 @@ spec:
     - Egress
 
 ---
+# Runner pods: CI 작업 수행 (npm, Docker Hub, GitHub API 등)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -27,20 +28,45 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow from kube-apiserver (runner status reporting)
     - {}
   egress:
-    # DNS
     - ports:
         - port: 53
           protocol: UDP
         - port: 53
           protocol: TCP
-    # GitHub Actions API, npm registry, Docker Hub (HTTPS)
     - ports:
         - port: 443
           protocol: TCP
-    # Kubernetes API server
+    - ports:
+        - port: 6443
+          protocol: TCP
+
+---
+# Controller pod: runner 등록/해제를 위해 GitHub API 접근 필요
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-controller-egress
+  namespace: actions-runner-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: actions-runner-controller
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - {}
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - ports:
+        - port: 443
+          protocol: TCP
     - ports:
         - port: 6443
           protocol: TCP
