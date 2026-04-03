@@ -127,10 +127,10 @@ spec:
           description: ${{ parameters.description or parameters.componentName }}
           owner: ${{ parameters.owner }}
           language: ${{ parameters.language }}
-          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           lifecycleTier: ${{ parameters.lifecycleTier }}
           expiresAt: ${{ parameters.expiresAt }}
           costCenter: ${{ parameters.costCenter }}
+          repoUrl: ${{ parameters.repoUrl }}
 
     - id: publish
       name: 저장소 생성

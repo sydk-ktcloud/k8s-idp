@@ -333,6 +333,7 @@ spec:
           lifecycleTier: ${{ parameters.lifecycleTier }}
           expiresAt: ${{ parameters.expiresAt }}
           costCenter: ${{ parameters.costCenter }}
+          repoUrl: ${{ parameters.repoUrl }}
 
     - id: publish
       name: 저장소 생성

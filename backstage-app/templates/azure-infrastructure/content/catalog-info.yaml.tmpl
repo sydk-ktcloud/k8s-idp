@@ -1,3 +1,12 @@
+{% set repoUrl = values.repoUrl %}
+{% if repoUrl.startswith('https://github.com/') %}
+  {% set repoParts = repoUrl.replace('https://github.com/', '').split('/') %}
+  {% set repoOwner = repoParts[0] %}
+  {% set repoName = repoParts[1] %}
+{% else %}
+  {% set repoOwner = 'unknown' %}
+  {% set repoName = 'unknown' %}
+{% endif %}
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
@@ -8,8 +17,8 @@ metadata:
     - azure
     - {{ values.resourceType }}
   annotations:
-    github.com/project-slug: {{ values.destination.owner }}/{{ values.destination.repo }}
-    backstage.io/source-location: url:https://github.com/{{ values.destination.owner }}/{{ values.destination.repo }}
+    github.com/project-slug: {{ repoOwner }}/{{ repoName }}
+    backstage.io/source-location: url:https://github.com/{{ repoOwner }}/{{ repoName }}
     backstage.io/kubernetes-id: {{ values.componentName }}
     kubecost.com/service-label: {{ values.componentName }}
     kubecost.com/namespace: {{ values.namespace }}
