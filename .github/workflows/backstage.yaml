@@ -31,9 +31,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: 'backstage-app/yarn.lock'
 
       - name: Enable Corepack
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare --activate
 
       - name: Install dependencies
         run: yarn install --immutable
