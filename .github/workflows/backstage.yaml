@@ -32,25 +32,16 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Enable Corepack
-        run: |
-          corepack enable
-          corepack prepare --activate
-
-      - name: Get yarn cache directory
-        id: yarn-cache-dir
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
-
-      - name: Cache yarn dependencies
+      - name: Cache yarn global cache
         uses: actions/cache@v4
         with:
-          path: ${{ steps.yarn-cache-dir.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('backstage-app/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
+          path: ~/.yarn/berry/cache
+          key: yarn-berry-${{ hashFiles('backstage-app/yarn.lock') }}
+          restore-keys: yarn-berry-
 
       - name: Install dependencies
         run: yarn install --immutable
+        timeout-minutes: 10
 
       - name: Type check
         run: yarn tsc
