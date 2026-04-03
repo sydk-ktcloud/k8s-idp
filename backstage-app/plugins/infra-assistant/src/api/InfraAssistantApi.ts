@@ -9,8 +9,59 @@ export interface ChatResponse {
 
 const DEPLOYMENT_NAME = 'gpt-4.1-mini';
 const API_VERSION = '2024-12-01-preview';
+const REQUEST_TIMEOUT_MS = 10000;
 
-const SYSTEM_PROMPT = `
+const FALLBACK_TEMPLATES = [
+  'aws-service-wizard',
+  'aws-infrastructure',
+  'azure-service-wizard',
+  'azure-infrastructure',
+  'service-with-infra',
+  'service',
+  'infrastructure-only',
+  'simple-server',
+];
+
+function getBackendBaseUrl(): string {
+  return window.location.hostname === 'localhost'
+    ? 'http://localhost:7007'
+    : '';
+}
+
+async function fetchTemplateNames(): Promise<string[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(
+      `${getBackendBaseUrl()}/api/catalog/entities?filter=kind=template`,
+      {
+        method: 'GET',
+        signal: controller.signal,
+      },
+    );
+
+    if (!response.ok) {
+      return FALLBACK_TEMPLATES;
+    }
+
+    const data = await response.json();
+    const entities = Array.isArray(data) ? data : data?.items ?? [];
+
+    const names = entities
+      .map((entity: any) => entity?.metadata?.name)
+      .filter((name: string | undefined): name is string => Boolean(name));
+
+    return names.length > 0 ? Array.from(new Set(names)) : FALLBACK_TEMPLATES;
+  } catch {
+    return FALLBACK_TEMPLATES;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildSystemPrompt(templateNames: string[]): string {
+  return `
 당신은 K8S-IDP 플랫폼 Infra Assistant 입니다.
 
 역할:
@@ -23,15 +74,8 @@ const SYSTEM_PROMPT = `
 - 인사, 잡담, 일반 질문에는 템플릿을 추천하지 마세요.
 - 템플릿 추천 시 아래 형식을 반드시 사용하세요.
 
-템플릿 목록:
-aws-service-wizard
-aws-infrastructure
-azure-service-wizard
-azure-infrastructure
-service-with-infra
-service
-infrastructure-only
-simple-server
+현재 템플릿 목록:
+${templateNames.join('\n')}
 
 매핑 규칙:
 - AWS 환경에서 서비스 생성 요청 → aws-service-wizard
@@ -73,43 +117,69 @@ simple-server
 2. <2단계>
 3. <3단계>
 `.trim();
+}
 
+/**
+ * Infra Assistant에 사용자 메시지를 전송하고 응답을 반환합니다.
+ *
+ * @param history 이전 대화 이력
+ * @param userMessage 사용자가 방금 입력한 메시지
+ * @returns assistant 응답 메시지
+ * @throws 네트워크 오류, 타임아웃, Azure OpenAI 호출 실패 시 Error를 던집니다.
+ */
 export async function sendMessage(
   history: Message[],
   userMessage: string,
 ): Promise<ChatResponse> {
+  const templateNames = await fetchTemplateNames();
+  const systemPrompt = buildSystemPrompt(templateNames);
+
   const messages: Message[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt },
     ...history,
     { role: 'user', content: userMessage },
   ];
 
-  const response = await fetch(
-    `http://localhost:7007/api/proxy/azure-openai/openai/deployments/${DEPLOYMENT_NAME}/chat/completions?api-version=${API_VERSION}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `${getBackendBaseUrl()}/api/proxy/azure-openai/openai/deployments/${DEPLOYMENT_NAME}/chat/completions?api-version=${API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          messages,
+          temperature: 0,
+          max_tokens: 600,
+        }),
       },
-      body: JSON.stringify({
-        messages,
-        temperature: 0,
-        max_tokens: 600,
-      }),
-    },
-  );
+    );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[InfraAssistantApi] Azure OpenAI error:', response.status, errorText);
-    throw new Error(`Azure OpenAI API error: ${response.status} - ${errorText}`);
+    if (!response.ok) {
+      throw new Error('Infra Assistant 요청에 실패했습니다.');
+    }
+
+    const data = await response.json();
+
+    return {
+      message:
+        data?.choices?.[0]?.message?.content?.trim() ||
+        '응답을 받았지만 내용이 비어 있습니다.',
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('응답 시간이 초과되었습니다. 다시 시도해주세요.');
+    }
+
+    throw error instanceof Error
+      ? error
+      : new Error('알 수 없는 오류가 발생했습니다.');
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = await response.json();
-
-  return {
-    message:
-      data?.choices?.[0]?.message?.content?.trim() ||
-      '응답을 받았지만 내용이 비어 있습니다.',
-  };
 }

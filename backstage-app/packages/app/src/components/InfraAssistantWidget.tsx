@@ -6,6 +6,7 @@ import IconButton from '@material-ui/core/IconButton';
 import TextField from '@material-ui/core/TextField';
 import Button from '@material-ui/core/Button';
 import Typography from '@material-ui/core/Typography';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import ChatIcon from '@material-ui/icons/Chat';
 import CloseIcon from '@material-ui/icons/Close';
 import { sendMessage } from '../../../../plugins/infra-assistant/src/api/InfraAssistantApi';
@@ -20,26 +21,66 @@ type Position = {
   y: number;
 };
 
+type PersistedChatState = {
+  messages: ChatMessage[];
+  savedAt: number;
+};
+
 const BUBBLE_SIZE = 60;
 const PANEL_WIDTH = 380;
 const PANEL_HEIGHT = 600;
 const GAP = 24;
+const STORAGE_KEY = 'infra-assistant-chat-history';
+const STORAGE_TTL_MS = 1000 * 60 * 60 * 12;
+
+function getInitialMessages(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return [
+        {
+          role: 'assistant',
+          text: '안녕하세요. Infra Assistant입니다. 필요한 내용을 질문해주세요.',
+        },
+      ];
+    }
+
+    const parsed: PersistedChatState = JSON.parse(raw);
+    const isExpired = Date.now() - parsed.savedAt > STORAGE_TTL_MS;
+
+    if (isExpired || !Array.isArray(parsed.messages) || parsed.messages.length === 0) {
+      localStorage.removeItem(STORAGE_KEY);
+      return [
+        {
+          role: 'assistant',
+          text: '안녕하세요. Infra Assistant입니다. 필요한 내용을 질문해주세요.',
+        },
+      ];
+    }
+
+    return parsed.messages;
+  } catch {
+    return [
+      {
+        role: 'assistant',
+        text: '안녕하세요. Infra Assistant입니다. 필요한 내용을 질문해주세요.',
+      },
+    ];
+  }
+}
 
 export const InfraAssistantWidget = () => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      text: '안녕하세요. Infra Assistant입니다. 필요한 내용을 질문해주세요.',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(getInitialMessages);
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
   const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const bubbleNodeRef = useRef<HTMLDivElement>(null);
   const panelNodeRef = useRef<HTMLDivElement>(null);
   const bubbleDraggedRef = useRef(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const initialX = window.innerWidth - BUBBLE_SIZE - GAP;
@@ -48,13 +89,28 @@ export const InfraAssistantWidget = () => {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        messages,
+        savedAt: Date.now(),
+      }),
+    );
+  }, [messages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
   const sendMessageHandler = async () => {
-    if (!input.trim()) return;
+    if (isLoading || !input.trim()) return;
 
     const userText = input.trim();
 
     setMessages(prev => [...prev, { role: 'user', text: userText }]);
     setInput('');
+    setIsLoading(true);
 
     try {
       const historyForApi = messages.map(msg => ({
@@ -69,17 +125,18 @@ export const InfraAssistantWidget = () => {
         { role: 'assistant', text: response.message },
       ]);
     } catch (error) {
-      console.error('Infra Assistant error:', error);
-
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          text: `Infra Assistant 호출 실패: ${
-            error instanceof Error ? error.message : '알 수 없는 오류'
-          }`,
+          text:
+            error instanceof Error
+              ? error.message
+              : 'Infra Assistant 호출 중 오류가 발생했습니다.',
         },
       ]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -243,6 +300,24 @@ export const InfraAssistantWidget = () => {
                     </div>
                   </div>
                 ))}
+
+                {isLoading && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginTop: 8,
+                    }}
+                  >
+                    <CircularProgress size={18} />
+                    <Typography variant="body2" color="textSecondary">
+                      답변 생성 중...
+                    </Typography>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
               </div>
 
               <div
@@ -261,9 +336,11 @@ export const InfraAssistantWidget = () => {
                   variant="outlined"
                   placeholder="질문을 입력하세요..."
                   value={input}
+                  disabled={isLoading}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
                       sendMessageHandler();
                     }
                   }}
@@ -272,8 +349,9 @@ export const InfraAssistantWidget = () => {
                   variant="contained"
                   color="primary"
                   onClick={sendMessageHandler}
+                  disabled={isLoading || !input.trim()}
                 >
-                  전송
+                  {isLoading ? '전송 중' : '전송'}
                 </Button>
               </div>
             </Paper>
