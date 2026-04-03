@@ -35,6 +35,8 @@ jobs:
       - name: Install dependencies
         run: node .yarn/releases/yarn-4.4.1.cjs install --immutable
         timeout-minutes: 10
+        env:
+          YARN_ENABLE_HARDENED_MODE: 0
 
       - name: Type check
         run: node .yarn/releases/yarn-4.4.1.cjs tsc
