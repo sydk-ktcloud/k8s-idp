@@ -114,12 +114,12 @@ data:
           target: /app/examples/entities.yaml
           
     proxy:
-          '/kubecost':
-            target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
-            changeOrigin: true
-    
-        kubecost:
-          baseUrl: /api/proxy/kubecost
+      '/kubecost':
+        target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
+        changeOrigin: true
+
+    kubecost:
+      baseUrl: /api/proxy/kubecost
 ---
 apiVersion: apps/v1
 kind: Deployment

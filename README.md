@@ -16,7 +16,7 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 | **VPN** | Cloud Headscale (GCP) + Headplane | ✅ 배포됨 | GCP 항시 가동, On-prem SPOF 해소 |
 | **SSO** | Dex OIDC | ✅ 배포됨 | 7명 사용자, 다중 서비스 연동 |
 | **GitOps** | ArgoCD | ✅ 배포됨 | Application of Apps 패턴 |
-| **시크릿** | Vault | 🔄 구성됨 | HA Raft 구성, 배포 대기 |
+| **시크릿** | Vault + ESO | ✅ 배포됨 | HA Raft ×3 + External Secrets Operator 연동 |
 | **저장소** | Longhorn + MinIO | ✅ 배포됨 | 블록 스토리지 + 오브젝트 스토리지 |
 | **관찰가능성** | Prometheus + Grafana + LGTM | ✅ 배포됨 | Metrics, Logs, Traces |
 | **백업** | Longhorn Backup + Velero | ✅ 배포됨 | PV 백업 + 클러스터 상태 백업 |
@@ -752,6 +752,93 @@ kubectl label namespace <namespace> istio.io/dataplane-mode-
 | Admin, Platform, GitOps, Security, SRE | role:admin | cluster-admin |
 | FinOps, AI | role:readonly | view |
 
+---
+
+### 시크릿 관리 (Vault + ESO)
+
+모든 민감 정보는 **HashiCorp Vault → External Secrets Operator → Kubernetes Secret** 단방향 흐름으로 주입됩니다. 애플리케이션은 K8s Secret만 바라보며 Vault를 직접 참조하지 않습니다.
+
+#### 주입 흐름
+
+```
+관리자 (vault kv put)
+      │
+      ▼
+┌──────────────────────────────────┐
+│  HashiCorp Vault  (HA Raft ×3)  │
+│  namespace: vault               │
+│  path: secret/k8s/{ns}/{name}   │  ← KV v2, plaintext 저장
+└────────────────┬─────────────────┘
+                 │ Kubernetes Auth
+                 │ (external-secrets SA → default-app-role → allow_secrets 정책)
+                 ▼
+┌──────────────────────────────────┐
+│  External Secrets Operator      │
+│  ClusterSecretStore: vault-secret-store │
+│  ExternalSecret refreshInterval: 1h    │
+└────────────────┬─────────────────┘
+                 │ 생성/갱신 (creationPolicy: Owner)
+                 ▼
+┌──────────────────────────────────┐
+│  Kubernetes Secret               │
+│  각 namespace에 자동 동기화      │
+└────────────────┬─────────────────┘
+                 │ envFrom.secretRef
+                 ▼
+         Application Pod
+```
+
+#### Vault 경로 규칙
+
+```
+secret/k8s/{kubernetes-namespace}/{secret-name}
+```
+
+| Vault 경로 | 네임스페이스 | 용도 |
+|------------|-------------|------|
+| `secret/k8s/auth/dex-oidc-secrets` | auth | Dex OIDC 클라이언트 시크릿 5종 |
+| `secret/k8s/auth/dex-github-secret` | auth | GitHub OAuth 연동 |
+| `secret/k8s/gitops/argocd-secret` | gitops | ArgoCD TLS 인증서, admin 패스워드 |
+| `secret/k8s/gitops/argocd-redis` | gitops | ArgoCD Redis 패스워드 |
+| `secret/k8s/gitops/repo-k8s-idp` | gitops | ArgoCD SSH repo 자격증명 |
+| `secret/k8s/backstage/backstage-backend-secrets` | backstage | DB, OIDC, GitHub 토큰 |
+| `secret/k8s/monitoring/grafana-oauth-secret` | monitoring | Grafana OAuth + admin |
+| `secret/k8s/monitoring/loki-minio-credentials` | monitoring | Loki → MinIO 접근키 |
+| `secret/k8s/monitoring/tempo-minio-credentials` | monitoring | Tempo → MinIO 접근키 |
+| `secret/k8s/minio-storage/minio-credentials` | minio-storage | MinIO root 자격증명 |
+| `secret/k8s/kube-system/tailscale-auth` | kube-system | Tailscale VPN auth key (CI/CD 전용) |
+| `secret/k8s/chatops/chatops-bot-secret` | chatops | Discord Bot, Azure OpenAI |
+
+#### 시크릿 적재 방법
+
+```bash
+# 1. Vault 접속
+kubectl port-forward svc/vault -n vault 8200:8200
+vault login  # ~/.vault-token 사용 또는 root token
+
+# 2. 플레이스홀더 초기 적재 (신규 클러스터)
+bash security/migration/seed-vault-secrets.sh
+
+# 3. 실제 값 입력
+vault kv put secret/k8s/<namespace>/<name> key=actual-value
+
+# 4. ESO 강제 재동기화
+kubectl annotate externalsecret <name> -n <namespace> \
+  force-sync=$(date +%s) --overwrite
+```
+
+> **주의**: Vault에는 반드시 **plaintext**로 저장해야 합니다. base64 인코딩 후 저장 시 K8s Secret에서 이중 인코딩이 발생하여 앱이 손상된 값을 수신합니다.
+
+#### 관련 파일
+
+| 파일 | 역할 |
+|------|------|
+| `security/vault-infra/vault/vault-config.yaml` | Vault CR (Bank-Vaults Operator) |
+| `security/vault-infra/eso/secret-store.yaml` | ClusterSecretStore (Kubernetes auth) |
+| `security/vault-infra/eso/external-secrets/` | ExternalSecret 매니페스트 14종 |
+| `security/migration/seed-vault-secrets.sh` | 초기 플레이스홀더 적재 스크립트 |
+| `security/migration/migrate-k8s.sh` | 기존 K8s Secret → Vault 이관 스크립트 |
+
 ## 로깅 전략
 
 클러스터의 모든 관측 신호는 **LGTM 스택**을 통해 단일 Grafana 대시보드로 통합됩니다.
@@ -1131,46 +1218,111 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 
 ## CI/CD 파이프라인
 
-Self-hosted runner (Actions Runner Controller) + ArgoCD GitOps 기반 파이프라인입니다.
+Self-hosted Runner (Actions Runner Controller) + ArgoCD GitOps 기반 파이프라인입니다.
 
-### 인프라
+### 전체 흐름
 
-| 컴포넌트 | 설명 |
-|----------|------|
-| **Actions Runner Controller** | k8s 클러스터 내 self-hosted runner 운영 (`actions-runner-system`) |
-| **Runner** | `sydk-ktcloud/k8s-idp` 레포 전용 2 replicas, GitHub App 인증 |
-| **ArgoCD** | GitOps sync 엔드포인트 (`gitops` 네임스페이스) |
+```
+개발자: git push main
+          │
+          ├─[backstage-app/** 변경]──────────────────────────────────┐
+          │                                                           │
+          │  backstage.yaml                                           │
+          │  [ci] yarn tsc / lint / test (self-hosted)               │
+          │       │ needs: ci                                         │
+          │  [build-image] Docker build & push                       │
+          │       → docker.io/kylekim1223/backstage-backend:latest   │
+          │       │ needs: build-image                               │
+          │       └──────────────────────────────────────────────────┤
+          │                                                           │
+          └─[기타 경로 변경]                                          │
+               deploy.yaml                                           │
+               └─ uses: argocd-sync.yaml ──────────────────────────┘
+                                │
+                                ▼
+                  [sync job] self-hosted runner
+                  1. POST /api/v1/session          → ARGOCD_TOKEN 발급
+                  2. POST /api/v1/applications/k8s-idp/sync
+                  3. Polling sync status (5초 간격, 최대 150초)
+                  4. status == "Synced" → 성공
+                                │
+                                ▼
+                  ArgoCD (namespace: gitops)
+                  App of Apps: k8s-idp
+                  └─ source: kubernetes/argocd-apps/
+                     syncPolicy: automated (prune + selfHeal)
+                     → 하위 Application 전체 자동 동기화
+```
+
+### Self-hosted Runner 구성
+
+```
+Actions Runner Controller (namespace: actions-runner-system)
+  │
+  ├─ Deployment: actions-runner-controller
+  │   └─ Secret: controller-manager
+  │       ├─ github_app_id:              3106531
+  │       ├─ github_app_installation_id: 116824106
+  │       └─ github_app_private_key:     <RSA PEM>  ← GitHub App에서 발급
+  │
+  └─ RunnerDeployment: k8s-idp-runner-d8gtg
+      ├─ replicas: 2
+      ├─ labels: ["self-hosted", "k8s-idp"]
+      └─ repository: sydk-ktcloud/k8s-idp
+```
+
+> **GitHub App private key 갱신**: GitHub → Settings → Developer settings → GitHub Apps → App ID 3106531 → Private keys → Generate a private key
+> ```bash
+> kubectl create secret generic controller-manager \
+>   -n actions-runner-system \
+>   --from-literal=github_app_id=3106531 \
+>   --from-literal=github_app_installation_id=116824106 \
+>   --from-file=github_app_private_key=/path/to/new-key.pem \
+>   --dry-run=client -o yaml | kubectl apply -f -
+> kubectl rollout restart deployment actions-runner-controller -n actions-runner-system
+> ```
+
+### ArgoCD App of Apps 구조
+
+`k8s-idp` Application이 `kubernetes/argocd-apps/` 디렉토리 전체를 관리합니다.
+
+```
+k8s-idp (App of Apps)  ←  git push 시 GitHub Actions가 sync 트리거
+  ├─ argocd.yaml           ArgoCD 자체 설정
+  ├─ vault.yaml            Vault + Bank-Vaults Operator
+  ├─ dex.yaml              Dex OIDC (SSO)
+  ├─ backstage.yaml        Backstage 개발자 포털
+  ├─ monitoring.yaml       Prometheus + Grafana + Loki + Tempo
+  ├─ cilium.yaml           Cilium CNI + Hubble
+  ├─ longhorn.yaml         Longhorn 스토리지
+  ├─ minio-distributed.yaml MinIO 오브젝트 스토리지
+  ├─ kubecost.yaml         비용 모니터링
+  ├─ crossplane.yaml       클라우드 리소스 IaC
+  ├─ velero.yaml           클러스터 백업
+  ├─ trip-app.yaml         trip-app (GKE Burst 대상)
+  ├─ eks-dr.yaml           EKS DR 구성
+  └─ ...
+```
 
 ### Workflows
 
-| 워크플로우 | 트리거 | 동작 |
-|------------|--------|------|
-| **Deploy to K8s** | `main` push (backstage 제외) | ArgoCD `k8s-idp` app sync |
-| **Backstage CI/CD** | `backstage-app/**` push/PR | TypeCheck → Lint → Test → Docker 빌드/푸시 → ArgoCD sync |
-| **Chatops CI/CD** | `chatops-app/**` push | Docker 빌드/푸시 → ArgoCD sync |
-
-### 배포 흐름
-
-```
-git push → GitHub Actions (self-hosted runner)
-               │
-               ├─ backstage-app/** → Build & Push (kylekim1223/backstage-backend)
-               ├─ chatops-app/**   → Build & Push (kylekim1223/chatops-bot)
-               │
-               └─ ArgoCD Sync (argocd-sync.yaml reusable workflow)
-                      │
-                      └─ ArgoCD pulls from Git → k8s 클러스터 반영
-```
+| 파일 | 트리거 | 실행 위치 | 동작 |
+|------|--------|-----------|------|
+| `deploy.yaml` | `main` push (backstage 제외) | self-hosted | ArgoCD `k8s-idp` sync |
+| `backstage.yaml` | `backstage-app/**` push/PR | self-hosted | TypeCheck → Lint → Test → Docker push → ArgoCD sync |
+| `chatops.yaml` | `chatops-app/**` push | self-hosted | Docker push → ArgoCD sync |
+| `argocd-sync.yaml` | reusable (workflow_call) | self-hosted | ArgoCD API 로그인 → sync → 상태 polling |
+| `approval-gate.yaml` | PR (`apps/*/claim.yaml` 변경) | ubuntu-latest | Cluster/prod 리소스 → 플랫폼팀 리뷰 요청 |
 
 ### 필요한 GitHub Secrets
 
 | Secret | 용도 |
 |--------|------|
-| `ARGOCD_SERVER` | ArgoCD API 엔드포인트 |
+| `ARGOCD_SERVER` | ArgoCD API 엔드포인트 (`http://100.64.0.1:30081`) |
 | `ARGOCD_USERNAME` | ArgoCD 로그인 계정 |
 | `ARGOCD_PASSWORD` | ArgoCD 로그인 비밀번호 |
 | `DOCKERHUB_USERNAME` | Docker Hub 푸시 계정 |
-| `DOCKER_PASSWORD` | Docker Hub 토큰 |
+| `DOCKER_PASSWORD` | Docker Hub 패스워드 |
 
 ## 문서
 
@@ -1178,6 +1330,7 @@ git push → GitHub Actions (self-hosted runner)
 - [Kubernetes 접근 가이드](docs/k8s-access-guide.md)
 - [Hubble 설치 가이드](docs/hubble-install-guide.md)
 - [Vault 설치 가이드](security/vault/docs/vault-install.md)
+- [시크릿 주입 흐름 및 CI/CD 파이프라인 상세](docs/secret-and-cicd-flow.md)
 - [Dex README](kubernetes/helm-releases/dex/README.md)
 - [네트워크 정책 통신 매트릭스](kubernetes/network-policies/COMMUNICATION-MATRIX.md)
 - [DR 복구 절차서](docs/dr-runbook.md)

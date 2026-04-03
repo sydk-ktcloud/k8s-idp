@@ -82,66 +82,20 @@ check_vault_auth() {
 #        (secret-store.yaml 참고 - caBundle, kubernetes auth 방식 사용)
 # =============================================================================
 setup_cluster_secret_store() {
-    log_info "[단계 1] 이관용 제한 토큰 생성 및 ClusterSecretStore 확인"
+    log_info "[단계 1] ClusterSecretStore 확인"
 
     kubectl create namespace "$ESO_NS" 2>/dev/null || true
 
-    # [보안] Root Token이 아닌 allow_secrets 정책의 단기 토큰 생성
-    # vault token create는 ~/.vault-token 또는 $VAULT_TOKEN을 자동으로 사용
-    local migration_token
-    migration_token=$(vault token create \
-        -policy="allow_secrets" \
-        -ttl="2h" \
-        -display-name="eso-migration" \
-        -format=json \
-        | jq -r '.auth.client_token')
-
-    if [ -z "$migration_token" ]; then
-        log_error "이관용 토큰 생성 실패. Vault 권한을 확인하세요."
+    # ClusterSecretStore는 반드시 secret-store.yaml (Kubernetes auth) 방식을 사용해야 합니다.
+    # tokenSecretRef 방식은 이중 인증 방식 혼재를 유발하므로 사용하지 않습니다.
+    if ! kubectl get clustersecretstore "$ESO_SECRETSTORE" &>/dev/null; then
+        log_error "ClusterSecretStore '${ESO_SECRETSTORE}' 가 존재하지 않습니다."
+        log_error "먼저 아래 명령으로 적용하세요:"
+        log_error "  kubectl apply -f security/vault-infra/eso/secret-store.yaml"
         exit 1
     fi
 
-    # [보안] printf를 사용하여 토큰을 stdin으로 전달 (shell history 노출 방지)
-    kubectl create secret generic vault-token \
-        -n "$ESO_NS" \
-        --from-file=token=<(printf '%s' "$migration_token") \
-        --dry-run=client -o yaml | kubectl apply -f - &>/dev/null
-
-    unset migration_token
-    log_success "이관용 제한 토큰(TTL 2h) Secret 생성/갱신 완료"
-
-    # ClusterSecretStore가 이미 존재하면 덮어쓰지 않음
-    # (secret-store.yaml의 Kubernetes 인증 방식을 유지)
-    if kubectl get clustersecretstore "$ESO_SECRETSTORE" &>/dev/null; then
-        log_warn "ClusterSecretStore '${ESO_SECRETSTORE}' 가 이미 존재합니다. 덮어쓰지 않습니다."
-        log_success "ClusterSecretStore 확인 완료"
-        return
-    fi
-
-    kubectl apply -f - >/dev/null <<EOF
-apiVersion: external-secrets.io/v1
-kind: ClusterSecretStore
-metadata:
-  name: ${ESO_SECRETSTORE}
-spec:
-  provider:
-    vault:
-      server: "https://vault.vault.svc.cluster.local:8200"
-      path: "secret"
-      version: "v2"
-      caProvider:
-        type: Secret
-        name: "vault-tls"
-        key: "ca.crt"
-        namespace: "vault"
-      auth:
-        tokenSecretRef:
-          name: vault-token
-          key: token
-          namespace: ${ESO_NS}
-EOF
-
-    log_success "ClusterSecretStore 생성 완료"
+    log_success "ClusterSecretStore '${ESO_SECRETSTORE}' 확인 완료 (Kubernetes auth)"
 }
 
 # =============================================================================
@@ -229,7 +183,6 @@ spec:
   dataFrom:
     - extract:
         key: ${VAULT_PATH_PREFIX}/${ns}/${secret}
-        decodingStrategy: Base64
 EOF
 
     if ! kubectl apply -f "$yaml_file" >/dev/null; then
