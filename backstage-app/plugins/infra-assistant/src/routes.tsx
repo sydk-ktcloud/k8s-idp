@@ -1,7 +1,5 @@
-import React from 'react';
-import { Route } from 'react-router-dom';
-import { ChatPage } from './components/ChatPage';
+import { createRouteRef } from '@backstage/core-plugin-api';
 
-export const infraAssistantRoutes = (
-  <Route path="/" element={<ChatPage />} />
-);
+export const rootRouteRef = createRouteRef({
+  id: 'infra-assistant',
+});
