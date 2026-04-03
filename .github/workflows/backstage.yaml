@@ -32,25 +32,18 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Cache yarn global cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.yarn/berry/cache
-          key: yarn-berry-${{ hashFiles('backstage-app/yarn.lock') }}
-          restore-keys: yarn-berry-
-
       - name: Install dependencies
-        run: yarn install --immutable
+        run: node .yarn/releases/yarn-4.4.1.cjs install --immutable
         timeout-minutes: 10
 
       - name: Type check
-        run: yarn tsc
+        run: node .yarn/releases/yarn-4.4.1.cjs tsc
 
       - name: Lint
-        run: yarn lint:all
+        run: node .yarn/releases/yarn-4.4.1.cjs lint:all
 
       - name: Test
-        run: yarn test:all
+        run: node .yarn/releases/yarn-4.4.1.cjs test:all
         continue-on-error: true
 
   build-image:
