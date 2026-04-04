@@ -39,21 +39,25 @@ spec:
                   type: string
                   description: Node machine type
                   default: e2-standard-2
+                autopilot:
+                  type: boolean
+                  description: Enable GKE Autopilot (no cluster mgmt fee, pay-per-pod)
+                  default: true
+                spotPods:
+                  type: boolean
+                  description: Use Spot VMs for burst pods (Autopilot Spot scheduling)
+                  default: true
                 minNodeCount:
                   type: integer
-                  description: Minimum node count for autoscaling (0 = scale to zero)
+                  description: Minimum node count (Standard mode only, ignored in Autopilot)
                   default: 0
                 maxNodeCount:
                   type: integer
-                  description: Maximum node count for autoscaling
+                  description: Maximum node count (Standard mode only, ignored in Autopilot)
                   default: 5
-                preemptible:
-                  type: boolean
-                  description: Use preemptible VMs for cost savings
-                  default: true
                 diskSizeGb:
                   type: integer
-                  description: Node disk size in GB
+                  description: Node disk size in GB (Standard mode only)
                   default: 50
                 network:
                   type: string

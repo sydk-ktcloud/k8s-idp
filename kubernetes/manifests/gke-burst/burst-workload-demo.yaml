@@ -17,14 +17,13 @@ spec:
         app: burst-demo
         burst: "true"
     spec:
-      # Preemptible VM 중단 시 최대 30초 graceful termination
+      # Spot VM 중단 시 최대 30초 graceful termination
       terminationGracePeriodSeconds: 30
-      # Preemptible 노드에만 스케줄 (On-prem 노드 사용 방지)
+      # Autopilot Spot Pod 스케줄링 (preemptible 대비 ~60-91% 할인)
       nodeSelector:
-        cloud.google.com/gke-preemptible: "true"
-      # Preemptible 노드의 taint 허용
+        cloud.google.com/gke-spot: "true"
       tolerations:
-      - key: "cloud.google.com/gke-preemptible"
+      - key: "cloud.google.com/gke-spot"
         operator: "Equal"
         value: "true"
         effect: "NoSchedule"

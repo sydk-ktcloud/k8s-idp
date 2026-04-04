@@ -12,11 +12,8 @@ metadata:
 spec:
   name: k8s-idp-burst
   location: asia-northeast3
-  machineType: e2-standard-2
-  minNodeCount: 0
-  maxNodeCount: 5
-  diskSizeGb: 50
-  preemptible: true
+  autopilot: true
+  spotPods: true
   network: default
   writeConnectionSecretToRef:
     name: gke-burst-kubeconfig
