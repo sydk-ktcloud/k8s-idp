@@ -41,6 +41,13 @@ spec:
     - ports:
         - port: 6443
           protocol: TCP
+    # ArgoCD NodePort (CI에서 ArgoCD sync 호출)
+    - to:
+        - ipBlock:
+            cidr: 100.64.0.0/10
+      ports:
+        - port: 30081
+          protocol: TCP
 
 ---
 # Controller pod: runner 등록/해제를 위해 GitHub API 접근 필요
