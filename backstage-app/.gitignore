@@ -29,6 +29,7 @@ node_modules/
 # dotenv environment variables file
 .env
 .env.test
+app-config.local.yaml
 
 # Build output
 dist

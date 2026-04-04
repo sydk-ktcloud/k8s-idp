@@ -32,20 +32,20 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Enable Corepack
-        run: corepack enable
-
       - name: Install dependencies
-        run: yarn install --immutable
+        run: node .yarn/releases/yarn-4.4.1.cjs install --immutable
+        timeout-minutes: 10
+        env:
+          YARN_ENABLE_HARDENED_MODE: 0
 
       - name: Type check
-        run: yarn tsc
+        run: node .yarn/releases/yarn-4.4.1.cjs tsc
 
       - name: Lint
-        run: yarn lint:all
+        run: node .yarn/releases/yarn-4.4.1.cjs lint:all
 
       - name: Test
-        run: yarn test:all
+        run: node .yarn/releases/yarn-4.4.1.cjs test:all
         continue-on-error: true
 
   build-image:
