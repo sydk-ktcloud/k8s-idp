@@ -1,0 +1,13 @@
+FROM python:3.12-slim
+
+RUN pip install --no-cache-dir \
+    boto3 \
+    google-auth \
+    google-cloud-billing \
+    azure-identity \
+    azure-mgmt-consumption \
+    azure-mgmt-costmanagement
+
+COPY cloud-credit-monitor.py /app/monitor.py
+
+ENTRYPOINT ["python3", "/app/monitor.py"]
