@@ -1,0 +1,50 @@
+---
+# headscale role: Headscale 컨트롤 서버 설정 (KVM 호스트)
+
+- name: Docker 설치 확인
+  command: docker --version
+  changed_when: false
+
+- name: Headscale 디렉토리 생성
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /home/{{ ansible_user }}/headscale-docker/config
+    - /home/{{ ansible_user }}/headscale-docker/data
+
+- name: Headscale 설정 파일 배포
+  template:
+    src: config.yaml.j2
+    dest: /home/{{ ansible_user }}/headscale-docker/config/config.yaml
+    mode: "0644"
+  notify: restart headscale
+
+- name: DERP map 배포
+  template:
+    src: derp.yaml.j2
+    dest: /home/{{ ansible_user }}/headscale-docker/config/derp.yaml
+    mode: "0644"
+  notify: restart headscale
+
+- name: ACL policy 배포
+  copy:
+    src: acl_policy.hujson
+    dest: /home/{{ ansible_user }}/headscale-docker/config/acl_policy.hujson
+    mode: "0644"
+  notify: restart headscale
+
+- name: Headscale 컨테이너 실행
+  community.docker.docker_container:
+    name: headscale
+    image: headscale/headscale:0.28.0
+    state: started
+    restart_policy: unless-stopped
+    command: serve
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - /home/{{ ansible_user }}/headscale-docker/config:/etc/headscale:rw
+      - /home/{{ ansible_user }}/headscale-docker/data:/var/lib/headscale:rw

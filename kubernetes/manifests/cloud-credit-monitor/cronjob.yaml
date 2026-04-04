@@ -34,8 +34,8 @@ spec:
               type: RuntimeDefault
           containers:
           - name: monitor
-            image: kylekim1223/cloud-credit-monitor:v1.1.0
-            imagePullPolicy: IfNotPresent
+            image: kylekim1223/cloud-credit-monitor:main
+            imagePullPolicy: Always
             securityContext:
               allowPrivilegeEscalation: false
               capabilities:

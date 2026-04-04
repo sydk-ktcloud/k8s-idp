@@ -12,6 +12,7 @@ node_modules/
 *_secret.env
 .env
 .env.*
+.vault_pass
 
 # GCP Service Account Keys
 *-d0b8f9185818.json

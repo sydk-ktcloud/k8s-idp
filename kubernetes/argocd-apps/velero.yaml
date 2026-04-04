@@ -11,10 +11,69 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/velero
-    directory:
-      recurse: true
+    repoURL: https://vmware-tanzu.github.io/helm-charts
+    chart: velero
+    targetRevision: "7.1.0"
+    helm:
+      valueFiles: []
+      values: |
+        configuration:
+          backupStorageLocation:
+          - name: default
+            provider: aws
+            bucket: velero
+            default: true
+            config:
+              region: minio
+              s3ForcePathStyle: "true"
+              s3Url: http://minio.minio-storage:9000
+              publicUrl: http://minio.minio-storage:9000
+          volumeSnapshotLocation:
+          - name: default
+            provider: aws
+            config:
+              region: minio
+        credentials:
+          useSecret: true
+          existingSecret: velero-credentials
+        initContainers:
+        - name: velero-plugin-for-aws
+          image: velero/velero-plugin-for-aws:v1.9.0
+          volumeMounts:
+          - mountPath: /target
+            name: plugins
+        schedules:
+          daily-cluster-backup:
+            disabled: false
+            schedule: "0 1 * * *"
+            useOwnerReferencesInBackup: false
+            template:
+              ttl: "336h"
+              includedNamespaces:
+              - "*"
+              excludedNamespaces:
+              - velero
+              storageLocation: default
+              volumeSnapshotLocations:
+              - default
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        podLabels:
+          team: platform
+          owner: team-sre
+          cost-center: internal-platform
+          env: prod
+          system: backup
+          service: velero
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: velero

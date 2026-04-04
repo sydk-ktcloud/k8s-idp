@@ -14,11 +14,12 @@ allowVolumeExpansion: true
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 parameters:
-  numberOfReplicas: "2"          # 4노드 클러스터에 맞춰 2副本
+  numberOfReplicas: "3"
   staleReplicaTimeout: "30"
   fromBackup: ""
   fsType: "ext4"
-  dataEngine: "v1"               # v1 = SPDK 없이 동작
+  dataLocality: "disabled"
+  unmapMarkSnapChainRemoved: "ignored"
 
 ---
 # local-path를 기본에서 제외
@@ -29,3 +30,4 @@ metadata:
   annotations:
     storageclass.kubernetes.io/is-default-class: "false"
 provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer

@@ -1,0 +1,9 @@
+---
+# node-hardening.yml - 로그 관리 및 안정성 설정만 적용
+# 기존 클러스터에 예방책만 적용할 때 사용
+# 사용법: ansible-playbook playbooks/node-hardening.yml
+
+- name: 노드 안정성 강화 (로그 관리 + multipath)
+  hosts: k8s_nodes
+  roles:
+    - common

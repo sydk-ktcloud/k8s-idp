@@ -1,0 +1,2 @@
+# Tailscale/Headscale 공통 변수
+headscale_server: 192.168.45.245

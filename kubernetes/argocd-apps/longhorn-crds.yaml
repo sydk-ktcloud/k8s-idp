@@ -1,0 +1,45 @@
+# Longhorn CRD 전용 ArgoCD Application
+# Longhorn Helm chart의 CRD를 별도로 관리하여 CRD 누락 방지
+# 배경: ArgoCD directory 모드에서는 Helm CRD가 설치되지 않음
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn-crds
+  namespace: gitops
+  labels:
+    app.kubernetes.io/name: longhorn-crds
+    app.kubernetes.io/component: storage
+spec:
+  project: default
+  source:
+    repoURL: https://charts.longhorn.io
+    chart: longhorn
+    targetRevision: "1.6.2"
+    helm:
+      # CRD만 설치, 나머지 리소스는 기존 longhorn 앱에서 관리
+      values: |
+        # 모든 컴포넌트 비활성화 — CRD만 sync
+        persistence:
+          defaultClass: false
+        longhornManager:
+          enabled: false
+        longhornUI:
+          replicas: 0
+        longhornDriver:
+          enabled: false
+        csi:
+          attacherReplicaCount: 0
+          provisionerReplicaCount: 0
+          resizerReplicaCount: 0
+          snapshotterReplicaCount: 0
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - Replace=false
+      - ServerSideApply=true

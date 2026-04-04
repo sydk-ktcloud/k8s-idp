@@ -1,0 +1,44 @@
+# Headscale Configuration - Managed by Ansible
+server_url: http://{{ headscale_server_ip }}:8080
+listen_addr: 0.0.0.0:8080
+metrics_listen_addr: 127.0.0.1:9090
+grpc_listen_addr: 0.0.0.0:50443
+grpc_allow_insecure: true
+
+database:
+  type: sqlite
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+
+policy:
+  mode: file
+  path: /etc/headscale/acl_policy.hujson
+
+log_level: info
+
+prefixes:
+  v6: fd7a:115c:a1e0::/64
+  v4: 100.64.0.0/10
+
+dns:
+  base_domain: k8s.local
+  nameservers:
+    global:
+      - 1.1.1.1
+      - 8.8.8.8
+  magic_dns: true
+
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+
+derp:
+  server:
+    enabled: false
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default
+  paths:
+    - /etc/headscale/derp.yaml
+  auto_update_enabled: true
+  update_frequency: 3h
+
+ephemeral_node_inactivity_timeout: 30m

@@ -1,0 +1,61 @@
+name: Cloud Credit Monitor CI/CD
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'scripts/cloud-credit-monitor.py'
+      - 'scripts/Dockerfile.cloud-credit-monitor'
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: kylekim1223/cloud-credit-monitor
+
+jobs:
+  build-image:
+    name: Build & Push Docker Image
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./scripts
+          file: ./scripts/Dockerfile.cloud-credit-monitor
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to K8s
+    needs: build-image
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    uses: ./.github/workflows/argocd-sync.yaml
+    with:
+      application: cloud-credit-monitor
+    secrets: inherit

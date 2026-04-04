@@ -46,14 +46,26 @@ spec:
               mc alias set s3 https://s3.us-west-2.amazonaws.com \
                 "$AWS_ACCESS_KEY" "$AWS_SECRET_KEY" || { echo "S3 alias failed"; exit 1; }
 
+              FAILED=0
+
               echo "[1/2] Velero 백업 → S3..."
-              mc mirror --overwrite minio/velero s3/sydk-velero-dr-usw2 || echo "[1/2] velero mirror warning"
+              if ! mc mirror --overwrite minio/velero s3/sydk-velero-dr-usw2; then
+                echo "[1/2] FAILED: velero mirror"
+                FAILED=$((FAILED + 1))
+              fi
               echo "[1/2] 완료"
 
               echo "[2/2] Longhorn 백업 → S3..."
-              mc mirror --overwrite minio/longhorn-backups s3/sydk-longhorn-dr-usw2 || echo "[2/2] longhorn mirror warning"
+              if ! mc mirror --overwrite minio/longhorn-backups s3/sydk-longhorn-dr-usw2; then
+                echo "[2/2] FAILED: longhorn mirror"
+                FAILED=$((FAILED + 1))
+              fi
               echo "[2/2] 완료"
 
+              if [ "$FAILED" -gt 0 ]; then
+                echo "=== $FAILED개 복제 실패 — Job을 실패로 표시 ==="
+                exit 1
+              fi
               echo "=== AWS S3 DR 백업 복제 완료 ==="
             env:
             - name: MINIO_ACCESS_KEY

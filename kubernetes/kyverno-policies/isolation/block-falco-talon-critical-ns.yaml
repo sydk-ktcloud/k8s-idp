@@ -1,0 +1,40 @@
+# Falco Talon이 핵심 인프라 네임스페이스에 NetworkPolicy를 생성하지 못하도록 차단
+# 배경: Falco Talon이 보안 이벤트에 반응하여 longhorn-system에 restrictive
+# NetworkPolicy를 생성, Longhorn Manager의 API 서버 접근을 차단하여
+# 전체 스토리지 + 백업 파이프라인이 중단된 사고 발생 (2026-04-04)
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-falco-talon-critical-ns
+  annotations:
+    policies.kyverno.io/title: "Falco Talon 핵심 네임스페이스 보호"
+    policies.kyverno.io/description: >-
+      핵심 인프라 네임스페이스(longhorn-system, velero, kube-system, monitoring)에
+      falco-talon이 자동 생성하는 NetworkPolicy를 차단합니다.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: block-talon-networkpolicy
+    match:
+      any:
+      - resources:
+          kinds:
+          - NetworkPolicy
+          namespaces:
+          - longhorn-system
+          - velero
+          - kube-system
+          - monitoring
+          - minio-storage
+          - gitops
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.labels.\"app.k8s.io/managed-by\" || '' }}"
+        operator: Equals
+        value: "falco-talon"
+    validate:
+      message: >-
+        Falco Talon은 핵심 인프라 네임스페이스({{ request.namespace }})에
+        NetworkPolicy를 생성할 수 없습니다. 수동으로 보안 조치를 적용하세요.
+      deny: {}
