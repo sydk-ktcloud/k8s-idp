@@ -61,6 +61,8 @@ spec:
                   key: AWS_SECRET_ACCESS_KEY
             - name: AWS_DEFAULT_REGION
               value: "ap-northeast-2"
+            - name: AWS_CREDIT_TOTAL
+              value: "200"
             # GCP
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: "/secrets/gcp/sa-key.json"
@@ -68,6 +70,8 @@ spec:
               value: "sydk-ktcloud"
             - name: GCP_BILLING_ACCOUNT
               value: "01B26E-30705E-19E209"
+            - name: GCP_BILLING_BQ_TABLE
+              value: "sydk-ktcloud.billing_export.gcp_billing_export_v1_01B26E_30705E_19E209"
             # Azure
             - name: AZURE_SUBSCRIPTION_ID
               valueFrom:
