@@ -368,6 +368,5 @@ k8s-idp/
 - [x] 플랫폼 서비스 HA (replicas:3 + PDB + Anti-Affinity)
 - [x] MinIO Distributed Mode (4-node Erasure Coding)
 - [x] Ansible 기반 노드 프로비저닝 (Vault 암호화, 로그/스토리지/CP 리소스 제한)
-- [ ] Crossplane Provider 경량화 (CRD 867 → 목표 ~300)
 - [ ] Backstage 한국어 UI 완성
 - [ ] Backstage HPA 활성화
