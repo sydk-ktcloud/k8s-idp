@@ -5,6 +5,10 @@ on:
     branches: [main, master]
     paths-ignore:
       - 'backstage-app/**'
+      - '*.md'
+      - 'docs/**'
+      - '.claude/**'
+      - '.github/workflows/approval-gate.yaml'
   workflow_dispatch:
 
 jobs:
