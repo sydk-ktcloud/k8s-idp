@@ -12,6 +12,9 @@ env:
   REGISTRY: docker.io
   IMAGE_NAME: kylekim1223/cloud-credit-monitor
 
+permissions:
+  contents: write
+
 jobs:
   build-image:
     name: Build & Push Docker Image
@@ -54,7 +57,7 @@ jobs:
       - name: Update CronJob image tag
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          sed -i "s|image: kylekim1223/cloud-credit-monitor:sha-.*|image: kylekim1223/cloud-credit-monitor:sha-${SHORT_SHA}|" \
+          sed -i "s|image: kylekim1223/cloud-credit-monitor:.*|image: kylekim1223/cloud-credit-monitor:sha-${SHORT_SHA}|" \
             kubernetes/manifests/cloud-credit-monitor/cronjob.yaml
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
