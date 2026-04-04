@@ -21,7 +21,7 @@
 
 | 레이어 | 컴포넌트 | 설명 |
 |--------|----------|------|
-| **인프라** | VM (KVM/libvirt) | 4VM: 1 CP + 3 Workers |
+| **인프라** | VM (KVM/libvirt) | 4VM: 1 CP (28GB) + 3 Workers (28GB each), Ansible 프로비저닝 |
 | **네트워크** | Cilium CNI + Hubble | eBPF 기반 네트워킹 + 관찰가능성 |
 | **서비스 메시** | Istio Ambient Mesh | mTLS 암호화, Sidecar 없음 |
 | **VPN** | Cloud Headscale (GCP) | GCP 항시 가동, On-prem SPOF 해소 |
@@ -293,15 +293,30 @@ git push main → GitHub Actions (self-hosted) → Docker build/push → ArgoCD 
 # 1. VM 생성
 ./infrastructure/libvirt/vm-setup.sh
 
-# 2. Kubernetes 설치
+# 2. 노드 OS 설정 (로그 관리, multipath, CP 리소스 제한)
+cd ansible && ansible-playbook site.yml
+
+# 3. Kubernetes 설치
 ./scripts/setup-k8s.sh
 
-# 3. VPN 연결
+# 4. VPN 연결
 ./scripts/setup-headscale.sh
 
-# 4. 플랫폼 배포 (ArgoCD)
+# 5. 플랫폼 배포 (ArgoCD)
 kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 ```
+
+### Ansible Roles
+
+| Role | 대상 | 설명 |
+|------|------|------|
+| `common` | 전체 노드 | rsyslog 필터링, logrotate, journald 제한, multipath 블랙리스트 |
+| `k8s-prereq` | 전체 노드 | 커널 모듈, containerd, kubelet 로그 제한 |
+| `cp-resource-limits` | Control Plane | Static pod 메모리 제한 (apiserver 10Gi, etcd 2Gi, CM 1Gi, scheduler 512Mi) |
+| `tailscale` | 전체 노드 | Tailscale 설치 및 Headscale 등록 |
+| `headscale` | KVM 호스트 | Headscale 컨테이너 + DERP 설정 |
+
+> 시크릿은 Ansible Vault로 암호화 (`ansible/inventory/group_vars/all/vault.yml`)
 
 ---
 
@@ -320,6 +335,7 @@ k8s-idp/
 │   ├── network-policies/    # Zero Trust 네트워크 정책
 │   ├── observability/       # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
 │   └── storage/             # Longhorn, MinIO, 백업 설정
+├── ansible/                 # 노드 OS 설정 Ansible (Vault 암호화, 로그/스토리지/CP 리소스 제한)
 ├── apps/                    # Backstage Scaffolder 생성 리소스 + GKE Burst Claim
 ├── backstage-app/           # Backstage 개발자 포털 (React + Node.js)
 │   └── templates/           # Scaffolder 템플릿 9종 (GCP/AWS/Azure 마법사 + 직접 구성)
@@ -351,5 +367,7 @@ k8s-idp/
 - [x] 멀티 클라우드 Crossplane (GCP/AWS/Azure) + Backstage 마법사
 - [x] 플랫폼 서비스 HA (replicas:3 + PDB + Anti-Affinity)
 - [x] MinIO Distributed Mode (4-node Erasure Coding)
+- [x] Ansible 기반 노드 프로비저닝 (Vault 암호화, 로그/스토리지/CP 리소스 제한)
+- [ ] Crossplane Provider 경량화 (CRD 867 → 목표 ~300)
 - [ ] Backstage 한국어 UI 완성
 - [ ] Backstage HPA 활성화
