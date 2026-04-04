@@ -1,0 +1,16 @@
+---
+- name: restart rsyslog
+  systemd:
+    name: rsyslog
+    state: restarted
+
+- name: restart journald
+  systemd:
+    name: systemd-journald
+    state: restarted
+
+- name: reload multipathd
+  systemd:
+    name: multipathd
+    state: reloaded
+  ignore_errors: true

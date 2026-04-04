@@ -1,0 +1,14 @@
+---
+- name: apply sysctl
+  command: sysctl --system
+
+- name: restart containerd
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: true
+
+- name: restart kubelet
+  systemd:
+    name: kubelet
+    state: restarted

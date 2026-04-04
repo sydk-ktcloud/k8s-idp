@@ -1,0 +1,3 @@
+# References to vault-encrypted variables
+ansible_password: "{{ vault_k8s_password }}"
+ansible_become_password: "{{ vault_k8s_password }}"

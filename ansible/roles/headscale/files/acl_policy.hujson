@@ -1,0 +1,42 @@
+// Headscale ACL Policy
+// Controls network access between nodes
+
+{
+  "groups": {
+    "group:k8s-admins": ["k8s-team"],
+    "group:k8s-workers": ["k8s-team"]
+  },
+  "tagOwners": {
+    "tag:k8s-cp": ["group:k8s-admins"],
+    "tag:k8s-worker": ["group:k8s-workers"]
+  },
+  "acls": [
+    // Allow all nodes to communicate with each other
+    {
+      "action": "accept",
+      "src": ["*"],
+      "dst": ["*:*"]
+    },
+    // Allow SSH access to all nodes
+    {
+      "action": "accept",
+      "src": ["group:k8s-admins"],
+      "dst": [
+        "tag:k8s-cp:22",
+        "tag:k8s-worker:22"
+      ]
+    },
+    // Allow Kubernetes API access
+    {
+      "action": "accept",
+      "src": ["group:k8s-admins"],
+      "dst": ["tag:k8s-cp:6443"]
+    }
+  ],
+  "tests": [
+    {
+      "src": "group:k8s-admins",
+      "accept": ["tag:k8s-cp:22", "tag:k8s-cp:6443", "tag:k8s-worker:22"]
+    }
+  ]
+}

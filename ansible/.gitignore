@@ -1,0 +1,5 @@
+# Vault password - NEVER commit
+.vault_pass
+
+# Retry files
+*.retry

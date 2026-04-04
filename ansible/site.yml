@@ -1,0 +1,32 @@
+---
+# site.yml - 전체 인프라 프로비저닝
+# 사용법:
+#   ansible-playbook site.yml                    # 전체 실행
+#   ansible-playbook site.yml --tags common      # 로그/안정성 설정만
+#   ansible-playbook site.yml --tags k8s-prereq  # K8s 사전 설정만
+#   ansible-playbook site.yml --tags tailscale   # Tailscale만
+#   ansible-playbook site.yml --tags headscale   # Headscale만
+
+- name: K8s 노드 OS 설정
+  hosts: k8s_nodes
+  tags: [common]
+  roles:
+    - common
+
+- name: Kubernetes 사전 설정
+  hosts: k8s_nodes
+  tags: [k8s-prereq]
+  roles:
+    - k8s-prereq
+
+- name: Tailscale 설치 및 연결
+  hosts: k8s_nodes
+  tags: [tailscale]
+  roles:
+    - tailscale
+
+- name: Headscale 컨트롤 서버 설정
+  hosts: kvm_host
+  tags: [headscale]
+  roles:
+    - headscale
