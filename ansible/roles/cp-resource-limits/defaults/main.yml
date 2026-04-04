@@ -4,7 +4,7 @@
 
 cp_apiserver_resources:
   limits:
-    memory: "6Gi"
+    memory: "10Gi"
   requests:
     cpu: "250m"
     memory: "512Mi"
