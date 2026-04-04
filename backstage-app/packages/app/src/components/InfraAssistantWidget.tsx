@@ -9,7 +9,7 @@ import Typography from '@material-ui/core/Typography';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import ChatIcon from '@material-ui/icons/Chat';
 import CloseIcon from '@material-ui/icons/Close';
-import { sendMessage } from '../../../../plugins/infra-assistant/src/api/InfraAssistantApi';
+import { sendMessage } from '@internal/backstage-plugin-infra-assistant/src/api/InfraAssistantApi';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
