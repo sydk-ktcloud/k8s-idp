@@ -1,0 +1,111 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloud-credit-monitor
+  namespace: monitoring
+  labels:
+    app: cloud-credit-monitor
+    team: platform
+    owner: team-aiops
+    cost-center: internal-platform
+    env: prod
+    system: observability
+spec:
+  schedule: "0 * * * *"  # 매시 정각
+  timeZone: "Asia/Seoul"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: cloud-credit-monitor
+        spec:
+          restartPolicy: Never
+          serviceAccountName: cloud-credit-monitor
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: monitor
+            image: kylekim1223/cloud-credit-monitor:sha-9aa84cc
+            imagePullPolicy: Always
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+            env:
+            # Discord
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credit-monitor-secret
+                  key: DISCORD_WEBHOOK_URL
+            # AWS
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credit-monitor-secret
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credit-monitor-secret
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_DEFAULT_REGION
+              value: "ap-northeast-2"
+            # GCP
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/secrets/gcp/sa-key.json"
+            - name: GCP_PROJECT_ID
+              value: "sydk-ktcloud"
+            - name: GCP_BILLING_ACCOUNT
+              value: "01B26E-30705E-19E209"
+            # Azure
+            - name: AZURE_SUBSCRIPTION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credit-monitor-secret
+                  key: AZURE_SUBSCRIPTION_ID
+                  optional: true
+            - name: AZURE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credit-monitor-secret
+                  key: AZURE_TENANT_ID
+                  optional: true
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credit-monitor-secret
+                  key: AZURE_CLIENT_ID
+                  optional: true
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-credit-monitor-secret
+                  key: AZURE_CLIENT_SECRET
+                  optional: true
+            volumeMounts:
+            - name: gcp-sa-key
+              mountPath: /secrets/gcp
+              readOnly: true
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 200m
+                memory: 256Mi
+          volumes:
+          - name: gcp-sa-key
+            secret:
+              secretName: gcp-billing-sa-key
+              optional: true
