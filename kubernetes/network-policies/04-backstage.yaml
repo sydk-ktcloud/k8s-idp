@@ -41,13 +41,14 @@ spec:
       ports:
         - protocol: TCP
           port: 30556
-    - to:
-        - namespaceSelector: {}
-      ports:
+    # K8s API server + 클러스터 내 서비스 (Cilium DNAT 호환)
+    - ports:
         - protocol: TCP
           port: 443
         - protocol: TCP
           port: 6443
+        - protocol: TCP
+          port: 9090
     - to:
         - namespaceSelector: {}
           podSelector:
