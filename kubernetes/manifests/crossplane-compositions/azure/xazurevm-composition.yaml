@@ -10,29 +10,15 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XAzureVM
 
-  # ── EnvironmentConfig: Azure 플랫폼 기본값 ───────────────────
-  environment:
-    environmentConfigs:
-      - type: Reference
-        ref:
-          name: azure-platform
-
   resources:
-    - name: network-interface
+    # ── 1. Resource Group ──────────────────────────────────────
+    - name: resource-group
       base:
-        apiVersion: network.azure.upbound.io/v1beta1
-        kind: NetworkInterface
+        apiVersion: azure.upbound.io/v1beta1
+        kind: ResourceGroup
         spec:
           forProvider:
             location: koreacentral
-            resourceGroupNameSelector:
-              matchControllerRef: false
-            resourceGroupName: ""
-            ipConfiguration:
-              - name: internal
-                privateIpAddressAllocation: Dynamic
-                subnetIdSelector:
-                  matchControllerRef: false
             tags:
               team: platform
               managed-by: crossplane
@@ -41,14 +27,71 @@ spec:
       patches:
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
-        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
-        - type: FromEnvironmentFieldPath
-          fromFieldPath: defaultResourceGroup
-          toFieldPath: spec.forProvider.resourceGroupName
-        - fromFieldPath: spec.resourceGroupName
-          toFieldPath: spec.forProvider.resourceGroupName
-          policy:
-            fromFieldPath: Optional
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels
+
+    # ── 2. Virtual Network ─────────────────────────────────────
+    - name: virtual-network
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: VirtualNetwork
+        spec:
+          forProvider:
+            location: koreacentral
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            addressSpace:
+              - 10.0.0.0/16
+            tags:
+              team: platform
+              managed-by: crossplane
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+
+    # ── 3. Subnet ──────────────────────────────────────────────
+    - name: subnet
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: Subnet
+        spec:
+          forProvider:
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            virtualNetworkNameSelector:
+              matchControllerRef: true
+            addressPrefixes:
+              - 10.0.1.0/24
+          providerConfigRef:
+            name: default
+
+    # ── 4. Network Interface ───────────────────────────────────
+    - name: network-interface
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: NetworkInterface
+        spec:
+          forProvider:
+            location: koreacentral
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            ipConfiguration:
+              - name: internal
+                privateIpAddressAllocation: Dynamic
+                subnetIdSelector:
+                  matchControllerRef: true
+            tags:
+              team: platform
+              managed-by: crossplane
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.location
+          toFieldPath: spec.forProvider.location
+
+    # ── 5. Linux Virtual Machine ───────────────────────────────
     - name: linux-virtual-machine
       base:
         apiVersion: compute.azure.upbound.io/v1beta1
@@ -56,20 +99,23 @@ spec:
         spec:
           forProvider:
             location: koreacentral
-            resourceGroupName: ""
-            size: Standard_B2ms
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            size: Standard_B1s
             adminUsername: azureuser
-            adminSshKey:
-              - username: azureuser
-                publicKey: ""
+            adminPasswordSecretRef:
+              key: password
+              name: azure-vm-admin-password
+              namespace: crossplane-system
+            disablePasswordAuthentication: false
             osDisk:
               - caching: ReadWrite
                 storageAccountType: Premium_LRS
-                diskSizeGb: 50
+                diskSizeGb: 30
             sourceImageReference:
               - publisher: Canonical
-                offer: UbuntuServer
-                sku: 18.04-LTS
+                offer: 0001-com-ubuntu-server-jammy
+                sku: 22_04-lts
                 version: latest
             networkInterfaceIdsSelector:
               matchControllerRef: true
@@ -86,14 +132,6 @@ spec:
       patches:
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
-        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
-        - type: FromEnvironmentFieldPath
-          fromFieldPath: defaultResourceGroup
-          toFieldPath: spec.forProvider.resourceGroupName
-        - fromFieldPath: spec.resourceGroupName
-          toFieldPath: spec.forProvider.resourceGroupName
-          policy:
-            fromFieldPath: Optional
         - fromFieldPath: spec.vmSize
           toFieldPath: spec.forProvider.size
         - fromFieldPath: spec.diskSizeGb

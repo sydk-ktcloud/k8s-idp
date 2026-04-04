@@ -117,7 +117,10 @@ const useStyles = makeStyles((theme: Theme) =>
       fontSize: '0.7rem',
     },
     errorRow: {
-      backgroundColor: '#fff8f8',
+      backgroundColor: '#333333',
+      '& td, & td *': {
+        color: '#ffffff',
+      },
     },
     troubleshootBtn: {
       color: '#c62828',
