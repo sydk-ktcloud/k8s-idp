@@ -23,11 +23,26 @@ rules:
   - apiGroups: ["apiextensions.crossplane.io"]
     resources: ["compositeresourcedefinitions", "compositions", "claims"]
     verbs: ["get", "list", "watch"]
+  # GCP claims
   - apiGroups: ["k8s-idp.example.org"]
-    resources: ["gcpinstances", "buckets", "clusters", "databases"]
+    resources: ["gcpinstances", "buckets", "clusters", "databases", "webapps", "pubsubs", "caches"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: ["k8s-idp.example.org"]
-    resources: ["xgcpinstances", "xbuckets", "xclusters", "xdatabases"]
+    resources: ["xgcpinstances", "xbuckets", "xclusters", "xdatabases", "xwebapps", "xpubsubs", "xcaches"]
+    verbs: ["get", "list", "watch"]
+  # AWS claims
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["ec2instances", "s3buckets", "eksclusters", "rdsdatabases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["xec2instances", "xs3buckets", "xeksclusters", "xrdsdatabases"]
+    verbs: ["get", "list", "watch"]
+  # Azure claims
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["azurevms", "azureblobstorages", "aksclusters", "azuredatabases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["xazurevms", "xazureblobstorages", "xaksclusters", "xazuredatabases"]
     verbs: ["get", "list", "watch"]
 
 ---

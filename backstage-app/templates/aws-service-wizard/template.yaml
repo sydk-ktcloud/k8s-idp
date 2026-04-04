@@ -148,8 +148,19 @@ spec:
         - lifecycleTier
         - costCenter
         - owner
+        - team
         - acknowledge
       properties:
+        team:
+          title: 팀
+          type: string
+          description: 리소스를 소유할 팀 이름
+          enum:
+            - platform
+            - developer
+            - sre
+            - finops
+            - security
         lifecycleTier:
           title: 환경 티어
           type: string
@@ -221,25 +232,28 @@ spec:
           expiresAt: ${{ parameters.expiresAt }}
           owner: ${{ parameters.owner }}
           costCenter: ${{ parameters.costCenter }}
+          team: ${{ parameters.team }}
           destination:
             owner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
             repo: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
     - id: publish
       name: Pull Request 생성
-      action: publish:github
+      action: publish:github:pull-request
       input:
-        description: "AWS 인프라: ${{ parameters.componentName }} (${{ parameters.serviceType }})"
-        repoUrl: ${{ parameters.repoUrl }}
-        defaultBranch: 'main'
-        targetPath: apps/${{ parameters.componentName }}
+        title: "AWS 인프라 프로비저닝: ${{ parameters.componentName }} (${{ parameters.serviceType }})"
+        description: |
+          ## AWS 서비스 위저드 프로비저닝 요청
 
-    - id: register
-      name: 카탈로그 등록
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
+          - **서비스 이름**: ${{ parameters.componentName }}
+          - **서비스 유형**: ${{ parameters.serviceType }}
+          - **팀**: ${{ parameters.team }}
+          - **담당자**: ${{ parameters.owner }}
+          - **환경**: ${{ parameters.lifecycleTier }}
+          - **비용 센터**: ${{ parameters.costCenter }}
+        repoUrl: ${{ parameters.repoUrl }}
+        branchName: provision/${{ parameters.componentName }}
+        targetPath: apps/${{ parameters.componentName }}
 
   output:
     text:
