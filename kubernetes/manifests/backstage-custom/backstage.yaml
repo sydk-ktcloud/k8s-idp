@@ -7,7 +7,7 @@ kind: ServiceAccount
 metadata:
   name: backstage
   namespace: backstage
-automountServiceAccountToken: false
+automountServiceAccountToken: true
 
 ---
 # ClusterRole: 클러스터 범위 리소스만 (namespaces, nodes, Crossplane)
@@ -321,6 +321,7 @@ spec:
 
     spec:
       serviceAccountName: backstage
+      automountServiceAccountToken: true
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
