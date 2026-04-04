@@ -108,16 +108,10 @@ def get_gcp_info() -> str:
             headers=headers,
         )
         resp = json.loads(urlopen(req).read())
-        lines.append(f"✅ **결제 계정**: {resp.get('displayName', billing_account)}")
-
-        # Project billing info
-        req2 = Request(
-            f"https://cloudbilling.googleapis.com/v1/projects/{project_id}/billingInfo",
-            headers=headers,
-        )
-        resp2 = json.loads(urlopen(req2).read())
-        enabled = resp2.get("billingEnabled", False)
-        lines.append(f"📋 **프로젝트**: {project_id} (결제: {'활성' if enabled else '비활성'})")
+        display_name = resp.get("displayName", billing_account)
+        currency = resp.get("currencyCode", "KRW")
+        is_open = resp.get("open", False)
+        lines.append(f"✅ **결제 계정**: {display_name} ({currency}, {'활성' if is_open else '비활성'})")
 
         # Budget info
         try:
