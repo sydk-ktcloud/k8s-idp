@@ -32,6 +32,7 @@ Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입
 | **ChatOps** | ✅ 배포됨 | Discord 기반 K8s 관리 봇 |
 | **Kubecost** | ✅ 배포됨 | 비용 모니터링 및 최적화 |
 | **Kyverno** | 🔄 Audit 모드 | 리소스 수명주기 정책 적용 (Hard Enforcement) |
+| **Cloud Credit Monitor** | ✅ 배포됨 | AWS/GCP/Azure 크레딧·비용 1시간 간격 Discord 알림 CronJob |
 | **Lifecycle Scanner** | 🔄 구성됨 | 만료 리소스 자동 감지·알림·삭제 CronJob |
 
 ## 아키텍처
@@ -160,6 +161,7 @@ k8s-idp/
 │   │   ├── crossplane-compositions/  # XRD/Composition (GCP 8종, AWS 4종, Azure 4종)
 │   │   │   ├── aws/            # EC2Instance, S3Bucket, EKSCluster, RDSDatabase
 │   │   │   └── azure/          # AzureVM, AzureBlobStorage, AKSCluster, AzureDatabase
+│   │   ├── cloud-credit-monitor/ # 클라우드 크레딧·비용 모니터링 CronJob
 │   │   └── crossplane-providers/     # GCP / AWS / Azure Provider
 │   ├── argocd-apps/             # ArgoCD Application 정의
 │   │   ├── kyverno.yaml        # Kyverno 설치 (syncWave: 0)
@@ -204,7 +206,9 @@ k8s-idp/
 │   │   ├── delete-resource.js  # /delete-resource — claim 삭제 (platform)
 │   │   └── setlifecyclechannel.js # /setlifecyclechannel — 알림 채널 설정
 │   └── services/               # K8s/OpenAI 연동
-├── scripts/                     # 설치 스크립트
+├── scripts/                     # 설치 및 운영 스크립트
+│   ├── cloud-credit-monitor.py # 클라우드 크레딧·비용 모니터링 (Python)
+│   ├── Dockerfile.cloud-credit-monitor # 모니터링 컨테이너 이미지
 │   ├── setup-k8s.sh            # K8s 클러스터 설치
 │   ├── setup-headscale.sh      # VPN 서버 설정
 │   ├── enable-hubble-ui.sh     # Hubble UI 활성화
