@@ -19,6 +19,12 @@
   roles:
     - k8s-prereq
 
+- name: Control Plane static pod 리소스 제한
+  hosts: control_plane
+  tags: [cp-resource-limits]
+  roles:
+    - cp-resource-limits
+
 - name: Tailscale 설치 및 연결
   hosts: k8s_nodes
   tags: [tailscale]

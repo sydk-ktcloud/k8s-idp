@@ -1,0 +1,31 @@
+---
+# Control Plane static pod 리소스 제한 기본값
+# 2026-04-04 인시던트: apiserver 무제한 메모리 → 10GB+ 사용 → OOM → 노드 offline
+
+cp_apiserver_resources:
+  limits:
+    memory: "6Gi"
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+
+cp_etcd_resources:
+  limits:
+    memory: "2Gi"
+  requests:
+    cpu: "100m"
+    memory: "100Mi"
+
+cp_controller_manager_resources:
+  limits:
+    memory: "1Gi"
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+
+cp_scheduler_resources:
+  limits:
+    memory: "512Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
