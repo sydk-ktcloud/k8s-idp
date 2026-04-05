@@ -19,14 +19,8 @@ spec:
             project: sydk-ktcloud
             zone: us-central1-a
             labels:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
-              service: gcp-instance
               managed-by: crossplane
-              resource-type: instance
+              resource-type: gcp-instance
             machineType: e2-medium
             bootDisk:
               - autoDelete: true
@@ -47,5 +41,39 @@ spec:
           toFieldPath: spec.forProvider.zone
         - fromFieldPath: spec.diskSize
           toFieldPath: spec.forProvider.bootDisk[0].initializeParams[0].size
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
+
+        # ── FinOps 라벨 ───────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional
