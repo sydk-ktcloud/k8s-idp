@@ -9,6 +9,6 @@ RUN pip install --no-cache-dir \
     azure-mgmt-consumption \
     azure-mgmt-costmanagement
 
-COPY cloud-credit-monitor.py /app/monitor.py
+COPY monitor.py /app/monitor.py
 
 ENTRYPOINT ["python3", "/app/monitor.py"]
