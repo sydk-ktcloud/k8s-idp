@@ -363,17 +363,11 @@ spec:
         branchName: provision/${{ parameters.componentName }}
         targetPath: apps/${{ parameters.componentName }}
 
-    - id: register
-      name: 카탈로그 등록
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
-
   output:
+    text:
+      - title: "카탈로그 등록 안내"
+        content: |
+          PR이 머지되면 약 5분 내에 Backstage 카탈로그에 자동 등록됩니다.
     links:
       - title: Pull Request 확인
         url: ${{ steps['publish'].output.remoteUrl }}
-      - title: 카탈로그에서 열기
-        icon: catalog
-        entityRef: ${{ steps['register'].output.entityRef }}

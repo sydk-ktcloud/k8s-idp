@@ -253,13 +253,6 @@ spec:
         branchName: provision/${{ parameters.componentName }}
         targetPath: apps/${{ parameters.componentName }}
 
-    - id: register
-      name: 카탈로그 등록
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
-
   output:
     text:
       - title: "✅ 인프라 구성이 완료되었습니다!"
@@ -285,9 +278,8 @@ spec:
           kubectl get secret -n crossplane-system | grep ${{ parameters.componentName }}
           ```
           리전: **${{ parameters.region }}** | Backstage 카탈로그에서 Kubernetes 플러그인으로 실시간 상태 확인 가능
+
+          > PR이 머지되면 약 5분 내에 Backstage 카탈로그에 자동 등록됩니다.
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}
-      - title: 카탈로그에서 열기   
-        icon: catalog
-        entityRef: ${{ steps['register'].output.entityRef }}
