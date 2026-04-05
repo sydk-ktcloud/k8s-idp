@@ -31,30 +31,27 @@ spec:
             namespace: crossplane-system
             name: placeholder
           forProvider:
-            region: us-east-1
+            region: "us-east-1"
             roleArn: ""
             vpcConfig:
               - subnetIds: []
             tags:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
               managed-by: crossplane
               resource-type: eks-cluster
           providerConfigRef:
             name: default
+
       patches:
         # region
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
+          policy:
+            fromFieldPath: Required
         # roleArn: EnvironmentConfig 기본값 → spec.roleArn으로 재정의 가능
         - type: FromEnvironmentFieldPath
           fromFieldPath: clusterRoleArn
           toFieldPath: spec.forProvider.roleArn
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.roleArn
+        - fromFieldPath: spec.roleArn
           toFieldPath: spec.forProvider.roleArn
           policy:
             fromFieldPath: Optional
@@ -68,13 +65,11 @@ spec:
         - type: FromEnvironmentFieldPath
           fromFieldPath: subnetId3
           toFieldPath: spec.forProvider.vpcConfig[0].subnetIds[2]
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.subnetIds
+        - fromFieldPath: spec.subnetIds
           toFieldPath: spec.forProvider.vpcConfig[0].subnetIds
           policy:
             fromFieldPath: Optional
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
+
         # kubeconfig Secret 이름: {uid}-eks-cluster-conn
         - fromFieldPath: metadata.uid
           toFieldPath: spec.writeConnectionSecretToRef.name
@@ -82,6 +77,42 @@ spec:
             - type: string
               string:
                 fmt: "%s-eks-cluster-conn"
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional
+
         # ── 클러스터 상태 → composite status 버블업 ────────────
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.status
@@ -103,7 +134,7 @@ spec:
         kind: NodeGroup
         spec:
           forProvider:
-            region: us-east-1
+            region: "us-east-1"
             clusterNameSelector:
               matchControllerRef: true
             nodeRoleArn: ""
@@ -115,8 +146,6 @@ spec:
             instanceTypes:
               - t3.medium
             tags:
-              team: platform
-              owner: team-platform
               managed-by: crossplane
               resource-type: eks-nodegroup
           providerConfigRef:
@@ -125,12 +154,13 @@ spec:
         # region
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
+          policy:
+            fromFieldPath: Required
         # nodeRoleArn: EnvironmentConfig 기본값 → spec.nodeRoleArn으로 재정의 가능
         - type: FromEnvironmentFieldPath
           fromFieldPath: nodeRoleArn
           toFieldPath: spec.forProvider.nodeRoleArn
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.nodeRoleArn
+        - fromFieldPath: spec.nodeRoleArn
           toFieldPath: spec.forProvider.nodeRoleArn
           policy:
             fromFieldPath: Optional
@@ -144,16 +174,56 @@ spec:
         - type: FromEnvironmentFieldPath
           fromFieldPath: subnetId3
           toFieldPath: spec.forProvider.subnetIds[2]
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.subnetIds
+        - fromFieldPath: spec.subnetIds
           toFieldPath: spec.forProvider.subnetIds
           policy:
             fromFieldPath: Optional
         # scaling & instanceType
         - fromFieldPath: spec.nodeCount
           toFieldPath: spec.forProvider.scalingConfig[0].desiredSize
+          policy:
+            fromFieldPath: Required
         - fromFieldPath: spec.instanceType
           toFieldPath: spec.forProvider.instanceTypes[0]
+          policy:
+            fromFieldPath: Required
+
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional
+
         # ── 노드 그룹 상태 → composite status 버블업 ───────────
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.status
