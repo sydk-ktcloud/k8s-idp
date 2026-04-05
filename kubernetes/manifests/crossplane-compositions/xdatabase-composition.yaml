@@ -9,6 +9,13 @@ spec:
   compositeTypeRef:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XDatabase
+
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: gcp-platform
+
   resources:
     - name: sql-instance
       base:
@@ -17,12 +24,6 @@ spec:
         spec:
           forProvider:
             labels:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
-              service: gcp-database
               managed-by: crossplane
               resource-type: database
             region: us-central1
@@ -34,23 +35,68 @@ spec:
                 availabilityType: ZONAL
                 backupConfiguration:
                   - enabled: true
+            rootPassword: "PLACEHOLDER_REPLACE_WITH_VAULT"
             deletionProtection: false
           providerConfigRef:
             name: default
       patches:
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+          policy:
+            fromFieldPath: Required
+
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
+          policy:
+            fromFieldPath: Optional
+
         - fromFieldPath: spec.databaseVersion
           toFieldPath: spec.forProvider.databaseVersion
+          policy:
+            fromFieldPath: Optional
+
         - fromFieldPath: spec.tier
           toFieldPath: spec.forProvider.settings[0].tier
+          policy:
+            fromFieldPath: Optional
+
         - fromFieldPath: spec.diskSize
           toFieldPath: spec.forProvider.settings[0].diskSize
-        - fromFieldPath: spec.diskType
-          toFieldPath: spec.forProvider.settings[0].diskType
-        - fromFieldPath: spec.availabilityType
-          toFieldPath: spec.forProvider.settings[0].availabilityType
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
-        - fromFieldPath: metadata.labels
-          toFieldPath: spec.forProvider.labels
+          policy:
+            fromFieldPath: Optional
+
+        # ── FinOps 라벨 ───────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional
