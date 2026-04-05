@@ -29,13 +29,15 @@ spec:
               resource-type: instance
             machineType: e2-medium
             bootDisk:
-              - initializeParams:
-                  - size: 100
+              - autoDelete: true
+                initializeParams:
+                  - image: projects/debian-cloud/global/images/family/debian-11
+                    size: 100
             networkInterface:
               - accessConfig:
                   - natIp: ""
                     networkTier: STANDARD
-                network: default
+                network: projects/sydk-ktcloud/global/networks/default
           providerConfigRef:
             name: default
       patches:
@@ -47,5 +49,3 @@ spec:
           toFieldPath: spec.forProvider.bootDisk[0].initializeParams[0].size
         - fromFieldPath: metadata.labels
           toFieldPath: metadata.labels
-        - fromFieldPath: metadata.labels
-          toFieldPath: spec.forProvider.labels

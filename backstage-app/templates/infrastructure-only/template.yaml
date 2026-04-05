@@ -282,6 +282,17 @@ spec:
         owner:
           title: 담당자 (GitHub username)
           type: string
+        team:
+          title: 팀
+          type: string
+          default: platform
+          enum:
+            - platform
+            - developer
+            - sre
+            - finops
+            - security
+          description: 리소스를 소유하는 팀을 선택하세요.
         costCenter:
           title: 비용 센터
           type: string
@@ -339,28 +350,20 @@ spec:
           lifecycleTier: ${{ parameters.lifecycleTier }}
           expiresAt: ${{ parameters.expiresAt }}
           owner: ${{ parameters.owner }}
+          team: ${{ parameters.team }}
           costCenter: ${{ parameters.costCenter }}
 
     - id: publish
       name: Pull Request 생성
-      action: publish:github
+      action: publish:github:pull-request
       input:
-        description: "인프라 리소스: ${{ parameters.componentName }} ( ${{ parameters.resourceType }} )"
+        title: "infra: ${{ parameters.componentName }} (${{ parameters.resourceType }})"
+        description: "인프라 리소스 프로비저닝: ${{ parameters.componentName }} (${{ parameters.resourceType }})"
         repoUrl: ${{ parameters.repoUrl }}
-        defaultBranch: 'main'
+        branchName: infra/${{ parameters.componentName }}
         targetPath: apps/${{ parameters.componentName }}
-
-    - id: register
-      name: 카탈로그 등록
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
 
   output:
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}
-      - title: 카탈로그에서 열기
-        icon: catalog
-        entityRef: ${{ steps['register'].output.entityRef }}
