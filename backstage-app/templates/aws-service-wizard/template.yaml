@@ -283,6 +283,3 @@ spec:
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}
-      - title: 카탈로그에서 열기
-        icon: catalog
-        entityRef: ${{ steps['register'].output.entityRef }}

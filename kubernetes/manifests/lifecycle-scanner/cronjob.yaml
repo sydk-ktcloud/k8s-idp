@@ -16,15 +16,13 @@ spec:
       template:
         spec:
           serviceAccountName: lifecycle-scanner
-          imagePullSecrets:
-            - name: ghcr-pull-secret
           restartPolicy: OnFailure
           securityContext:
             seccompProfile:
               type: RuntimeDefault
           containers:
             - name: scanner
-              image: ghcr.io/sydk-ktcloud/lifecycle-scanner:v1.0.0
+              image: docker.io/kylekim1223/lifecycle-scanner:latest
               imagePullPolicy: Always
               env:
                 - name: DISCORD_LIFECYCLE_WEBHOOK_URL
