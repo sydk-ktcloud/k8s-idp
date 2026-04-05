@@ -350,7 +350,8 @@ spec:
           owner: ${{ parameters.owner }}
           team: ${{ parameters.team }}
           costCenter: ${{ parameters.costCenter }}
-          repoUrl: ${{ parameters.repoUrl }}
+          repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+          repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
     - id: publish
       name: Pull Request 생성

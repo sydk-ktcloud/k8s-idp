@@ -329,11 +329,11 @@ spec:
           clusterLocation: ${{ parameters.clusterLocation }}
           nodeCount: ${{ parameters.nodeCount }}
           nodeMachineType: ${{ parameters.nodeMachineType }}
-          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           lifecycleTier: ${{ parameters.lifecycleTier }}
           expiresAt: ${{ parameters.expiresAt }}
           costCenter: ${{ parameters.costCenter }}
-          repoUrl: ${{ parameters.repoUrl }}
+          repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+          repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
     - id: publish
       name: 저장소 생성

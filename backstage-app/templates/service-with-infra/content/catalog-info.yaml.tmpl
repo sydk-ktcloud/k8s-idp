@@ -1,12 +1,5 @@
-{% set repoUrl = values.repoUrl %}
-{% if repoUrl.startswith('https://github.com/') %}
-  {% set repoParts = repoUrl.replace('https://github.com/', '').split('/') %}
-  {% set repoOwner = repoParts[0] %}
-  {% set repoName = repoParts[1] %}
-{% else %}
-  {% set repoOwner = 'unknown' %}
-  {% set repoName = 'unknown' %}
-{% endif %}
+{% set repoOwner = values.repoOwner %}
+{% set repoName = values.repoName %}
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
