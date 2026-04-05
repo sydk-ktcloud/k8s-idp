@@ -444,6 +444,17 @@ data:
       baseUrl: /api/proxy/kubecost
     
     catalog:
+      providers:
+        github:
+          k8s-idp-apps:
+            organization: 'sydk-ktcloud'
+            catalogPath: '/apps/*/catalog-info.yaml'
+            filters:
+              repository: 'k8s-idp'
+              branch: 'main'
+            schedule:
+              frequency: { minutes: 5 }
+              timeout: { minutes: 3 }
       locations:
         - type: file
           target: ./examples/entities.yaml

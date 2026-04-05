@@ -366,6 +366,10 @@ spec:
         targetPath: apps/${{ parameters.componentName }}
 
   output:
+    text:
+      - title: "카탈로그 등록 안내"
+        content: |
+          PR이 머지되면 약 5분 내에 Backstage 카탈로그에 자동 등록됩니다.
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}
