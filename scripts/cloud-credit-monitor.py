@@ -6,11 +6,15 @@ Designed to run as a K8s CronJob.
 """
 
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
 from urllib.error import URLError
+
+# Suppress noisy Azure SDK logs
+logging.getLogger("azure").setLevel(logging.ERROR)
 
 DISCORD_WEBHOOK = os.environ.get(
     "DISCORD_WEBHOOK_URL",
@@ -33,41 +37,78 @@ def get_aws_info() -> str:
         ce = boto3.client("ce")
         lines = []
 
-        # Monthly cost
+        # Gross cost (before credits)
         try:
-            resp = ce.get_cost_and_usage(
+            gross_resp = ce.get_cost_and_usage(
                 TimePeriod={"Start": MONTH_START, "End": TOMORROW},
                 Granularity="MONTHLY",
                 Metrics=["UnblendedCost"],
+                Filter={"Not": {"Dimensions": {"Key": "RECORD_TYPE", "Values": ["Credit"]}}},
             )
-            total = resp["ResultsByTime"][0]["Total"]["UnblendedCost"]
-            amount, unit = total["Amount"], total["Unit"]
-            lines.append(f"💰 **이번 달 사용량**: {float(amount):.2f} {unit}")
-        except ce.exceptions.DataUnavailableException:
-            lines.append("⏳ Cost Explorer 데이터 수집 중 (활성화 후 최대 24시간 소요)")
-
-        # Credit usage
-        try:
-            credit_resp = ce.get_cost_and_usage(
-                TimePeriod={"Start": MONTH_START, "End": TOMORROW},
-                Granularity="MONTHLY",
-                Metrics=["UnblendedCost"],
-                Filter={"Dimensions": {"Key": "RECORD_TYPE", "Values": ["Credit"]}},
-            )
-            credit_amt = credit_resp["ResultsByTime"][0]["Total"]["UnblendedCost"]["Amount"]
-            if float(credit_amt) != 0:
-                lines.append(f"🎫 **크레딧 적용**: {float(credit_amt):.2f} {unit}")
+            gross_total = gross_resp["ResultsByTime"][0]["Total"]["UnblendedCost"]
+            gross_amount = float(gross_total["Amount"])
+            unit = gross_total["Unit"]
         except Exception:
-            pass
+            gross_amount = 0.0
+            unit = "USD"
+
+        # Net cost (after credits)
+        try:
+            net_resp = ce.get_cost_and_usage(
+                TimePeriod={"Start": MONTH_START, "End": TOMORROW},
+                Granularity="MONTHLY",
+                Metrics=["UnblendedCost"],
+            )
+            net_total = net_resp["ResultsByTime"][0]["Total"]["UnblendedCost"]
+            net_amount = float(net_total["Amount"])
+            unit = net_total["Unit"]
+        except ce.exceptions.DataUnavailableException:
+            lines.append("⏳ Cost Explorer 데이터 수집 중")
+            return "\n".join(lines)
+        except Exception:
+            net_amount = 0.0
+
+        # Credit applied = gross - net
+        credit_applied = gross_amount - net_amount
+
+        lines.append(f"💰 **이번 달 사용량**: {gross_amount:.2f} {unit}")
+        if credit_applied > 0:
+            lines.append(f"🎫 **크레딧 적용**: -{credit_applied:.2f} {unit}")
+        net_display = 0.0 if net_amount <= 0 else net_amount
+        lines.append(f"💵 **실 청구액**: {net_display:.2f} {unit}")
+
+        # Remaining credit balance
+        credit_total = os.environ.get("AWS_CREDIT_TOTAL", "")
+        if credit_total:
+            try:
+                total_credit = float(credit_total)
+                # Query last 12 months (CE max range for MONTHLY)
+                twelve_months_ago = (NOW - timedelta(days=365)).replace(day=1).strftime("%Y-%m-%d")
+                all_credits_resp = ce.get_cost_and_usage(
+                    TimePeriod={"Start": twelve_months_ago, "End": TOMORROW},
+                    Granularity="MONTHLY",
+                    Metrics=["UnblendedCost"],
+                    Filter={"Dimensions": {"Key": "RECORD_TYPE", "Values": ["Credit"]}},
+                )
+                total_used = sum(
+                    abs(float(r["Total"]["UnblendedCost"]["Amount"]))
+                    for r in all_credits_resp["ResultsByTime"]
+                )
+                remaining = total_credit - total_used
+                lines.append(f"🎟️ **잔여 크레딧**: {remaining:.2f} / {total_credit:.2f} {unit}")
+            except Exception as e:
+                lines.append(f"🎟️ **잔여 크레딧**: 조회 실패")
 
         # Budget check
         try:
             account_id = boto3.client("sts").get_caller_identity()["Account"]
             budgets_resp = boto3.client("budgets").describe_budgets(AccountId=account_id)
             for b in budgets_resp.get("Budgets", []):
-                limit = b["BudgetLimit"]["Amount"]
-                spent = b.get("CalculatedSpend", {}).get("ActualSpend", {}).get("Amount", "0")
-                lines.append(f"📊 **예산**: {spent}/{limit} {b['BudgetLimit']['Unit']}")
+                limit = float(b["BudgetLimit"]["Amount"])
+                spent = float(b.get("CalculatedSpend", {}).get("ActualSpend", {}).get("Amount", "0"))
+                b_unit = b["BudgetLimit"]["Unit"]
+                pct = (spent / limit * 100) if limit > 0 else 0
+                lines.append(f"📊 **예산**: {spent:.2f} / {limit:.2f} {b_unit} ({pct:.0f}%)")
         except Exception:
             pass
 
@@ -108,24 +149,55 @@ def get_gcp_info() -> str:
             headers=headers,
         )
         resp = json.loads(urlopen(req).read())
-        display_name = resp.get("displayName", billing_account)
-        currency = resp.get("currencyCode", "KRW")
-        is_open = resp.get("open", False)
-        lines.append(f"✅ **결제 계정**: {display_name} ({currency}, {'활성' if is_open else '비활성'})")
+        acct_currency = resp.get("currencyCode", "KRW")
 
-        # Budget info
+        # Monthly cost via BigQuery billing export
+        bq_table = os.environ.get("GCP_BILLING_BQ_TABLE", "")
+        if bq_table:
+            try:
+                from google.cloud import bigquery
+                bq_client = bigquery.Client(project=project_id, credentials=creds)
+                month_str = NOW.strftime("%Y%m")
+                query = f"""
+                    SELECT
+                        SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) AS net_cost,
+                        SUM(cost) AS gross_cost,
+                        SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) AS credit_amount,
+                        currency
+                    FROM `{bq_table}`
+                    WHERE invoice.month = '{month_str}'
+                    GROUP BY currency
+                """
+                result = bq_client.query(query).result()
+                for row in result:
+                    gross = row.gross_cost or 0
+                    credit = row.credit_amount or 0
+                    net = row.net_cost or 0
+                    cur = row.currency or acct_currency
+                    lines.append(f"💰 **이번 달 사용량**: {gross:.0f} {cur}")
+                    if credit < 0:
+                        lines.append(f"🎫 **크레딧 적용**: {credit:.0f} {cur}")
+                    net_display = 0 if net <= 0 else net
+                    lines.append(f"💵 **실 청구액**: {net_display:.0f} {cur}")
+            except Exception as e:
+                lines.append(f"💰 BigQuery 조회 실패: {str(e)[:80]}")
+        else:
+            lines.append("💰 **비용 조회**: BigQuery 익스포트 테이블 미설정 (GCP_BILLING_BQ_TABLE)")
+
+        # Budget info (requires roles/billing.costsManager)
         try:
-            req3 = Request(
-                f"https://billingbudgets.googleapis.com/v1/billingAccounts/{billing_account}/budgets",
-                headers=headers,
+            budget_url = (
+                f"https://billingbudgets.googleapis.com/v1/"
+                f"billingAccounts/{billing_account}/budgets"
             )
-            budgets = json.loads(urlopen(req3).read())
-            for b in budgets.get("budgets", []):
+            budget_req = Request(budget_url, headers=headers)
+            budget_resp = json.loads(urlopen(budget_req).read())
+            for b in budget_resp.get("budgets", []):
                 display = b.get("displayName", "예산")
                 amount = b.get("amount", {}).get("specifiedAmount", {})
-                units = amount.get("units", "N/A")
-                currency = amount.get("currencyCode", "KRW")
-                lines.append(f"📊 **{display}**: {units} {currency}")
+                budget_units = amount.get("units", "N/A")
+                budget_currency = amount.get("currencyCode", acct_currency)
+                lines.append(f"📊 **{display}**: {budget_units} {budget_currency}")
         except Exception:
             pass
 
@@ -149,11 +221,17 @@ def get_azure_info() -> str:
             return "⚠️ AZURE_SUBSCRIPTION_ID 미설정"
 
         credential = DefaultAzureCredential()
+        # Verify credentials early
+        try:
+            token_resp = credential.get_token("https://management.azure.com/.default")
+        except Exception:
+            return "⚠️ Azure 인증 실패 (TENANT_ID/CLIENT_ID/CLIENT_SECRET 확인 필요)"
+
+        scope = f"/subscriptions/{subscription_id}"
+        cost_client = CostManagementClient(credential)
 
         # Monthly cost
         try:
-            cost_client = CostManagementClient(credential)
-            scope = f"/subscriptions/{subscription_id}"
             result = cost_client.query.usage(
                 scope=scope,
                 parameters={
@@ -163,26 +241,83 @@ def get_azure_info() -> str:
                         "granularity": "None",
                         "aggregation": {
                             "totalCost": {"name": "Cost", "function": "Sum"},
+                            "totalCostUSD": {"name": "CostUSD", "function": "Sum"},
                         },
                     },
                 },
             )
             if result.rows:
                 total = result.rows[0][0]
-                currency = result.columns[1].name if len(result.columns) > 1 else "KRW"
+                currency_idx = next(
+                    (i for i, c in enumerate(result.columns) if c.name == "Currency"), -1
+                )
+                currency = result.rows[0][currency_idx] if currency_idx >= 0 else "USD"
                 lines.append(f"💰 **이번 달 사용량**: {total:.2f} {currency}")
         except Exception as e:
-            lines.append(f"💰 비용 조회 실패: {e}")
+            lines.append(f"💰 비용 조회 실패: {str(e)[:80]}")
+
+        # Remaining credit (Free Trial / Sponsorship)
+        try:
+            headers = {"Authorization": f"Bearer {token_resp.token}"}
+            sub_url = f"https://management.azure.com/subscriptions/{subscription_id}?api-version=2022-12-01"
+            sub_req = Request(sub_url, headers=headers)
+            sub_resp = json.loads(urlopen(sub_req).read())
+            quota_id = sub_resp.get("subscriptionPolicies", {}).get("quotaId", "")
+            promotions = sub_resp.get("promotions", [])
+
+            # Detect free trial credit total (default $200 USD)
+            credit_total_usd = float(os.environ.get("AZURE_CREDIT_TOTAL", "200"))
+
+            if "FreeTrial" in quota_id or any(p.get("category") == "freetier" for p in promotions):
+                # Query total cost in USD (max 364 days, Azure 1-year limit)
+                from datetime import timezone as tz
+                cost_start = NOW - timedelta(days=364)
+                total_result = cost_client.query.usage(
+                    scope=scope,
+                    parameters={
+                        "type": "ActualCost",
+                        "timeframe": "Custom",
+                        "timePeriod": {
+                            "from": cost_start.astimezone(tz.utc),
+                            "to": NOW.astimezone(tz.utc),
+                        },
+                        "dataset": {
+                            "granularity": "None",
+                            "aggregation": {
+                                "totalCostUSD": {"name": "CostUSD", "function": "Sum"},
+                            },
+                        },
+                    },
+                )
+                total_used_usd = 0.0
+                if total_result.rows:
+                    usd_idx = next(
+                        (i for i, c in enumerate(total_result.columns) if c.name == "CostUSD"), 0
+                    )
+                    total_used_usd = total_result.rows[0][usd_idx]
+
+                remaining = credit_total_usd - total_used_usd
+                lines.append(f"🎟️ **잔여 크레딧**: {remaining:.2f} / {credit_total_usd:.2f} USD")
+
+                # Expiry date
+                for p in promotions:
+                    if p.get("category") == "freetier" and p.get("endDateTime"):
+                        expiry = p["endDateTime"][:10]
+                        lines.append(f"📅 **크레딧 만료**: {expiry}")
+                        break
+        except Exception:
+            pass
 
         # Budget check
         try:
             consumption = ConsumptionManagementClient(credential, subscription_id)
-            for b in consumption.budgets.list(scope=f"/subscriptions/{subscription_id}"):
+            for b in consumption.budgets.list(scope=scope):
                 name = b.name
                 limit_amount = b.amount
                 current = b.current_spend.amount if b.current_spend else 0
-                unit = b.current_spend.unit if b.current_spend else "KRW"
-                lines.append(f"📊 **{name}**: {current:.2f}/{limit_amount:.2f} {unit}")
+                b_unit = b.current_spend.unit if b.current_spend else "USD"
+                pct = (current / limit_amount * 100) if limit_amount > 0 else 0
+                lines.append(f"📊 **{name}**: {current:.2f} / {limit_amount:.2f} {b_unit} ({pct:.0f}%)")
         except Exception:
             pass
 
@@ -190,20 +325,24 @@ def get_azure_info() -> str:
     except ImportError:
         return "⚠️ Azure SDK 미설치"
     except Exception as e:
-        return f"⚠️ Azure 조회 실패: {e}"
+        return f"⚠️ Azure 인증 실패 (크레덴셜 확인 필요)"
 
 
 # ── Discord ──────────────────────────────────────────────────────────────
 def send_discord(aws: str, gcp: str, azure: str) -> bool:
+    # Discord embed field value max 1024 chars
+    def trim(s: str, limit: int = 1024) -> str:
+        return s[:limit] if s else "N/A"
+
     payload = json.dumps({
         "embeds": [{
             "title": "☁️ 클라우드 크레딧 & 비용 리포트",
             "description": f"**{TIMESTAMP}** 기준 현황",
             "color": 3447003,
             "fields": [
-                {"name": "🟠 AWS", "value": aws or "N/A", "inline": False},
-                {"name": "🔵 GCP", "value": gcp or "N/A", "inline": False},
-                {"name": "🟣 Azure", "value": azure or "N/A", "inline": False},
+                {"name": "🟠 AWS", "value": trim(aws), "inline": False},
+                {"name": "🔵 GCP", "value": trim(gcp), "inline": False},
+                {"name": "🟣 Azure", "value": trim(azure), "inline": False},
             ],
             "footer": {"text": "k8s-idp cloud-credit-monitor | 1시간 간격"},
         }],

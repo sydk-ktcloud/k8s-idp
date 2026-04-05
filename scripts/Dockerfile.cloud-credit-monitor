@@ -4,6 +4,7 @@ RUN pip install --no-cache-dir \
     boto3 \
     google-auth \
     google-cloud-billing \
+    google-cloud-bigquery \
     azure-identity \
     azure-mgmt-consumption \
     azure-mgmt-costmanagement

@@ -142,30 +142,30 @@ spec:
   - name: gke.burst.cost
     interval: 1m
     rules:
-    - alert: GKEBurstIdleNodesCostWaste
+    # Autopilot: Pod 기반 비용 모니터링 (노드는 GKE가 자동 관리)
+    - alert: GKEBurstPodsRunningLong
       expr: |
-        (sum(kube_node_labels{label_cloud_google_com_gke_preemptible="true"}) or vector(0)) > 0
-        and
-        (sum(kube_pod_status_phase{phase="Running",namespace="burst-workloads"}) or vector(0)) == 0
-      for: 15m
+        sum(kube_pod_status_phase{phase="Running",namespace="burst-workloads"}) > 0
+      for: 60m
       labels:
-        severity: warning
+        severity: info
         team: platform
         cost_center: gke-burst
       annotations:
-        summary: "GKE Burst 클러스터 15분 유휴 - 불필요한 비용 발생"
-        description: "Preemptible 노드가 실행 중이지만 burst-workloads에 Running Pod가 없습니다."
+        summary: "GKE Burst Pod {{ $value }}개가 1시간 이상 실행 중"
+        description: "Autopilot 과금 중입니다. burst 원인이 해소되었는지 확인하세요."
 
-    - alert: GKEBurstNodeCountHigh
-      expr: sum(kube_node_labels{label_cloud_google_com_gke_preemptible="true"}) >= 4
+    - alert: GKEBurstPodCountHigh
+      expr: |
+        sum(kube_pod_status_phase{phase="Running",namespace="burst-workloads"}) >= 4
       for: 30m
       labels:
         severity: warning
         team: platform
         cost_center: gke-burst
       annotations:
-        summary: "GKE Burst 노드 {{ $value }}개 30분 이상 실행 - 비용 초과 주의"
-        description: "maxNodeCount(5) 한계에 근접했습니다. Kubecost 대시보드를 확인하세요."
+        summary: "GKE Burst Pod {{ $value }}개 30분 이상 실행 - 비용 초과 주의"
+        description: "burst-workloads에 Pod가 다수 실행 중입니다. Kubecost 대시보드를 확인하세요."
 
   - name: backup.pipeline
     interval: 5m

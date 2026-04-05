@@ -16,6 +16,8 @@ spec:
         kind: Instance
         spec:
           forProvider:
+            project: sydk-ktcloud
+            zone: us-central1-a
             labels:
               team: platform
               owner: team-platform
@@ -26,7 +28,6 @@ spec:
               managed-by: crossplane
               resource-type: instance
             machineType: e2-medium
-            zone: us-central1-a
             bootDisk:
               - initializeParams:
                   - size: 100
@@ -40,12 +41,8 @@ spec:
       patches:
         - fromFieldPath: spec.machineType
           toFieldPath: spec.forProvider.machineType
-        - fromFieldPath: spec.region
+        - fromFieldPath: spec.zone
           toFieldPath: spec.forProvider.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%s-a"
         - fromFieldPath: spec.diskSize
           toFieldPath: spec.forProvider.bootDisk[0].initializeParams[0].size
         - fromFieldPath: metadata.labels
