@@ -9,10 +9,8 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XWebApp
 
-  # DB 접속 정보를 crossplane-system 네임스페이스에 Secret으로 자동 저장
   writeConnectionSecretsToNamespace: crossplane-system
 
-  # ── EnvironmentConfig: GCP 프로젝트 수준 기본값 ───────────────
   environment:
     environmentConfigs:
       - type: Reference
@@ -30,6 +28,9 @@ spec:
             name: default
           forProvider:
             project: ""
+            labels:
+              managed-by: crossplane       
+              resource-type: webapp-vm
             networkInterface:
               - accessConfig:
                   - networkTier: PREMIUM
@@ -39,30 +40,35 @@ spec:
             tags:
               - http-server
               - https-server
+
       patches:
-        # project: EnvironmentConfig에서 자동 주입
         - type: FromEnvironmentFieldPath
           fromFieldPath: projectId
           toFieldPath: spec.forProvider.project
-        # 이름: <webapp-name>-server
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.name
-          toFieldPath: metadata.name
+
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultNetworkUrl
+          toFieldPath: spec.forProvider.networkInterface[0].network
+
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
           transforms:
             - type: string
               string:
                 fmt: "%s-server"
-        # zone: <region>-a
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.region
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.zone
           transforms:
             - type: string
               string:
                 fmt: "%s-a"
-        # machineType: environment → 크기 매핑
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.environment
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: spec.environment
           toFieldPath: spec.forProvider.machineType
           transforms:
             - type: map
@@ -71,9 +77,10 @@ spec:
                 standard: e2-medium
                 large: e2-standard-4
                 xlarge: n2-standard-8
-        # diskSize: environment → 용량 매핑
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.environment
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.environment
           toFieldPath: spec.forProvider.bootDisk[0].initializeParams[0].size
           transforms:
             - type: map
@@ -82,12 +89,52 @@ spec:
                 standard: "50"
                 large: "100"
                 xlarge: "200"
-        # ── VM 상태 → composite status 버블업 ──────────────────
+          policy:
+            fromFieldPath: Required
+
+        # ── FinOps 라벨  ──────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional
+
+        # ── VM 상태 버블업 ────────────────────────────────────
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.status
           toFieldPath: status.vmStatus
           policy:
             fromFieldPath: Optional
+
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.networkInterface[0].accessConfig[0].natIp
           toFieldPath: status.vmPublicIp
@@ -107,31 +154,35 @@ spec:
             name: placeholder
           forProvider:
             region: us-central1
+            rootPassword: "PLACEHOLDER_REPLACE_WITH_VAULT"
             deletionProtection: false
             settings:
               - diskType: PD_SSD
                 availabilityType: ZONAL
                 backupConfiguration:
                   - enabled: true
+
       patches:
-        # 이름: <webapp-name>-db
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.name
-          toFieldPath: metadata.name
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
           transforms:
             - type: string
               string:
                 fmt: "%s-db"
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.region
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
-        # databaseVersion
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.dbEngine
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.dbEngine
           toFieldPath: spec.forProvider.databaseVersion
-        # tier: environment → DB 크기 매핑
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.environment
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.environment
           toFieldPath: spec.forProvider.settings[0].tier
           transforms:
             - type: map
@@ -140,9 +191,10 @@ spec:
                 standard: db-custom-1-3840
                 large: db-custom-2-7680
                 xlarge: db-custom-4-15360
-        # diskSize: environment → DB 용량 매핑
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.environment
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.environment
           toFieldPath: spec.forProvider.settings[0].diskSize
           transforms:
             - type: map
@@ -151,25 +203,65 @@ spec:
                 standard: "50"
                 large: "100"
                 xlarge: "200"
-        # DB 접속 Secret 이름: {uid}-webapp-db-conn
+          policy:
+            fromFieldPath: Required
+
         - fromFieldPath: metadata.uid
           toFieldPath: spec.writeConnectionSecretToRef.name
           transforms:
             - type: string
               string:
                 fmt: "%s-webapp-db-conn"
-        # ── DB 상태 → composite status 버블업 ──────────────────
+
+        # ── FinOps 라벨 (Cloud SQL은 userLabels) ──────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.settings[0].userLabels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.settings[0].userLabels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.settings[0].userLabels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.settings[0].userLabels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.settings[0].userLabels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.settings[0].userLabels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.settings[0].userLabels[app-name]
+          policy:
+            fromFieldPath: Optional
+
+        # ── DB 상태 버블업 ────────────────────────────────────
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.state
           toFieldPath: status.dbStatus
           policy:
             fromFieldPath: Optional
+
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.connectionName
           toFieldPath: status.dbConnectionName
           policy:
             fromFieldPath: Optional
-      # Cloud SQL 접속 정보 → composite connection secret으로 수집
+
       connectionDetails:
         - name: dbConnectionName
           fromConnectionSecretKey: connectionName
