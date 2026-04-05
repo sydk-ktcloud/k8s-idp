@@ -10,7 +10,7 @@ metadata:
       lifecycle-tier=dev 인 리소스의 과도한 사이즈 요청을 차단합니다.
       GKE/EKS/AKS 클러스터의 nodeCount > 3, 대형 인스턴스 타입 등을 제한합니다.
 spec:
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: deny-large-gke-cluster-in-dev
@@ -109,6 +109,145 @@ spec:
             value: dev
       validate:
         message: "dev 티어 GCP VM: diskSize는 100GB 이하여야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.diskSize }}"
+                operator: GreaterThan
+                value: 100
+
+    - name: deny-large-ec2-instance-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - EC2Instance
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 EC2: instanceType은 m5.large 이하, diskSize는 100GB 이하여야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.instanceType }}"
+                operator: In
+                value:
+                  - m5.xlarge
+                  - m5.2xlarge
+                  - m5.4xlarge
+                  - m5.8xlarge
+                  - m5.16xlarge
+                  - c5.2xlarge
+                  - c5.4xlarge
+                  - r5.xlarge
+                  - r5.2xlarge
+              - key: "{{ request.object.spec.diskSize }}"
+                operator: GreaterThan
+                value: 100
+
+    - name: deny-large-azure-vm-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - AzureVM
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 Azure VM: 대형 vmSize 불가, diskSizeGb는 100GB 이하여야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.vmSize }}"
+                operator: In
+                value:
+                  - Standard_D4s_v3
+                  - Standard_D8s_v3
+                  - Standard_D16s_v3
+                  - Standard_D32s_v3
+                  - Standard_E4s_v3
+                  - Standard_E8s_v3
+              - key: "{{ request.object.spec.diskSizeGb }}"
+                operator: GreaterThan
+                value: 100
+
+    - name: deny-large-rds-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - RDSDatabase
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 RDS: instanceClass는 db.t3.medium 이하, diskSize는 100GB 이하여야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.instanceClass }}"
+                operator: In
+                value:
+                  - db.m5.large
+                  - db.m5.xlarge
+                  - db.m5.2xlarge
+                  - db.r5.large
+                  - db.r5.xlarge
+              - key: "{{ request.object.spec.diskSize }}"
+                operator: GreaterThan
+                value: 100
+
+    - name: deny-large-azure-db-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - AzureDatabase
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 Azure DB: diskSize는 100GB 이하여야 합니다."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.diskSize }}"
+                operator: GreaterThan
+                value: 100
+
+    - name: deny-large-gcp-db-in-dev
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+              kinds:
+                - Database
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"lifecycle-tier\" }}"
+            operator: Equals
+            value: dev
+      validate:
+        message: "dev 티어 GCP DB: diskSize는 100GB 이하여야 합니다."
         deny:
           conditions:
             any:

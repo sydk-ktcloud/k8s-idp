@@ -77,3 +77,37 @@ spec:
                   - key: "{{ element.image }}"
                     operator: NotEquals
                     value: "*:*"
+
+    - name: validate-ephemeral-container-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - crossplane-system
+                - monitoring
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.ephemeralContainers[] || `[]` | length(@) }}"
+            operator: GreaterThanOrEquals
+            value: 1
+      validate:
+        message: >-
+          ephemeralContainer 이미지 '{{ element.image }}'에 :latest 태그가 사용되었습니다.
+        foreach:
+          - list: "request.object.spec.ephemeralContainers[]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*:*"

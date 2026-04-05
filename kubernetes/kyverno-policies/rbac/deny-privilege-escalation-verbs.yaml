@@ -25,9 +25,13 @@ spec:
           - clusterRoles:
               - cluster-admin
               - system:*
+              - admin
+              - edit
+              - argocd-application-controller
+              - crossplane-rbac-manager
       validate:
         message: >-
-          ClusterRole에 escalate 또는 impersonate 동사를 포함할 수 없습니다.
+          ClusterRole에 escalate, impersonate 또는 bind 동사를 포함할 수 없습니다.
           권한 상승 공격 방지를 위해 이 동사는 금지됩니다.
         foreach:
           - list: "request.object.rules[]"
@@ -38,6 +42,9 @@ spec:
                     operator: AnyIn
                     value: "{{ element.verbs[] }}"
                   - key: impersonate
+                    operator: AnyIn
+                    value: "{{ element.verbs[] }}"
+                  - key: bind
                     operator: AnyIn
                     value: "{{ element.verbs[] }}"
     - name: deny-escalate-in-role
@@ -48,7 +55,7 @@ spec:
                 - Role
       validate:
         message: >-
-          Role에 escalate 또는 impersonate 동사를 포함할 수 없습니다.
+          Role에 escalate, impersonate 또는 bind 동사를 포함할 수 없습니다.
           권한 상승 공격 방지를 위해 이 동사는 금지됩니다.
         foreach:
           - list: "request.object.rules[]"
@@ -59,5 +66,8 @@ spec:
                     operator: AnyIn
                     value: "{{ element.verbs[] }}"
                   - key: impersonate
+                    operator: AnyIn
+                    value: "{{ element.verbs[] }}"
+                  - key: bind
                     operator: AnyIn
                     value: "{{ element.verbs[] }}"

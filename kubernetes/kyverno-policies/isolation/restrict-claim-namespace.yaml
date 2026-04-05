@@ -23,7 +23,7 @@ spec:
         message: >-
           k8s-idp Claim은 시스템 네임스페이스에 생성할 수 없습니다.
           (금지 네임스페이스: gitops, monitoring, auth, vault, kyverno,
-           external-secrets, cert-manager, crossplane-system, kube-system)
+           external-secrets, cert-manager, crossplane-system, kube-system, backstage)
         deny:
           conditions:
             any:
@@ -42,3 +42,4 @@ spec:
                   - kube-public
                   - kube-node-lease
                   - secrets
+                  - backstage

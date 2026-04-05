@@ -10,7 +10,7 @@ metadata:
       k8s-idp.example.org 그룹의 모든 Claim CR에는 수명주기 관리에 필요한
       레이블(lifecycle-tier, expires-at, cost-center, team, owner)이 필수입니다.
 spec:
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: check-lifecycle-tier
@@ -26,7 +26,7 @@ spec:
             labels:
               lifecycle-tier: "dev | staging | prod"
 
-    - name: check-expires-at
+    - name: check-expires-at-exists
       match:
         any:
           - resources:
@@ -38,6 +38,26 @@ spec:
           metadata:
             labels:
               expires-at: "?*"
+
+    - name: check-expires-at-format
+      match:
+        any:
+          - resources:
+              groups:
+                - k8s-idp.example.org
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"expires-at\" || '' }}"
+            operator: NotEquals
+            value: ""
+      validate:
+        message: "expires-at 레이블은 YYYY-MM-DD 형식이어야 합니다 (예: 2026-04-30, 9999-12-31). 현재 값: {{ request.object.metadata.labels.\"expires-at\" }}"
+        deny:
+          conditions:
+            any:
+              - key: "{{ regex_match('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$', '{{request.object.metadata.labels.\"expires-at\"}}') }}"
+                operator: Equals
+                value: false
 
     - name: check-cost-center
       match:

@@ -27,7 +27,7 @@
 | **VPN** | Cloud Headscale (GCP) | GCP 항시 가동, On-prem SPOF 해소 |
 | **SSO** | Dex OIDC | 7명 사용자, 다중 서비스 연동 |
 | **GitOps** | ArgoCD | Application of Apps 패턴 |
-| **시크릿** | Vault + ESO | HA Raft ×3 + External Secrets Operator |
+| **시크릿** | Vault + ESO | 단일 인스턴스 + External Secrets Operator |
 | **저장소** | Longhorn + MinIO | 블록 + 오브젝트 스토리지 (분산 HA) |
 | **관찰가능성** | Prometheus + Grafana + LGTM | Metrics, Logs, Traces 통합 |
 | **백업** | Longhorn + Velero + MinIO → S3/GCS | PV + 클러스터 상태 + 오프사이트 복제 |
@@ -128,12 +128,13 @@ DR:   EKS Prometheus → GKE Proxy → KEDA → trip-app burst
 
 | 정책 | 모드 | 내용 |
 |------|------|------|
-| 수명주기 레이블 필수 | Audit | 5개 레이블(team, owner, cost-center, tier, expires-at) 필수 |
-| TTL 초과 차단 | Audit | 티어별 최대 TTL 초과 차단 |
-| dev 과대 리소스 차단 | Audit | dev 티어 과대 VM/클러스터 차단 |
-| 시스템 NS 생성 차단 | **Enforce** | 시스템 네임스페이스에 Claim 생성 차단 |
-| 권한 상승 차단 | **Enforce** | escalate/impersonate verb 차단 |
-| latest 태그 차단 | **Enforce** | `:latest` 태그 이미지 차단 |
+| 수명주기 레이블 필수 | **Enforce** | 5개 레이블(team, owner, cost-center, tier, expires-at) 필수 + expires-at YYYY-MM-DD 형식 검증 |
+| TTL 초과 차단 | **Enforce** | 티어별 최대 TTL 초과 차단 |
+| dev 과대 리소스 차단 | **Enforce** | dev 티어 과대 VM/클러스터/DB 차단 (GKE/EKS/AKS/GCP VM/EC2/Azure VM/RDS/Azure DB/GCP DB) |
+| 시스템 NS 생성 차단 | **Enforce** | 시스템 네임스페이스에 Claim 생성 차단 (backstage 포함 13개 NS) |
+| 권한 상승 차단 | **Enforce** | escalate/impersonate/bind verb 차단 (시스템 ClusterRole 자동 제외) |
+| latest 태그 차단 | **Enforce** | `:latest` 태그 이미지 차단 (containers, initContainers, ephemeralContainers) |
+| Falco Talon 인프라 보호 | **Enforce** | 핵심 인프라 NS에 Falco Talon NetworkPolicy 자동 생성 차단 |
 | dev NS 쿼터 자동 생성 | Generate | dev 네임스페이스 ResourceQuota 자동 생성 |
 
 ---
@@ -142,7 +143,7 @@ DR:   EKS Prometheus → GKE Proxy → KEDA → trip-app burst
 
 ### RBAC 최소 권한 원칙
 
-- **ArgoCD**: 전용 ClusterRole 사용, `escalate`/`impersonate` 제외
+- **ArgoCD**: 전용 ClusterRole 사용, `escalate`/`impersonate`/`bind` 제외 (Kyverno 자동 차단)
 - **Backstage**: 클러스터 레벨 읽기 최소화, 네임스페이스별 Role 분리
 - **ChatOps**: 네임스페이스별 RoleBinding으로 pods/log 접근 제한
 - **Tailscale**: `kube-system` 네임스페이스 Role + `resourceNames` 특정 Secret만 허용
@@ -156,7 +157,7 @@ DR:   EKS Prometheus → GKE Proxy → KEDA → trip-app burst
 ### 시크릿 관리 (Vault + ESO)
 
 ```
-관리자 (vault kv put) → Vault (HA Raft ×3) → ESO (K8s Auth) → K8s Secret → Pod
+관리자 (vault kv put) → Vault (단일 인스턴스) → ESO (K8s Auth) → K8s Secret → Pod
 ```
 
 - Vault 경로 규칙: `secret/k8s/{namespace}/{secret-name}`
@@ -406,7 +407,7 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 ```
 k8s-idp/
 ├── infrastructure/          # VM, K8s 초기 설정, VPN, AWS DR 인프라
-├── security/                # Vault HA + ESO 구성
+├── security/                # Vault + ESO 구성
 ├── kubernetes/
 │   ├── namespaces/          # Namespace 정의
 │   ├── helm-releases/       # Helm 차트 (ArgoCD, Backstage, Prometheus 등)
@@ -441,7 +442,7 @@ k8s-idp/
 
 ## 로드맵
 
-- [x] Vault HA + ESO 연동
+- [x] Vault + ESO 연동
 - [x] DR 구성 (EKS Active-Passive + Dead Man's Switch)
 - [x] CI/CD 파이프라인 (ARC self-hosted + ArgoCD GitOps)
 - [x] GKE Burst 자동 프로비저닝 + KEDA 트리거
@@ -452,5 +453,6 @@ k8s-idp/
 - [x] Falco + Falco Talon 런타임 보안 및 자동 대응
 - [x] 백업 파이프라인 보호 (Kyverno 인프라 NS 보호 + Longhorn CRD 관리 + Prometheus 알림)
 - [x] Velero ArgoCD Helm source 전환 (실제 배포 보장)
+- [x] Kyverno 정책 보강 (bind verb 차단, dev 사이징 전 리소스 커버, expires-at 형식 검증, ephemeralContainers 차단)
 - [ ] Backstage 한국어 UI 완성
 - [ ] Backstage HPA 활성화
