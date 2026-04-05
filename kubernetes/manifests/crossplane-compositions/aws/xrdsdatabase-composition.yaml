@@ -17,12 +17,13 @@ spec:
         spec:
           forProvider:
             region: us-east-1
-            engine: postgres
-            engineVersion: "15.4"
-            instanceClass: db.t3.medium
+            engine: ""
+            engineVersion: ""
+            instanceClass: ""
             allocatedStorage: 20
             dbName: appdb
             username: admin
+            manageMasterUserPassword: true
             skipFinalSnapshot: true
             publiclyAccessible: false
             storageType: gp2
@@ -30,31 +31,78 @@ spec:
             autoMinorVersionUpgrade: true
             backupRetentionPeriod: 7
             tags:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
               managed-by: crossplane
               resource-type: rds-instance
           writeConnectionSecretsToRef:
-            namespace: default
+            namespace: crossplane-system
           providerConfigRef:
             name: default
       patches:
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
+          policy:
+            fromFieldPath: Required
         - fromFieldPath: spec.engine
           toFieldPath: spec.forProvider.engine
+          policy:
+            fromFieldPath: Required
         - fromFieldPath: spec.engineVersion
           toFieldPath: spec.forProvider.engineVersion
+          policy:
+            fromFieldPath: Optional
         - fromFieldPath: spec.instanceClass
           toFieldPath: spec.forProvider.instanceClass
+          policy:
+            fromFieldPath: Required
         - fromFieldPath: spec.diskSize
           toFieldPath: spec.forProvider.allocatedStorage
+          policy:
+            fromFieldPath: Required
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.identifier
+          policy:
+            fromFieldPath: Required
         - fromFieldPath: spec.dbName
           toFieldPath: spec.forProvider.dbName
+          policy:
+            fromFieldPath: Optional
         - fromFieldPath: spec.username
           toFieldPath: spec.forProvider.username
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
+          policy:
+            fromFieldPath: Optional
+
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional
