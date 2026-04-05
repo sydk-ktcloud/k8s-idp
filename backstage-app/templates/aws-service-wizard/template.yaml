@@ -278,6 +278,8 @@ spec:
           kubectl get secret -n crossplane-system | grep ${{ parameters.componentName }}
           ```
           리전: **${{ parameters.region }}** | Backstage 카탈로그에서 Kubernetes 플러그인으로 실시간 상태 확인 가능
+
+          > PR이 머지되면 약 5분 내에 Backstage 카탈로그에 자동 등록됩니다.
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}
