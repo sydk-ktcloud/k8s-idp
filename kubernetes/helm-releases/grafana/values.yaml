@@ -9,6 +9,9 @@ podLabels:
 
 replicas: 1
 
+deploymentStrategy:
+  type: Recreate
+  
 service:
   type: NodePort
   port: 80
