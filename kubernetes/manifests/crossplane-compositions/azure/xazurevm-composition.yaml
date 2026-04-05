@@ -110,7 +110,7 @@ spec:
             disablePasswordAuthentication: false
             osDisk:
               - caching: ReadWrite
-                storageAccountType: Premium_LRS
+                storageAccountType: StandardSSD_LRS
                 diskSizeGb: 30
             sourceImageReference:
               - publisher: Canonical
