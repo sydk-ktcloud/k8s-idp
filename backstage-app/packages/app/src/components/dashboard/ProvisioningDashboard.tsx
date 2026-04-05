@@ -266,6 +266,7 @@ interface TroubleshootState {
   resourceName: string;
   errorCategory: ErrorCategory | null;
   rawMessage?: string;
+  cloud: CloudProvider;
 }
 
 const ResourceTable = ({
@@ -275,7 +276,7 @@ const ResourceTable = ({
 }: {
   resources: CrossplaneResource[];
   classes: ReturnType<typeof useStyles>;
-  onTroubleshoot: (name: string, category: ErrorCategory | null, msg?: string) => void;
+  onTroubleshoot: (name: string, category: ErrorCategory | null, cloud: CloudProvider, msg?: string) => void;
 }) => {
   if (resources.length === 0) {
     return (
@@ -357,6 +358,7 @@ const ResourceTable = ({
                         onTroubleshoot(
                           resource.metadata.name,
                           categorizeError(resource.status?.conditions),
+                          resource.cloud,
                           failedCondition?.message,
                         )
                       }
@@ -389,6 +391,7 @@ export const ProvisioningDashboard = () => {
     open: false,
     resourceName: '',
     errorCategory: null,
+    cloud: 'GCP',
   });
 
   const { value: allResources, loading, error } = useAsync(async () => {
@@ -418,8 +421,8 @@ export const ProvisioningDashboard = () => {
   const handleRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
   const handleTroubleshoot = useCallback(
-    (name: string, category: ErrorCategory | null, msg?: string) => {
-      setTroubleshoot({ open: true, resourceName: name, errorCategory: category, rawMessage: msg });
+    (name: string, category: ErrorCategory | null, cloud: CloudProvider, msg?: string) => {
+      setTroubleshoot({ open: true, resourceName: name, errorCategory: category, cloud, rawMessage: msg });
     },
     [],
   );
@@ -557,6 +560,7 @@ export const ProvisioningDashboard = () => {
         resourceName={troubleshoot.resourceName}
         errorCategory={troubleshoot.errorCategory}
         rawErrorMessage={troubleshoot.rawMessage}
+        cloud={troubleshoot.cloud}
       />
     </Page>
   );

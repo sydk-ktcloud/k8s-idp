@@ -20,8 +20,8 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import ContactSupportIcon from '@material-ui/icons/ContactSupport';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { Link } from '@backstage/core-components';
-import { GUIDES, TroubleshootingGuide } from './troubleshootingGuides';
-import type { ErrorCategory } from './troubleshootingGuides';
+import { getGuide, TroubleshootingGuide } from './troubleshootingGuides';
+import type { ErrorCategory, CloudProvider } from './troubleshootingGuides';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -106,6 +106,7 @@ interface Props {
   resourceName: string;
   errorCategory: ErrorCategory | null;
   rawErrorMessage?: string;
+  cloud?: CloudProvider;
 }
 
 export const TroubleshootingPanel = ({
@@ -114,11 +115,10 @@ export const TroubleshootingPanel = ({
   resourceName,
   errorCategory,
   rawErrorMessage,
+  cloud = 'GCP',
 }: Props) => {
   const classes = useStyles();
-  const guide: TroubleshootingGuide = errorCategory
-    ? GUIDES[errorCategory]
-    : GUIDES.UNKNOWN;
+  const guide: TroubleshootingGuide = getGuide(errorCategory, cloud);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -155,7 +155,7 @@ export const TroubleshootingPanel = ({
         {rawErrorMessage && (
           <Box mb={2}>
             <Typography variant="body2" style={{ fontWeight: 600, marginBottom: 4 }}>
-              🔍 GCP 에러 메시지
+              🔍 {cloud} 에러 메시지
             </Typography>
             <Paper className={classes.rawMessage}>{rawErrorMessage}</Paper>
           </Box>
