@@ -24,7 +24,14 @@ spec:
     - from:
         - podSelector: {}
     # NodePort를 통한 외부 UI/API 접근 (port 8080)
-    - from: []
+    - ports:
+        - protocol: TCP
+          port: 8080
+    # Actions Runner → ArgoCD API (sync 트리거)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: actions-runner-system
       ports:
         - protocol: TCP
           port: 8080

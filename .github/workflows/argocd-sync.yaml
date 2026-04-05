@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Sync ArgoCD Application
         env:
-          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_SERVER: http://argocd-server.gitops.svc.cluster.local
           ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
           ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
           APP_NAME: ${{ inputs.application }}
