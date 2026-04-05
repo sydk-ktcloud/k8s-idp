@@ -677,6 +677,15 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    # Loki → memcached 캐시 읽기/쓰기 (podSelector로 최소화)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+              app.kubernetes.io/component: single-binary
+      ports:
+        - protocol: TCP
+          port: 11211
     # Prometheus만 memcached exporter(9150)에 접근 가능하도록 podSelector로 제한
     - from:
         - podSelector:

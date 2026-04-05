@@ -32,6 +32,12 @@ spec:
             system: observability
             service: loki
           auth_enabled: false
+          structuredConfig:
+            common:
+              storage:
+                s3:
+                  access_key_id: ${S3_ACCESS_KEY}
+                  secret_access_key: ${S3_SECRET_ACCESS_KEY}
           commonConfig:
             replication_factor: 1
           compactor:
@@ -115,11 +121,11 @@ spec:
               service: loki
           resources:
             limits:
-              cpu: 200m
-              memory: 1Gi
+              cpu: "1"
+              memory: 2Gi
             requests:
-              cpu: 100m
-              memory: 512Mi
+              cpu: 250m
+              memory: 1Gi
           persistence:
             enabled: true
             storageClass: longhorn
