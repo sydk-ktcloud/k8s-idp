@@ -57,39 +57,57 @@ get_aws_info() {
 # ─── GCP ────────────────────────────────────────────────────────────────
 get_gcp_info() {
     local gcp_section=""
-    local project_id
-    project_id=$(gcloud config get-value project 2>/dev/null)
+    local project_id="sydk-ktcloud"
     local billing_account="01B26E-30705E-19E209"
+    local bq_dataset="billing_export"
+    local bq_table="${project_id}.${bq_dataset}.gcp_billing_export_v1_01B26E_30705E_19E209"
 
-    # Monthly cost via BigQuery billing export or Billing API
-    local gcp_cost
-    gcp_cost=$(gcloud billing projects describe "$project_id" --format=json 2>&1)
+    # Monthly cost via BigQuery billing export
+    local bq_result bq_exit
+    bq_result=$(bq query --project_id="$project_id" --use_legacy_sql=false --format=json --location=asia-northeast3 \
+        "SELECT
+           ROUND(SUM(cost), 2) AS total_cost,
+           currency
+         FROM \`${bq_table}\`
+         WHERE invoice.month = FORMAT_DATE('%Y%m', CURRENT_DATE())
+         GROUP BY currency" 2>&1)
+    bq_exit=$?
 
-    if [ $? -eq 0 ]; then
-        local billing_enabled
-        billing_enabled=$(echo "$gcp_cost" | jq -r '.billingEnabled')
-        gcp_section="✅ **결제 계정**: ${billing_account} (활성: ${billing_enabled})"
+    if [ $bq_exit -ne 0 ]; then
+        gcp_section="⚠️ BigQuery 비용 조회 실패"
+    elif echo "$bq_result" | jq -e '.[0]' &>/dev/null; then
+        local total_cost currency
+        total_cost=$(echo "$bq_result" | jq -r '.[0].total_cost // "0"')
+        currency=$(echo "$bq_result" | jq -r '.[0].currency // "KRW"')
+        gcp_section="💰 **이번 달 사용량**: ${total_cost} ${currency}"
     else
-        gcp_section="⚠️ Billing 정보 조회 실패"
+        gcp_section="💰 **이번 달 사용량**: 0 (빌링 데이터 수집 대기 중)"
     fi
 
-    # Cost table via gcloud (beta)
-    local cost_table
-    cost_table=$(gcloud beta billing accounts describe "$billing_account" --format=json 2>&1) || true
+    # Credit usage via BigQuery
+    local bq_credits
+    bq_credits=$(bq query --project_id="$project_id" --use_legacy_sql=false --format=json --location=asia-northeast3 \
+        "SELECT
+           ROUND(SUM(credits.amount), 2) AS total_credits
+         FROM \`${bq_table}\`,
+           UNNEST(credits) AS credits
+         WHERE invoice.month = FORMAT_DATE('%Y%m', CURRENT_DATE())" 2>&1)
 
-    # SKU-level cost breakdown (if available)
-    local monthly_cost
-    monthly_cost=$(curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-        "https://cloudbilling.googleapis.com/v1/billingAccounts/${billing_account}/costs:summarize" 2>&1) || true
+    if [ $? -eq 0 ] && echo "$bq_credits" | jq -e '.[0]' &>/dev/null; then
+        local credit_amount
+        credit_amount=$(echo "$bq_credits" | jq -r '.[0].total_credits // "0"')
+        if [ "$credit_amount" != "0" ] && [ "$credit_amount" != "null" ]; then
+            gcp_section="${gcp_section}\n🎫 **크레딧 적용**: ${credit_amount}"
+        fi
+    fi
 
     # Budgets
     local budgets
     budgets=$(gcloud billing budgets list --billing-account="$billing_account" --format=json 2>&1) || true
 
     if echo "$budgets" | jq -e '.[0]' &>/dev/null; then
-        local budget_amount budget_spent
+        local budget_amount
         budget_amount=$(echo "$budgets" | jq -r '.[0].amount.specifiedAmount.units // "N/A"')
-        budget_spent=$(echo "$budgets" | jq -r '.[0].budgetFilter // "N/A"')
         gcp_section="${gcp_section}\n📊 **예산**: ${budget_amount} KRW"
     fi
 
