@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
   Header,
   Page,
@@ -394,10 +394,34 @@ export const ProvisioningDashboard = () => {
     cloud: 'GCP',
   });
 
-  const { value: allResources, loading, error } = useAsync(async () => {
+  const CLOUD_TABS: { label: string; cloud?: CloudProvider }[] = [
+    { label: '전체' },
+    { label: 'GCP',   cloud: 'GCP' },
+    { label: 'AWS',   cloud: 'AWS' },
+    { label: 'Azure', cloud: 'Azure' },
+  ];
+
+  // 탭별 lazy loading: 활성 탭의 리소스만 fetch
+  const typesToFetch = useMemo(() => {
+    const tab = CLOUD_TABS[activeTab];
+    return tab?.cloud
+      ? RESOURCE_TYPES.filter(rt => rt.cloud === tab.cloud)
+      : [...RESOURCE_TYPES];
+  }, [activeTab]);
+
+  // 탭별 캐시: refreshKey 변경 시 전체 무효화
+  const cacheRef = useRef<{ key: number; data: Map<number, CrossplaneResource[]> }>({ key: -1, data: new Map() });
+  if (cacheRef.current.key !== refreshKey) {
+    cacheRef.current = { key: refreshKey, data: new Map() };
+  }
+
+  const { value: fetchedResources, loading, error } = useAsync(async () => {
+    const cached = cacheRef.current.data.get(activeTab);
+    if (cached) return cached;
+
     const results: CrossplaneResource[] = [];
     await Promise.allSettled(
-      RESOURCE_TYPES.map(async rt => {
+      typesToFetch.map(async rt => {
         try {
           const response = await kubernetesApi.proxy({
             clusterName: CLUSTER_NAME,
@@ -415,8 +439,11 @@ export const ProvisioningDashboard = () => {
         }
       }),
     );
+    cacheRef.current.data.set(activeTab, results);
     return results;
-  }, [refreshKey]);
+  }, [refreshKey, activeTab]);
+
+  const allResources = fetchedResources || [];
 
   const handleRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
@@ -431,26 +458,17 @@ export const ProvisioningDashboard = () => {
     setTroubleshoot(prev => ({ ...prev, open: false }));
   }, []);
 
-  const CLOUD_TABS: { label: string; filter: (r: CrossplaneResource) => boolean }[] = [
-    { label: '전체', filter: () => true },
-    { label: 'GCP',   filter: r => r.cloud === 'GCP' },
-    { label: 'AWS',   filter: r => r.cloud === 'AWS' },
-    { label: 'Azure', filter: r => r.cloud === 'Azure' },
-  ];
+  const filteredResources = allResources;
 
-  const filteredResources = (allResources || []).filter(
-    CLOUD_TABS[activeTab]?.filter ?? (() => true),
-  );
-
-  const total   = allResources?.length ?? 0;
-  const ready   = allResources?.filter(r => getStatus(r.status?.conditions).cls === 'chipReady').length ?? 0;
-  const pending = allResources?.filter(r => getStatus(r.status?.conditions).cls === 'chipPending').length ?? 0;
-  const errored = allResources?.filter(r => getStatus(r.status?.conditions).isError).length ?? 0;
+  const total   = allResources.length;
+  const ready   = allResources.filter(r => getStatus(r.status?.conditions).cls === 'chipReady').length;
+  const pending = allResources.filter(r => getStatus(r.status?.conditions).cls === 'chipPending').length;
+  const errored = allResources.filter(r => getStatus(r.status?.conditions).isError).length;
 
   const cloudCounts: Record<CloudProvider, number> = {
-    GCP:   allResources?.filter(r => r.cloud === 'GCP').length   ?? 0,
-    AWS:   allResources?.filter(r => r.cloud === 'AWS').length   ?? 0,
-    Azure: allResources?.filter(r => r.cloud === 'Azure').length ?? 0,
+    GCP:   allResources.filter(r => r.cloud === 'GCP').length,
+    AWS:   allResources.filter(r => r.cloud === 'AWS').length,
+    Azure: allResources.filter(r => r.cloud === 'Azure').length,
   };
 
   return (
@@ -535,7 +553,7 @@ export const ProvisioningDashboard = () => {
               {CLOUD_TABS.map((tab, i) => {
                 const count = i === 0
                   ? total
-                  : cloudCounts[tab.label as CloudProvider] ?? 0;
+                  : cloudCounts[tab.cloud as CloudProvider] ?? 0;
                 return (
                   <Tab
                     key={tab.label}

@@ -27,7 +27,8 @@ backend.add(
 
 backend.add(import('@backstage/plugin-kubernetes-backend'));
 
-// custom backend plugin
+// custom backend plugins
 backend.add(import('./infraAssistant'));
+backend.add(import('./crossplaneCatalogProvider'));
 
 backend.start();
