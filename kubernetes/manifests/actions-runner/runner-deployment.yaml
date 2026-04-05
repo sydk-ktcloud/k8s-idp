@@ -6,6 +6,9 @@ metadata:
 spec:
   replicas: 2
   template:
+    metadata:
+      labels:
+        actions-runner: ""
     spec:
       repository: sydk-ktcloud/k8s-idp
       labels:
