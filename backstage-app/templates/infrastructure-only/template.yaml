@@ -331,7 +331,7 @@ spec:
         url: ./content
         values:
           componentName: ${{ parameters.componentName }}
-          namespace: default
+          namespace: ${{ parameters.componentName }}
           resourceType: ${{ parameters.resourceType }}
           vmMachineType: ${{ parameters.vmMachineType }}
           vmRegion: ${{ parameters.vmRegion }}
@@ -352,6 +352,8 @@ spec:
           owner: ${{ parameters.owner }}
           team: ${{ parameters.team }}
           costCenter: ${{ parameters.costCenter }}
+          repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+          repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
     - id: publish
       name: Pull Request 생성

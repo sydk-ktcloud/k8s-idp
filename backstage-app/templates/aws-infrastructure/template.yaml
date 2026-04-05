@@ -323,7 +323,7 @@ spec:
         url: ./content
         values:
           componentName: ${{ parameters.componentName }}
-          namespace: default
+          namespace: ${{ parameters.componentName }}
           resourceType: ${{ parameters.resourceType }}
           ec2InstanceType: ${{ parameters.ec2InstanceType }}
           ec2Region: ${{ parameters.ec2Region }}
@@ -342,7 +342,8 @@ spec:
           expiresAt: ${{ parameters.expiresAt }}
           owner: ${{ parameters.owner }}
           costCenter: ${{ parameters.costCenter }}
-          team: ${{ parameters.team }}
+          repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+          repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
     - id: publish
       name: Pull Request 생성

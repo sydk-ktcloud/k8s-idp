@@ -315,7 +315,7 @@ spec:
           owner: ${{ parameters.owner }}
           language: ${{ parameters.language }}
           resourceType: ${{ parameters.resourceType }}
-          namespace: default
+          namespace: ${{ parameters.componentName }}
           databaseVersion: ${{ parameters.databaseVersion }}
           tier: ${{ parameters.tier }}
           dbRegion: ${{ parameters.dbRegion }}
@@ -329,10 +329,11 @@ spec:
           clusterLocation: ${{ parameters.clusterLocation }}
           nodeCount: ${{ parameters.nodeCount }}
           nodeMachineType: ${{ parameters.nodeMachineType }}
-          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           lifecycleTier: ${{ parameters.lifecycleTier }}
           expiresAt: ${{ parameters.expiresAt }}
           costCenter: ${{ parameters.costCenter }}
+          repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+          repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
     - id: publish
       name: 저장소 생성

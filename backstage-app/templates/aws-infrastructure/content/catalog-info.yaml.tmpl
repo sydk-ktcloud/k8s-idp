@@ -1,3 +1,5 @@
+{% set repoOwner = values.repoOwner %}
+{% set repoName = values.repoName %}
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
@@ -8,11 +10,17 @@ metadata:
     - aws
     - {{ values.resourceType }}
   annotations:
-    github.com/project-slug: sydk-ktcloud/k8s-idp
+    github.com/project-slug: {{ repoOwner }}/{{ repoName }}
+    backstage.io/source-location: url:https://github.com/{{ repoOwner }}/{{ repoName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
+    kubecost.com/service-label: {{ values.componentName }}
+    kubecost.com/namespace: {{ values.namespace }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
 spec:
-  type: resource
-  lifecycle: experimental
-  owner: user:guest
+  type: {{ values.resourceType }}
+  lifecycle: {{ values.lifecycleTier }}
+  owner: {{ values.owner }}
   dependsOn:
     - resource:crossplane-claims
   links:

@@ -215,7 +215,7 @@ spec:
         values:
           componentName: ${{ parameters.componentName }}
           description: ${{ parameters.description or parameters.componentName }}
-          namespace: default
+          namespace: ${{ parameters.componentName }}
           serviceType: ${{ parameters.serviceType }}
           userCount: ${{ parameters.userCount }}
           trafficPattern: ${{ parameters.trafficPattern }}
@@ -225,7 +225,8 @@ spec:
           expiresAt: ${{ parameters.expiresAt }}
           owner: ${{ parameters.owner }}
           costCenter: ${{ parameters.costCenter }}
-          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+          repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
     - id: publish
       name: GitHub에 Pull Request 생성
