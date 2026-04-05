@@ -39,6 +39,9 @@ grafana.ini:
   server:
     root_url: http://100.64.0.1:30080
 
+  panels:                         
+    disable_sanitize_html: true
+
 # OAuth client secret은 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
 envValueFrom:
   GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
