@@ -26,7 +26,17 @@ jobs:
           TIMEOUT: ${{ inputs.timeout }}
         run: |
           echo "Syncing ArgoCD Application: ${APP_NAME}"
-          
+
+          # DNS/네트워크 안정화 대기 (pod 시작 직후 NetworkPolicy 적용 지연 대응)
+          for attempt in 1 2 3 4 5; do
+            if getent hosts argocd-server.gitops.svc.cluster.local >/dev/null 2>&1; then
+              echo "DNS resolved (attempt ${attempt})"
+              break
+            fi
+            echo "Waiting for DNS... (attempt ${attempt})"
+            sleep 3
+          done
+
           LOGIN_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -X POST "${ARGOCD_SERVER}/api/v1/session" \
             -H "Content-Type: application/json" \
             -d "{\"username\":\"${ARGOCD_USERNAME}\",\"password\":\"${ARGOCD_PASSWORD}\"}")
