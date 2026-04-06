@@ -44,6 +44,28 @@ reportsController:
       release: prometheus
     interval: 30s
 
+cleanupJobs:
+  admissionReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+  clusterAdmissionReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+  ephemeralReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+  clusterEphemeralReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+
 config:
   # Audit 모드로 시작 (2주 후 Enforce로 전환)
   defaultPolicyFailureAction: Audit
