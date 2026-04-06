@@ -20,6 +20,16 @@
     group: root
     mode: "0644"
 
+- name: logrotate hourly cron 활성화 (tailscale 로그 폭증 방지)
+  copy:
+    content: |
+      #!/bin/sh
+      /usr/sbin/logrotate /etc/logrotate.d/tailscale
+    dest: /etc/cron.hourly/tailscale-logrotate
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Headscale 서버에 노드 등록 (이미 등록된 경우 스킵)
   shell: |
     tailscale status --json | grep -q '"BackendState":"Running"' && exit 0
