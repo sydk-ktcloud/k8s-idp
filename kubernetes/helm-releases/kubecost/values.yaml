@@ -46,9 +46,11 @@ aggregator:
     storageClass: "longhorn"
     storageRequest: 128Gi
 
-# Cloud cost configs
+# Multi-cloud cost integration (AWS Athena + GCP BigQuery)
+# Secret "kubecost-cloud-integration" must contain key "cloud-integration.json"
 cloudCost:
   enabled: true
+  cloudIntegrationSecret: "kubecost-cloud-integration"
   persistentConfigsStorage:
     enabled: true
     storageClass: "longhorn"
@@ -84,23 +86,3 @@ notifications:
         filter: "label[lifecycle-tier]=dev"
         webhook: "http://chatops-bot.chatops.svc.cluster.local:3000/kubecost-alert"
 
-kubecostProductConfigs:
-  athenaProjectID: "253571483088"
-  athenaBucketName: "s3://aws-athena-query-results-253571483088-us-east-1"
-  athenaRegion: "us-east-1"
-  athenaDatabase: "athenacurcfn"
-  athenaTable: "data"
-  athenaWorkgroup: "primary"
-
-kubecostModel:
-  extraEnv:
-    - name: AWS_ACCESS_KEY_ID
-      valueFrom:
-        secretKeyRef:
-          name: aws-athena-credentials
-          key: AWS_ACCESS_KEY_ID
-    - name: AWS_SECRET_ACCESS_KEY
-      valueFrom:
-        secretKeyRef:
-          name: aws-athena-credentials
-          key: AWS_SECRET_ACCESS_KEY

@@ -1,0 +1,53 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: kubecost-cloud-integration
+  namespace: kubecost
+  labels:
+    managed-by: vault-eso
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: kubecost-cloud-integration
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      data:
+        cloud-integration.json: |
+          {
+            "aws": [
+              {
+                "athenaProjectID": "253571483088",
+                "athenaBucketName": "s3://aws-athena-query-results-253571483088-us-east-1",
+                "athenaRegion": "us-east-1",
+                "athenaDatabase": "athenacurcfn",
+                "athenaTable": "data",
+                "athenaWorkgroup": "primary",
+                "serviceKeyName": "{{ .aws_access_key_id }}",
+                "serviceKeySecret": "{{ .aws_secret_access_key }}"
+              }
+            ],
+            "gcp": [
+              {
+                "projectID": "sydk-ktcloud",
+                "billingDataDataset": "billing_export.gcp_billing_export_v1_01B26E_30705E_19E209",
+                "key": {{ .gcp_service_account_key }}
+              }
+            ]
+          }
+  data:
+    - secretKey: aws_access_key_id
+      remoteRef:
+        key: k8s/kubecost/cloud-integration
+        property: aws_access_key_id
+    - secretKey: aws_secret_access_key
+      remoteRef:
+        key: k8s/kubecost/cloud-integration
+        property: aws_secret_access_key
+    - secretKey: gcp_service_account_key
+      remoteRef:
+        key: k8s/kubecost/cloud-integration
+        property: gcp_service_account_key
