@@ -29,7 +29,7 @@
 | **GitOps** | ArgoCD | Application of Apps 패턴 |
 | **시크릿** | Vault + ESO | 단일 인스턴스 + External Secrets Operator |
 | **저장소** | Longhorn + MinIO | 블록 + 오브젝트 스토리지 (분산 HA) |
-| **관찰가능성** | Prometheus + Grafana + LGTM | Metrics, Logs, Traces 통합 |
+| **관찰가능성** | Prometheus + Grafana + LGTM | Metrics, Logs, Traces 통합 (Loki S3 백엔드) |
 | **백업** | Longhorn + Velero + MinIO → S3/GCS | PV + 클러스터 상태 + 오프사이트 복제 |
 | **DR** | EKS Active-Passive + GKE Burst | Dormant EKS → DR 활성화 → GKE Burst 연결 |
 
@@ -97,6 +97,8 @@ DR:   EKS Prometheus → GKE Proxy → KEDA → trip-app burst
 | **AWS** | EC2, S3, RDS, EKS |
 | **Azure** | VM, Blob Storage, PostgreSQL/MySQL, AKS |
 
+**FinOps 비용 추적**: 모든 Composition에 FinOps 라벨/태그 자동 패치 — `name`, `cost-center`, `owner`, `lifecycle-tier`, `expires-at`, `backstage-kubernetes-id`, `app-name`을 GCP labels / AWS tags / Azure tags로 전파하여 클라우드 비용 귀속 추적 지원.
+
 ### ChatOps (Discord 봇)
 
 | 카테고리 | 커맨드 |
@@ -136,10 +138,25 @@ DR:   EKS Prometheus → GKE Proxy → KEDA → trip-app burst
 | latest 태그 차단 | **Enforce** | `:latest` 태그 이미지 차단 (containers, initContainers, ephemeralContainers) |
 | Falco Talon 인프라 보호 | **Enforce** | 핵심 인프라 NS에 Falco Talon NetworkPolicy 자동 생성 차단 |
 | dev NS 쿼터 자동 생성 | Generate | dev 네임스페이스 ResourceQuota 자동 생성 |
+| Docker Hub 인증 Secret 전파 | Generate | `dockerhub-creds` Secret을 모든 네임스페이스에 자동 복제 (rate limit 방지) |
+| imagePullSecrets 자동 주입 | Mutate | 모든 Pod에 `dockerhub-creds` imagePullSecrets 자동 주입 |
 
 ---
 
 ## 보안
+
+### Docker Hub Rate Limit 대응
+
+Docker Hub 비인증 pull 제한(100회/6시간)에 대응하여 클러스터 전역에 인증 정보를 자동 배포합니다.
+
+```
+dockerhub-creds (kyverno NS) ──▶ Kyverno Generate ──▶ 모든 NS에 Secret 자동 복제
+                                  Kyverno Mutate  ──▶ 모든 Pod에 imagePullSecrets 자동 주입
+```
+
+- **Generate 정책**: Namespace 생성/업데이트 시 `dockerhub-creds` Secret을 `kyverno` NS에서 자동 clone (`synchronize: true`)
+- **Mutate 정책**: Pod 생성 시 `imagePullSecrets: [{name: dockerhub-creds}]` 자동 주입 (kube-system 등 시스템 NS 제외)
+- **제외 네임스페이스**: `config.resourceFilters`에 포함된 시스템 NS (crossplane-system, vault, gitops 등)에는 수동 배포
 
 ### RBAC 최소 권한 원칙
 
@@ -454,5 +471,8 @@ k8s-idp/
 - [x] 백업 파이프라인 보호 (Kyverno 인프라 NS 보호 + Longhorn CRD 관리 + Prometheus 알림)
 - [x] Velero ArgoCD Helm source 전환 (실제 배포 보장)
 - [x] Kyverno 정책 보강 (bind verb 차단, dev 사이징 전 리소스 커버, expires-at 형식 검증, ephemeralContainers 차단)
+- [x] Docker Hub rate limit 대응 (Kyverno generate/mutate 기반 클러스터 전역 imagePullSecrets 자동화)
+- [x] Crossplane FinOps 비용 추적 태그 (GCP labels / AWS tags / Azure tags 전 리소스 자동 패치)
+- [x] Loki 스토리지 S3(MinIO) 마이그레이션 (filesystem → S3 schema 전환)
 - [ ] Backstage 한국어 UI 완성
 - [ ] Backstage HPA 활성화
