@@ -154,11 +154,7 @@ customRules:
     # Custom Falco Rules: FIM + HIDS + Runtime Detection
     # Generated for K8s cluster security hardening
     # Sections: Lists → Macros → Rules
-    #
-    # [수정 이력]
-    # - startswith (list) → pmatch 으로 교체 (fd.name 경로 매칭) [falco.org Condition Syntax]
-    # - Rule 8 Reverse Shell: evt.type = execve 중복 제거 [코드 내부 논리 모순]
-    # - Rule 9 ptrace: 인라인 문자열 따옴표 추가 + allowed_ptrace_procs 리스트 분리 [falco.org Condition Syntax]
+    # 
     # - k8s.pod.name startswith (list): 원본 유지
     ##############################################################################
 
