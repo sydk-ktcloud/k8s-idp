@@ -17,12 +17,6 @@ spec:
         spec:
           forProvider:
             labels:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
-              service: gcp-bucket
               managed-by: crossplane
               resource-type: bucket
             location: US
@@ -42,7 +36,39 @@ spec:
           toFieldPath: spec.forProvider.versioning.enabled
         - fromFieldPath: spec.uniformBucketLevelAccess
           toFieldPath: spec.forProvider.uniformBucketLevelAccess.enabled
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
-        - fromFieldPath: metadata.labels
-          toFieldPath: spec.forProvider.labels
+
+        # ── FinOps 라벨 (GCP는 tags가 아닌 labels) ───────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional

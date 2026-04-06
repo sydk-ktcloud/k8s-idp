@@ -5,12 +5,15 @@ metadata:
   labels:
     provider: aws
     resource: ec2
+
 spec:
   compositeTypeRef:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XEC2Instance
+
   resources:
     - name: ec2-instance
+
       base:
         apiVersion: ec2.aws.upbound.io/v1beta1
         kind: Instance
@@ -19,28 +22,72 @@ spec:
             region: us-east-1
             instanceType: t3.medium
             ami: ami-0c55b159cbfafe1f0
+
             rootBlockDevice:
               - volumeSize: 50
                 volumeType: gp3
                 deleteOnTermination: true
+
             tags:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
               managed-by: crossplane
               resource-type: ec2-instance
+
           providerConfigRef:
             name: default
+
       patches:
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
+          policy:
+            fromFieldPath: Required
+
         - fromFieldPath: spec.instanceType
           toFieldPath: spec.forProvider.instanceType
+          policy:
+            fromFieldPath: Required
+
         - fromFieldPath: spec.ami
           toFieldPath: spec.forProvider.ami
+          policy:
+            fromFieldPath: Optional
+
         - fromFieldPath: spec.diskSize
           toFieldPath: spec.forProvider.rootBlockDevice[0].volumeSize
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
+          policy:
+            fromFieldPath: Required
+
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+            
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional

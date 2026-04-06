@@ -31,14 +31,8 @@ spec:
             name: placeholder
           forProvider:
             labels:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
-              service: gcp-cluster
               managed-by: crossplane
-              resource-type: cluster
+              resource-type: gke-cluster
             location: us-central1
             network: ""
             initialNodeCount: 3
@@ -47,27 +41,33 @@ spec:
                 oauthScopes:
                   - "https://www.googleapis.com/auth/cloud-platform"
             enableIntranodeVisibility: true
-            ipAllocationPolicy:
-              - clusterSecondaryRangeName: pods
-                servicesSecondaryRangeName: services
           providerConfigRef:
             name: default
+
       patches:
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
-        # network: EnvironmentConfig 기본값(defaultNetworkUrl) 사용
-        # spec.network(선택 필드)가 있으면 추후 CombineTransform으로 override 가능
+          policy:
+            fromFieldPath: Optional
+
+        # network: EnvironmentConfig 기본값 사용
         - type: FromEnvironmentFieldPath
           fromFieldPath: defaultNetworkUrl
           toFieldPath: spec.forProvider.network
+
         - fromFieldPath: spec.nodeCount
           toFieldPath: spec.forProvider.initialNodeCount
+          policy:
+            fromFieldPath: Optional
+
         - fromFieldPath: spec.machineType
           toFieldPath: spec.forProvider.nodeConfig[0].machineType
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
-        - fromFieldPath: metadata.labels
-          toFieldPath: spec.forProvider.labels
+          policy:
+            fromFieldPath: Optional
+
         # kubeconfig Secret 이름: {uid}-gke-cluster-conn
         - fromFieldPath: metadata.uid
           toFieldPath: spec.writeConnectionSecretToRef.name
@@ -75,17 +75,56 @@ spec:
             - type: string
               string:
                 fmt: "%s-gke-cluster-conn"
-        # ── 클러스터 상태 → composite status 버블업 ────────────
+
+        # ── FinOps 라벨 ───────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional
+
+        # ── 클러스터 상태 → composite status 버블업 ──────────
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.status
           toFieldPath: status.clusterStatus
           policy:
             fromFieldPath: Optional
+
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.endpoint
           toFieldPath: status.endpoint
           policy:
             fromFieldPath: Optional
+
       connectionDetails:
         - name: kubeconfig
           fromConnectionSecretKey: kubeconfig

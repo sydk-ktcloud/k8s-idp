@@ -18,14 +18,57 @@ spec:
         spec:
           providerConfigRef:
             name: default
-          forProvider: {}
+          forProvider:
+            labels:
+              managed-by: crossplane
+              resource-type: pubsub-topic
+
       patches:
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.name
+        - fromFieldPath: spec.name
           toFieldPath: metadata.name
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.messageRetentionDuration
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.messageRetentionDuration
           toFieldPath: spec.forProvider.messageRetentionDuration
+          policy:
+            fromFieldPath: Required
+
+        # ── FinOps 라벨 ───────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional
 
     # ── Pub/Sub 구독 ─────────────────────────────────────────
     - name: pubsub-subscription
@@ -37,19 +80,63 @@ spec:
             name: default
           forProvider:
             ackDeadlineSeconds: 30
+            labels:
+              managed-by: crossplane
+              resource-type: pubsub-subscription
+
       patches:
         # 이름: <topic-name>-sub
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.name
-          toFieldPath: metadata.name
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
           transforms:
             - type: string
               string:
                 fmt: "%s-sub"
-        # topicRef: 같은 이름의 토픽 참조
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.name
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.name
           toFieldPath: spec.forProvider.topicRef.name
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.ackDeadlineSeconds
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.ackDeadlineSeconds
           toFieldPath: spec.forProvider.ackDeadlineSeconds
+          policy:
+            fromFieldPath: Required
+
+        # ── FinOps 라벨 ───────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional

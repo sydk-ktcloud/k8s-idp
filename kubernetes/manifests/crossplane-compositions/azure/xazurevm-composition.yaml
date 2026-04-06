@@ -10,64 +10,15 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XAzureVM
 
+  # ── EnvironmentConfig: Azure 플랫폼 기본값 ───────────────────
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: azure-platform
+
   resources:
-    # ── 1. Resource Group ──────────────────────────────────────
-    - name: resource-group
-      base:
-        apiVersion: azure.upbound.io/v1beta1
-        kind: ResourceGroup
-        spec:
-          forProvider:
-            location: koreacentral
-            tags:
-              team: platform
-              managed-by: crossplane
-          providerConfigRef:
-            name: default
-      patches:
-        - fromFieldPath: spec.location
-          toFieldPath: spec.forProvider.location
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
-
-    # ── 2. Virtual Network ─────────────────────────────────────
-    - name: virtual-network
-      base:
-        apiVersion: network.azure.upbound.io/v1beta1
-        kind: VirtualNetwork
-        spec:
-          forProvider:
-            location: koreacentral
-            resourceGroupNameSelector:
-              matchControllerRef: true
-            addressSpace:
-              - 10.0.0.0/16
-            tags:
-              team: platform
-              managed-by: crossplane
-          providerConfigRef:
-            name: default
-      patches:
-        - fromFieldPath: spec.location
-          toFieldPath: spec.forProvider.location
-
-    # ── 3. Subnet ──────────────────────────────────────────────
-    - name: subnet
-      base:
-        apiVersion: network.azure.upbound.io/v1beta1
-        kind: Subnet
-        spec:
-          forProvider:
-            resourceGroupNameSelector:
-              matchControllerRef: true
-            virtualNetworkNameSelector:
-              matchControllerRef: true
-            addressPrefixes:
-              - 10.0.1.0/24
-          providerConfigRef:
-            name: default
-
-    # ── 4. Network Interface ───────────────────────────────────
+    # ── 1. Network Interface ──────────────────────────────────
     - name: network-interface
       base:
         apiVersion: network.azure.upbound.io/v1beta1
@@ -75,23 +26,77 @@ spec:
         spec:
           forProvider:
             location: koreacentral
-            resourceGroupNameSelector:
-              matchControllerRef: true
+            resourceGroupName: ""
             ipConfiguration:
               - name: internal
                 privateIpAddressAllocation: Dynamic
-                subnetIdSelector:
-                  matchControllerRef: true
+                subnetId: ""
             tags:
-              team: platform
               managed-by: crossplane
+              resource-type: azure-vm-nic
           providerConfigRef:
             name: default
       patches:
+        # location: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultLocation
+          toFieldPath: spec.forProvider.location
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
+          policy:
+            fromFieldPath: Optional
 
-    # ── 5. Linux Virtual Machine ───────────────────────────────
+        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultResourceGroup
+          toFieldPath: spec.forProvider.resourceGroupName
+        - fromFieldPath: spec.resourceGroupName
+          toFieldPath: spec.forProvider.resourceGroupName
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: spec.subnetId
+          toFieldPath: spec.forProvider.ipConfiguration[0].subnetId
+          policy:
+            fromFieldPath: Required
+
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional
+
+    # ── 2. Linux Virtual Machine ─────────────────────────────
     - name: linux-virtual-machine
       base:
         apiVersion: compute.azure.upbound.io/v1beta1
@@ -99,42 +104,103 @@ spec:
         spec:
           forProvider:
             location: koreacentral
-            resourceGroupNameSelector:
-              matchControllerRef: true
-            size: Standard_B1s
+            resourceGroupName: ""
+            size: Standard_B2ms
             adminUsername: azureuser
-            adminPasswordSecretRef:
-              key: password
-              name: azure-vm-admin-password
-              namespace: crossplane-system
-            disablePasswordAuthentication: false
+            adminSshKey:
+              - username: azureuser
+                # publicKey: Vault/ESO Secret 참조로 주입 필요 — placeholder 제거
+                publicKey: ""
             osDisk:
               - caching: ReadWrite
-                storageAccountType: StandardSSD_LRS
-                diskSizeGb: 30
+                storageAccountType: Premium_LRS
+                diskSizeGb: 50
             sourceImageReference:
               - publisher: Canonical
-                offer: 0001-com-ubuntu-server-jammy
-                sku: 22_04-lts
+                offer: UbuntuServer
+                sku: 18.04-LTS
                 version: latest
             networkInterfaceIdsSelector:
               matchControllerRef: true
             tags:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
               managed-by: crossplane
               resource-type: azure-vm
           providerConfigRef:
             name: default
       patches:
+        # location: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultLocation
+          toFieldPath: spec.forProvider.location
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
+          policy:
+            fromFieldPath: Optional
+
+        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultResourceGroup
+          toFieldPath: spec.forProvider.resourceGroupName
+        - fromFieldPath: spec.resourceGroupName
+          toFieldPath: spec.forProvider.resourceGroupName
+          policy:
+            fromFieldPath: Optional
+
         - fromFieldPath: spec.vmSize
           toFieldPath: spec.forProvider.size
+          policy:
+            fromFieldPath: Required
+
         - fromFieldPath: spec.diskSizeGb
           toFieldPath: spec.forProvider.osDisk[0].diskSizeGb
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
+          policy:
+            fromFieldPath: Required
+
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional
+
+        # ── VM 상태 → composite status 버블업 ──────────────────
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.privateIpAddress
+          toFieldPath: status.privateIpAddress
+          policy:
+            fromFieldPath: Optional
+
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.provisioningState
+          toFieldPath: status.provisioningState
+          policy:
+            fromFieldPath: Optional
