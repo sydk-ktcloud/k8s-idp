@@ -1,0 +1,43 @@
+# Kyverno Admission Controller NetworkPolicy
+# Kyverno는 API server로부터 webhook 호출을 받고,
+# ClusterPolicy/리소스 watch를 위해 API server에 접근해야 함
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kyverno-allow
+  namespace: kyverno
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # kube-apiserver → admission webhook (포트 443)
+  - ports:
+    - protocol: TCP
+      port: 443
+  # Prometheus 메트릭 수집
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # kube-apiserver 접근 (ClusterPolicy watch, 리소스 조회)
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # DNS
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
