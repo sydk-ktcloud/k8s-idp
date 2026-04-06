@@ -62,6 +62,9 @@ spec:
               secret_access_key: ${S3_SECRET_ACCESS_KEY}
               s3ForcePathStyle: true
               insecure: true
+          storage_config:
+            filesystem:
+              directory: /var/loki/chunks
           schemaConfig:
             configs:
               - from: "2024-01-01"
@@ -71,7 +74,7 @@ spec:
                 index:
                   prefix: loki_index_
                   period: 24h
-              - from: "2026-04-07"
+              - from: "2026-04-06"
                 store: tsdb
                 object_store: s3
                 schema: v13
