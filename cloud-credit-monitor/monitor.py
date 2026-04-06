@@ -156,7 +156,8 @@ def get_gcp_info() -> str:
         if bq_table:
             try:
                 from google.cloud import bigquery
-                bq_client = bigquery.Client(project=project_id, credentials=creds)
+                bq_location = os.environ.get("GCP_BQ_LOCATION", "asia-northeast3")
+                bq_client = bigquery.Client(project=project_id, credentials=creds, location=bq_location)
                 month_str = NOW.strftime("%Y%m")
                 query = f"""
                     SELECT
