@@ -1,7 +1,7 @@
-replicaCount: 3
+replicaCount: 1
 
 admissionController:
-  replicas: 3
+  replicas: 1
   metricsService:
     labels:
       release: prometheus
@@ -12,7 +12,7 @@ admissionController:
     interval: 30s
 
 backgroundController:
-  replicas: 2
+  replicas: 1
   metricsService:
     labels:
       release: prometheus
@@ -23,7 +23,7 @@ backgroundController:
     interval: 30s
 
 cleanupController:
-  replicas: 2
+  replicas: 1
   metricsService:
     labels:
       release: prometheus
@@ -34,7 +34,7 @@ cleanupController:
     interval: 30s
 
 reportsController:
-  replicas: 2
+  replicas: 1
   metricsService:
     labels:
       release: prometheus
