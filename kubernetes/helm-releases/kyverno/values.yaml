@@ -14,16 +14,13 @@ admissionController:
 backgroundController:
   replicas: 1
   rbac:
-    clusterRole:
+    coreClusterRole:
       extraResources:
         - apiGroups:
             - ""
           resources:
             - secrets
           verbs:
-            - get
-            - list
-            - watch
             - create
             - update
             - patch
