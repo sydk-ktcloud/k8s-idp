@@ -101,19 +101,13 @@ datasources:
         access: proxy
         uid: tempo
 
-# 백업 & 스토리지 대시보드 프로바이더
-dashboardProviders:
-  dashboardproviders.yaml:
-    apiVersion: 1
-    providers:
-    - name: backup
-      orgId: 1
-      folder: 'Backup & Storage'
-      type: file
-      disableDeletion: false
-      editable: true
-      options:
-        path: /var/lib/grafana/dashboards/backup
-
-dashboardsConfigMaps:
-  backup: "grafana-backup-dashboard"
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    searchNamespace: ALL
+    folder: /var/lib/grafana/dashboards
+    provider:
+      allowUiUpdates: true
+      foldersFromFilesStructure: true

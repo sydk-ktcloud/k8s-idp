@@ -76,6 +76,7 @@ prometheus:
     # Additional scrape configs (MinIO metrics)
     additionalScrapeConfigs:
       - job_name: 'minio'
+        bearer_token: 'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwcm9tZXRoZXVzIiwic3ViIjoiYWRtaW4iLCJleHAiOjQ5MjkwODg4NzB9.UsM9nBORUZl-5dpTIVhnCwSNxzcOLihVq9zMj20imhYTE4a4TCXVxp7Wnlgri9tKLrsaIUwExs1sXe6vU0_bgQ'
         static_configs:
           - targets: ['minio.minio-storage:9000']
         metrics_path: /minio/v2/metrics/cluster

@@ -28,7 +28,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 1,
-      "id": 14,
+      "id": 0,
       "links": [],
       "panels": [
         {
@@ -93,7 +93,7 @@ data:
             "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
-                "lastNotNull"
+                "max"
               ],
               "fields": "",
               "values": false
@@ -110,7 +110,7 @@ data:
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "sum(rate(http_server_requests_seconds_count{job=\"monitoring/trip-app-monitor\", status=~\"5..\"}[1m])) \r\n/ \r\nsum(rate(http_server_requests_seconds_count{job=\"monitoring/trip-app-monitor\"}[1m]))",
+              "expr": "sum(rate(http_server_requests_seconds_count{namespace=\"trip-app\", status=~\"5..\"}[1m]))\r\n/\r\nsum(rate(http_server_requests_seconds_count{namespace=\"trip-app\"}[1m]))",
               "legendFormat": "Error Rate",
               "range": true,
               "refId": "A"
@@ -183,7 +183,7 @@ data:
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.99, sum(rate(traces_spanmetrics_latency_bucket{service=~\"trip-.*\"}[5m])) by (le, service)) * 1000",
+              "expr": "histogram_quantile(0.99,\r\n  sum(rate(http_server_requests_seconds_bucket{namespace=\"trip-app\"}[5m]))\r\n  by (le)\r\n) * 1000",
               "legendFormat": "P99",
               "range": true,
               "refId": "A"
@@ -553,6 +553,30 @@ data:
                     "value": 30
                   }
                 ]
+              },
+              {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                  "id": "byNames",
+                  "options": {
+                    "mode": "exclude",
+                    "names": [
+                      "/api/v1/orders/preview"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "legend": false,
+                      "tooltip": true,
+                      "viz": true
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -663,7 +687,32 @@ data:
               },
               "unit": "ms"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                  "id": "byNames",
+                  "options": {
+                    "mode": "exclude",
+                    "names": [
+                      "P50 /actuator/prometheus"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "legend": false,
+                      "tooltip": true,
+                      "viz": true
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
@@ -794,7 +843,77 @@ data:
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "error"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "info"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "green",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "ERROR"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                  "id": "byNames",
+                  "options": {
+                    "mode": "exclude",
+                    "names": [
+                      "error"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "legend": false,
+                      "tooltip": true,
+                      "viz": true
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 5,
@@ -825,7 +944,7 @@ data:
               },
               "direction": "backward",
               "editorMode": "code",
-              "expr": "sum by (level) (count_over_time({namespace=\"trip-app\"} | json | __error__=\"\" [1m]))",
+              "expr": "sum by (level) (count_over_time({namespace=\"trip-app\"} | json | label_format level=`{{ lower .level }}` [5m]))",
               "legendFormat": "{{level}}",
               "queryType": "range",
               "refId": "A"
@@ -894,7 +1013,77 @@ data:
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "{instance=\"trip-app/trip-db-6596c964d8-2fn8l:postgres\"}"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "{instance=\"trip-app/trip-cart-api-7f5b6c5c4f-8knkh:trip-cart-api\"}"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                  "id": "byNames",
+                  "options": {
+                    "mode": "exclude",
+                    "names": [
+                      "{instance=\"trip-app/trip-backend-647fcd7cb9-hh774:trip-backend\"}"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "legend": false,
+                      "tooltip": true,
+                      "viz": true
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 5,
@@ -925,8 +1114,8 @@ data:
               },
               "direction": "backward",
               "editorMode": "code",
-              "expr": "sum by (service_name) (count_over_time({namespace=\"trip-app\"} | logfmt | level=\"error\" [1m]))",
-              "legendFormat": "{{service}}",
+              "expr": "sum by (instance) (count_over_time({namespace=\"trip-app\"}[5m]))",
+              "legendFormat": "",
               "queryType": "range",
               "refId": "A"
             }
@@ -944,7 +1133,7 @@ data:
             "overrides": []
           },
           "gridPos": {
-            "h": 10,
+            "h": 25,
             "w": 24,
             "x": 0,
             "y": 19
@@ -971,7 +1160,7 @@ data:
               },
               "direction": "backward",
               "editorMode": "code",
-              "expr": "{namespace=\"trip-app\"} | json | __error__=\"\" | level=\"ERROR\"",
+              "expr": "{namespace=\"trip-app\"} | json | level=~\"error|ERROR\"",
               "legendFormat": "",
               "queryType": "range",
               "refId": "A"
@@ -986,7 +1175,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 29
+            "y": 44
           },
           "id": 102,
           "panels": [],
@@ -1034,7 +1223,7 @@ data:
             "h": 12,
             "w": 24,
             "x": 0,
-            "y": 30
+            "y": 45
           },
           "id": 30,
           "options": {
@@ -1056,33 +1245,16 @@ data:
               },
               "filters": [
                 {
-                  "id": "service-name",
-                  "isCustomValue": false,
-                  "operator": "=",
-                  "scope": "resource",
-                  "tag": "service.name",
-                  "value": [],
-                  "valueType": "string"
-                },
-                {
-                  "id": "6f6d576b",
+                  "id": "d23031df",
                   "operator": "=",
                   "scope": "span"
-                },
-                {
-                  "id": "min-duration",
-                  "operator": ">",
-                  "tag": "duration",
-                  "value": "10ms",
-                  "valueType": "duration"
                 }
               ],
+              "hide": false,
               "limit": 20,
               "metricsQueryType": "range",
-              "query": "{duration>10ms}",
-              "queryType": "traceql",
+              "queryType": "traceqlSearch",
               "refId": "A",
-              "serviceMapUseNativeHistograms": false,
               "tableType": "traces"
             }
           ],
@@ -1149,13 +1321,38 @@ data:
               },
               "unit": "ms"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                  "id": "byNames",
+                  "options": {
+                    "mode": "exclude",
+                    "names": [
+                      "trip-backend-service P95"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "legend": false,
+                      "tooltip": true,
+                      "viz": true
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 42
+            "y": 57
           },
           "id": 31,
           "options": {
@@ -1266,7 +1463,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 42
+            "y": 57
           },
           "id": 32,
           "options": {
@@ -1293,7 +1490,7 @@ data:
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"trip-.*\",status_code=\"STATUS_CODE_ERROR\"}[5m])) by (service) / sum(rate(traces_spanmetrics_calls_total{service=~\"trip-.*\"}[5m])) by (service)",
+              "expr": "(\r\n  sum(rate(http_server_requests_seconds_count{namespace=\"trip-app\",status=~\"5..\"}[5m])) by (uri)\r\n/\r\n  sum(rate(http_server_requests_seconds_count{namespace=\"trip-app\"}[5m])) by (uri)\r\n)",
               "legendFormat": "{{service}}",
               "range": true,
               "refId": "A"
@@ -1308,7 +1505,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 50
+            "y": 65
           },
           "id": 103,
           "panels": [],
@@ -1381,7 +1578,7 @@ data:
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 51
+            "y": 66
           },
           "id": 40,
           "options": {
@@ -1490,7 +1687,7 @@ data:
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 51
+            "y": 66
           },
           "id": 41,
           "options": {
@@ -1590,7 +1787,7 @@ data:
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 51
+            "y": 66
           },
           "id": 42,
           "options": {
@@ -1699,7 +1896,7 @@ data:
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 58
+            "y": 73
           },
           "id": 43,
           "options": {
@@ -1799,7 +1996,7 @@ data:
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 58
+            "y": 73
           },
           "id": 44,
           "options": {
@@ -1899,7 +2096,7 @@ data:
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 58
+            "y": 73
           },
           "id": 45,
           "options": {
@@ -1985,12 +2182,12 @@ data:
         ]
       },
       "time": {
-        "from": "now-24h",
+        "from": "now-1h",
         "to": "now"
       },
       "timepicker": {},
       "timezone": "browser",
       "title": "trip-app | Scenario C — 장애 원인 3분 파악",
       "uid": "trip-app-scenario-c-v1",
-      "version": 11
+      "version": 3
     }
