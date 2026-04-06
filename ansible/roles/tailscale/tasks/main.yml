@@ -12,6 +12,14 @@
     state: started
     enabled: true
 
+- name: Tailscale logrotate 설정 배포
+  template:
+    src: tailscale-logrotate.j2
+    dest: /etc/logrotate.d/tailscale
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Headscale 서버에 노드 등록 (이미 등록된 경우 스킵)
   shell: |
     tailscale status --json | grep -q '"BackendState":"Running"' && exit 0
