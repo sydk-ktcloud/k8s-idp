@@ -103,6 +103,13 @@ rules:
     resources: ["*"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
 
+  # Kyverno
+  - apiGroups:
+      - kyverno.io
+      - wgpolicyk8s.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+
   # Crossplane upbound providers (GCP/AWS/Azure 등 신규 그룹 대응)
   # escalate/impersonate는 verbs에 없으므로 권한 상승 불가
   - apiGroups:
