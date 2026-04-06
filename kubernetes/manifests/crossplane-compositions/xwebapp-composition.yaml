@@ -154,7 +154,7 @@ spec:
             name: placeholder
           forProvider:
             region: us-central1
-            rootPassword: "PLACEHOLDER_REPLACE_WITH_VAULT"
+            # rootPassword: Vault/ESO Secret으로 주입 필요 — base에 하드코딩 금지
             deletionProtection: false
             settings:
               - diskType: PD_SSD

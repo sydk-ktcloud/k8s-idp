@@ -109,8 +109,8 @@ spec:
             adminUsername: azureuser
             adminSshKey:
               - username: azureuser
-                # TODO: 임시 하드코딩 — 추후 Vault/ESO Secret 참조로 교체
-                publicKey: "ssh-rsa AAAAB3NzaC1yc2E... placeholder"
+                # publicKey: Vault/ESO Secret 참조로 주입 필요 — placeholder 제거
+                publicKey: ""
             osDisk:
               - caching: ReadWrite
                 storageAccountType: Premium_LRS

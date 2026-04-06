@@ -35,7 +35,7 @@ spec:
                 availabilityType: ZONAL
                 backupConfiguration:
                   - enabled: true
-            rootPassword: "PLACEHOLDER_REPLACE_WITH_VAULT"
+            # rootPassword: Vault/ESO Secret으로 주입 필요 — base에 하드코딩 금지
             deletionProtection: false
           providerConfigRef:
             name: default
