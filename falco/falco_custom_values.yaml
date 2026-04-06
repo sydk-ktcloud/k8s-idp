@@ -37,12 +37,9 @@ falcosidekick:
           memory: "128Mi"
           cpu: "100m"
       # 핵심: redis 바로 아래에 master가 와야 합니다 (공백 6칸)
-      master:
-        config: |-
-          maxmemory 150mb
-          maxmemory-policy allkeys-lru
-          save ""
-          appendonly no
+      extraEnvVars:
+        - name: REDIS_ARGS
+          value: "--maxmemory 150mb --maxmemory-policy allkeys-lru --save '' --appendonly no"
 
     # 2. UI 화면 자체 리소스 (프론트엔드)
     resources:
