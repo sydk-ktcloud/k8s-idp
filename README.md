@@ -447,6 +447,70 @@ k8s-idp/
 
 ---
 
+## Troubleshooting
+
+### Pod Eviction — DiskPressure (ephemeral-storage)
+
+**증상**: Pod가 `Evicted` 상태, `The node was low on resource: ephemeral-storage` 메시지
+
+**근본 원인**: Tailscale 로그 폭증 (`/var/log/tailscale.log.1`이 노드당 200GB+ 누적 가능)
+
+**진단**:
+```bash
+# 노드 DiskPressure 확인
+kubectl get nodes -o custom-columns='NAME:.metadata.name,DISK_PRESSURE:.status.conditions[?(@.type=="DiskPressure")].status'
+
+# 해당 노드 디스크 사용량 확인 (Tailscale IP로 SSH)
+ssh k8suser@<tailscale-ip> 'df -h /; sudo du -sh /var/log/tailscale*'
+```
+
+**즉시 해결**:
+```bash
+# Tailscale 로그 정리
+ssh k8suser@<tailscale-ip> 'sudo truncate -s 0 /var/log/tailscale.log.1 && sudo rm -f /var/log/tailscale.log.2.gz'
+```
+
+**재발 방지**: `ansible/roles/tailscale/templates/tailscale-logrotate.j2`에 hourly + maxsize 50M + 즉시 압축 설정 적용 완료. 신규 노드는 Ansible playbook 실행 시 자동 적용.
+
+### Longhorn 볼륨 Faulted — MinIO I/O Error
+
+**증상**: MinIO `/data` 접근 시 `Input/output error`, Loki `failed to flush chunks`
+
+**근본 원인**: Longhorn 볼륨의 replica가 모두 failed 상태 → 볼륨 detached/faulted → MinIO I/O 불가 → Loki S3 쓰기 실패 (연쇄 장애)
+
+**진단**:
+```bash
+# Longhorn 볼륨 상태 확인
+kubectl get volumes.longhorn.io -n longhorn-system -o custom-columns='NAME:.metadata.name,STATE:.status.state,ROBUSTNESS:.status.robustness'
+
+# failed replica 확인
+kubectl get replicas.longhorn.io -n longhorn-system -l longhornvolume=<volume-name> -o custom-columns='NAME:.metadata.name,STATE:.status.currentState,FAILED:.spec.failedAt'
+```
+
+**해결**:
+```bash
+# replica의 failedAt 필드 클리어 → 볼륨 자동 재attach
+kubectl patch replicas.longhorn.io -n longhorn-system <replica-name> --type=json -p='[{"op":"replace","path":"/spec/failedAt","value":""}]'
+
+# MinIO Pod 재시작 (stale mount 해제)
+kubectl delete pod -n minio-storage <minio-pod>
+```
+
+### Loki Chunk Flush 실패 — `mkdir fake: read-only file system`
+
+**증상**: Loki 로그에 `store put chunk: mkdir fake: read-only file system` 반복
+
+**근본 원인**: `schema_config`에서 `object_store: filesystem` → `s3`로 전환할 때, `storage_config`에 `filesystem.directory` 경로 미설정. 기존 period의 chunk flush가 기본 경로(`fake` = tenant ID)에 쓰려다 실패.
+
+**해결**: `kubernetes/observability/loki.yaml`의 `loki.storage_config`에 filesystem 경로 추가:
+```yaml
+storage_config:
+  filesystem:
+    directory: /var/loki/chunks
+```
+
+---
+
 ## 문서
 
 - [원격 접속 가이드](docs/remote-access-guide.md)
