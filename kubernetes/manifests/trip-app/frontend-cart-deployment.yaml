@@ -1,52 +1,51 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: trip-main-service
+  name: trip-cart-service
   namespace: trip-app
 spec:
-  type: NodePort # 외부에서 3000포트로 접속하기 위해 설정
+  type: NodePort 
   selector:
-    app: trip-main
+    app: trip-cart
   ports:
     - protocol: TCP
-      port: 3000
-      targetPort: 80
-      nodePort: 30249
+      port: 3001       # 외부 접속 포트
+      targetPort: 80   # 컨테이너 내부 포트 (Nginx/Vite 기본)
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trip-main
+  name: trip-cart
   namespace: trip-app
   labels:
-    app: trip-main
+    app: trip-cart
     team: platform
     owner: team-appdev
     cost-center: internal-platform
     env: prod
     system: trip-app
-    service: trip-main
+    service: trip-cart
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: trip-main
+      app: trip-cart
   template:
     metadata:
       labels:
-        app: trip-main
+        app: trip-cart
         team: platform
         owner: team-appdev
         cost-center: internal-platform
         env: prod
         system: trip-app
-        service: trip-main
+        service: trip-cart
     spec:
       containers:
-      - name: trip-main
-        image: kylekim1223/trip-front:latest
+      - name: trip-cart
+        image: kylekim1223/trip-front:latest # 메인과 같은 이미지를 사용하되 환경변수로 구분
         env:
         - name: VITE_SERVICE_NAME
-          value: "MAIN_PORTAL"
+          value: "CART_SERVICE"
         ports:
         - containerPort: 80
