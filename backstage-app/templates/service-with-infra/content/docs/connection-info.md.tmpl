@@ -1,0 +1,38 @@
+# 접속 정보 확인
+
+## Backstage에서 확인
+
+Backstage 카탈로그 > `${{ values.name }}` > **개요** 탭에서 접속 정보를 확인할 수 있습니다.
+
+## kubectl로 확인
+
+```bash
+# 서비스 엔드포인트 확인
+kubectl get service ${{ values.name }}-service -n ${{ values.namespace | default(values.name) }}
+
+# 인프라 연결 시크릿 확인
+kubectl get secret ${{ values.name }}-connection -n ${{ values.namespace | default(values.name) }} -o jsonpath='{.data}' | base64 -d
+
+# 파드 상태 확인
+kubectl get pods -n ${{ values.namespace | default(values.name) }}
+```
+
+## 인프라 접속 정보
+
+```bash
+# Crossplane 연결 시크릿 목록
+kubectl get secrets -n ${{ values.namespace | default(values.name) }} | grep connection
+
+# 연결 정보 상세 확인
+kubectl describe secret ${{ values.name }}-connection -n ${{ values.namespace | default(values.name) }}
+```
+
+## 로그 확인
+
+```bash
+# 최근 로그 확인
+kubectl logs -l app=${{ values.name }}-service -n ${{ values.namespace | default(values.name) }} --tail=100
+
+# 실시간 로그 스트리밍
+kubectl logs -l app=${{ values.name }}-service -n ${{ values.namespace | default(values.name) }} -f
+```

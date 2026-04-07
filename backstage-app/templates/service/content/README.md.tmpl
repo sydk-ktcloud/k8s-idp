@@ -2,21 +2,31 @@
 
 {{ values.description }}
 
-## Getting Started
+## 개요
 
-### Prerequisites
+| 항목 | 내용 |
+|------|------|
+| **언어 / 프레임워크** | {% if values.language == 'nodejs' %}Node.js (Express){% elif values.language == 'python' %}Python (Flask){% elif values.language == 'go' %}Go (net/http){% endif %} |
+| **소유자** | {{ values.owner }} |
+| **환경 티어** | {{ values.lifecycleTier }} |
+| **비용 센터** | {{ values.costCenter }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
+
+## 빠른 시작
+
+### 사전 요구사항
 
 {% if values.language == 'nodejs' -%}
-- Node.js 18+
-- npm or yarn
+- Node.js 18 이상
+- npm 또는 yarn
 {% elif values.language == 'python' -%}
-- Python 3.11+
+- Python 3.11 이상
 - pip
 {% elif values.language == 'go' -%}
-- Go 1.21+
-{% endif -%}
+- Go 1.21 이상
+{% endif %}
 
-### Installation
+### 설치 및 실행
 
 {% if values.language == 'nodejs' -%}
 ```bash
@@ -32,17 +42,70 @@ python app.py
 ```bash
 go run main.go
 ```
-{% endif -%}
+{% endif %}
 
-### Health Check
+### 헬스 체크
 
 ```bash
 curl http://localhost:3000/health
 ```
 
-## API Endpoints
+## API 엔드포인트
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | / | Service info |
-| GET | /health | Health check |
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | / | 서비스 정보 |
+| GET | /health | 헬스 체크 |
+
+## 배포
+
+이 서비스는 **ArgoCD**를 통해 자동으로 배포됩니다.
+
+1. `main` 브랜치에 코드를 머지하면 ArgoCD가 변경을 감지합니다
+2. 약 1~2분 내에 Kubernetes 클러스터에 자동 배포됩니다
+3. 배포 상태는 **Backstage 카탈로그 > 해당 서비스 > CI/CD 탭**에서 확인할 수 있습니다
+
+```bash
+# 배포 상태 직접 확인
+kubectl get deployment {{ values.name }} -n default
+kubectl rollout status deployment/{{ values.name }} -n default
+```
+
+## 수명주기 정책
+
+| 항목 | 내용 |
+|------|------|
+| **환경 티어** | {{ values.lifecycleTier }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
+| **비용 센터** | {{ values.costCenter }} |
+
+- 만료된 리소스는 **매일 자동 삭제**됩니다
+- 삭제 **3일 전 및 당일** Discord `#lifecycle-alerts` 채널로 알림이 발송됩니다
+- 연장이 필요한 경우 `/extend` 커맨드를 사용하세요 (platform/sre 팀 승인 필요)
+
+## 문제 해결
+
+**프로비저닝 현황 대시보드**
+- Backstage 카탈로그 > 해당 서비스 > 개요 탭에서 실시간 상태를 확인하세요
+
+**Infra Assistant 챗봇**
+- Backstage 우측 하단의 챗봇 아이콘을 클릭하면 인프라 관련 질문에 답변을 받을 수 있습니다
+
+**자주 발생하는 문제**
+
+```bash
+# 파드 상태 확인
+kubectl get pods -n default -l app={{ values.name }}
+
+# 파드 로그 확인
+kubectl logs -n default -l app={{ values.name }} --tail=100
+
+# 서비스 이벤트 확인
+kubectl describe deployment {{ values.name }} -n default
+```
+
+## 관련 링크
+
+- [Backstage 카탈로그](https://backstage.io/catalog) — 서비스 상태 및 메타데이터
+- [ArgoCD 대시보드](https://argocd.example.com) — 배포 현황
+- [GitHub 저장소](https://github.com/{{ values.repoOwner }}/{{ values.repoName }}) — 소스 코드

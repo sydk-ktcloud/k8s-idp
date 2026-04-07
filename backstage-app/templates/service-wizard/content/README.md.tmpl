@@ -1,0 +1,105 @@
+# {{ values.componentName }}
+
+{{ values.description }}
+
+## 개요
+
+| 항목 | 내용 |
+|------|------|
+| **서비스 유형** | {{ values.serviceType }} |
+| **담당자** | {{ values.owner }} |
+| **환경 티어** | {{ values.lifecycleTier }} |
+| **비용 센터** | {{ values.costCenter }} |
+| **배포 리전** | {{ values.region }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
+
+## 빠른 시작
+
+### 사전 요구사항
+
+- kubectl 설치 및 클러스터 접근 권한
+- Backstage 계정
+
+### 인프라 상태 확인
+
+Pull Request 머지 후 ArgoCD가 자동으로 인프라를 프로비저닝합니다.
+
+```bash
+# 프로비저닝 상태 확인
+kubectl get all -n {{ values.componentName }}
+
+{% if values.serviceType == 'web-api' -%}
+# VM 및 DB 상태
+kubectl get gcpinstance {{ values.componentName }}-vm -n default
+kubectl get sqldatabase {{ values.componentName }}-db -n default
+{% elif values.serviceType == 'file-service' -%}
+# GCS 버킷 상태
+kubectl get bucket {{ values.componentName }} -n default
+{% elif values.serviceType == 'container-app' -%}
+# GKE 클러스터 상태
+kubectl get cluster {{ values.componentName }}-cluster -n default
+{% elif values.serviceType == 'event-driven' -%}
+# Pub/Sub 상태
+kubectl get pubsubtopic {{ values.componentName }} -n default
+{% elif values.serviceType == 'data-processing' -%}
+# 고성능 VM 상태
+kubectl get gcpinstance {{ values.componentName }}-vm -n default
+{% endif %}
+```
+
+### 헬스 체크
+
+Backstage 카탈로그에서 서비스 상태를 확인하세요.
+
+## 배포
+
+이 서비스는 **ArgoCD**를 통해 자동으로 배포됩니다.
+
+1. Pull Request를 머지하면 ArgoCD가 변경을 감지합니다
+2. 약 1~2분 내에 Crossplane claim이 배포됩니다
+3. GCP가 실제 리소스를 프로비저닝합니다 (약 5~15분)
+4. 배포 상태는 **Backstage 카탈로그 > 해당 서비스 > CI/CD 탭**에서 확인할 수 있습니다
+
+## 접속 정보 확인
+
+- **Backstage 카탈로그** > 해당 리소스 > 개요 탭에서 접속 정보를 확인하세요
+- kubectl로 직접 확인:
+
+```bash
+kubectl get secret -n {{ values.componentName }}
+kubectl describe namespace {{ values.componentName }}
+```
+
+## 수명주기 정책
+
+| 항목 | 내용 |
+|------|------|
+| **환경 티어** | {{ values.lifecycleTier }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
+| **비용 센터** | {{ values.costCenter }} |
+
+- 만료된 리소스는 **매일 자동 삭제**됩니다
+- 삭제 **3일 전 및 당일** Discord `#lifecycle-alerts` 채널로 알림이 발송됩니다
+- 연장이 필요한 경우 `/extend` 커맨드를 사용하세요 (platform/sre 팀 승인 필요)
+
+## 문제 해결
+
+**프로비저닝 현황 대시보드**
+- Backstage 카탈로그 > 해당 서비스 > 개요 탭에서 실시간 상태를 확인하세요
+
+**Infra Assistant 챗봇**
+- Backstage 우측 하단의 챗봇 아이콘을 클릭하면 인프라 관련 질문에 답변을 받을 수 있습니다
+
+```bash
+# 네임스페이스 전체 리소스 상태
+kubectl get all -n {{ values.componentName }}
+
+# 이벤트 확인
+kubectl get events -n {{ values.componentName }} --sort-by='.lastTimestamp'
+```
+
+## 관련 링크
+
+- [Backstage 카탈로그](https://backstage.io/catalog) — 서비스 상태 및 메타데이터
+- [ArgoCD 대시보드](https://argocd.example.com) — 배포 현황
+- [GitHub 저장소](https://github.com/{{ values.repoOwner }}/{{ values.repoName }}) — 소스 코드

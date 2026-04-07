@@ -1,0 +1,12 @@
+# ${{ values.componentName }}
+
+${{ values.description | default('') }}
+
+## 리소스 정보
+
+| 항목 | 값 |
+|------|-----|
+| 소유자 | ${{ values.owner }} |
+| 클라우드 | AWS |
+| 서비스 유형 | ${{ values.serviceType }} |
+| 환경 | ${{ values.lifecycleTier | default('development') }} |

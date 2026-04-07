@@ -1,0 +1,29 @@
+# 접속 정보 확인
+
+## Backstage에서 확인
+
+Backstage 카탈로그 > `${{ values.componentName }}` > **개요** 탭에서 접속 정보를 확인할 수 있습니다.
+
+## kubectl로 확인
+
+```bash
+# 연결 정보 시크릿 확인
+kubectl get secret ${{ values.componentName }}-connection -n default -o jsonpath='{.data}' | base64 -d
+
+# 시크릿 목록 확인
+kubectl get secrets -n default | grep ${{ values.componentName }}
+```
+
+## Azure Portal에서 확인
+
+[Azure Portal](https://portal.azure.com)에서 프로비저닝된 `${{ values.resourceType }}` 리소스의 접속 정보를 확인할 수 있습니다.
+
+## 리소스 상태 확인
+
+```bash
+# Crossplane 리소스 상태
+kubectl get ${{ values.resourceType }} ${{ values.componentName }}
+
+# 상세 상태 확인
+kubectl describe ${{ values.resourceType }} ${{ values.componentName }}
+```

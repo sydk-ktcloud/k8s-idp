@@ -1,0 +1,119 @@
+# {{ values.componentName }}
+
+Azure 인프라 리소스: **{{ values.resourceType }}**
+
+## 개요
+
+| 항목 | 내용 |
+|------|------|
+| **리소스 유형** | {% if values.resourceType == 'azurevm' %}Azure VM{% elif values.resourceType == 'azureblobstorage' %}Blob Storage{% elif values.resourceType == 'akscluster' %}AKS 클러스터{% elif values.resourceType == 'azuredatabase' %}Azure Database{% endif %} |
+| **클라우드** | Azure |
+| **리소스 그룹** | {{ values.resourceGroupName }} |
+| **담당자** | {{ values.owner }} |
+| **환경 티어** | {{ values.lifecycleTier }} |
+| **비용 센터** | {{ values.costCenter }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
+
+## 리소스 상세 설정
+
+{% if values.resourceType == 'azurevm' -%}
+| 항목 | 값 |
+|------|-----|
+| **VM 크기** | {{ values.vmSize }} |
+| **위치** | {{ values.vmLocation }} |
+| **디스크 크기** | {{ values.vmDiskSizeGb }} GB |
+{% elif values.resourceType == 'azureblobstorage' -%}
+| 항목 | 값 |
+|------|-----|
+| **위치** | {{ values.blobLocation }} |
+| **복제 유형** | {{ values.blobReplication }} |
+{% elif values.resourceType == 'akscluster' -%}
+| 항목 | 값 |
+|------|-----|
+| **위치** | {{ values.aksLocation }} |
+| **노드 수** | {{ values.aksNodeCount }} |
+| **노드 VM 크기** | {{ values.aksVmSize }} |
+| **DNS 프리픽스** | {{ values.aksDnsPrefix }} |
+{% elif values.resourceType == 'azuredatabase' -%}
+| 항목 | 값 |
+|------|-----|
+| **DB 엔진** | {{ values.dbEngine }} |
+| **SKU** | {{ values.dbSkuName }} |
+| **위치** | {{ values.dbLocation }} |
+| **스토리지** | {{ values.dbStorageMb }} MB |
+{% endif %}
+
+## 프로비저닝 상태 확인
+
+Pull Request 머지 후 ArgoCD가 자동으로 Azure 리소스를 프로비저닝합니다.
+
+```bash
+{% if values.resourceType == 'azurevm' -%}
+kubectl get azurevm {{ values.componentName }}-vm -n default
+kubectl describe azurevm {{ values.componentName }}-vm -n default
+{% elif values.resourceType == 'azureblobstorage' -%}
+kubectl get azureblobstorage {{ values.componentName }} -n default
+kubectl describe azureblobstorage {{ values.componentName }} -n default
+{% elif values.resourceType == 'akscluster' -%}
+kubectl get akscluster {{ values.componentName }}-aks -n default
+kubectl describe akscluster {{ values.componentName }}-aks -n default
+{% elif values.resourceType == 'azuredatabase' -%}
+kubectl get azuredatabase {{ values.componentName }}-db -n default
+kubectl describe azuredatabase {{ values.componentName }}-db -n default
+{% endif %}
+```
+
+## 접속 정보 확인
+
+- **Backstage 카탈로그** > 해당 리소스 > 개요 탭에서 접속 정보를 확인하세요
+- kubectl로 직접 확인:
+
+```bash
+{% if values.resourceType == 'azuredatabase' -%}
+# Azure Database 접속 정보 (Secret)
+kubectl get secret {{ values.componentName }}-db-secret -n default -o yaml
+kubectl get secret {{ values.componentName }}-db-secret -n default \
+  -o jsonpath='{.data.password}' | base64 -d
+{% elif values.resourceType == 'azurevm' -%}
+# Azure VM 접속 정보
+kubectl get azurevm {{ values.componentName }}-vm -n default -o yaml
+{% elif values.resourceType == 'azureblobstorage' -%}
+# Blob Storage 접속 정보
+kubectl get azureblobstorage {{ values.componentName }} -n default -o yaml
+{% elif values.resourceType == 'akscluster' -%}
+# AKS kubeconfig (프로비저닝 완료 후)
+kubectl get secret -n crossplane-system | grep {{ values.componentName }}
+kubectl get secret {{ values.componentName }}-aks-kubeconfig -n crossplane-system -o yaml
+{% endif %}
+```
+
+## 수명주기 정책
+
+| 항목 | 내용 |
+|------|------|
+| **환경 티어** | {{ values.lifecycleTier }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
+| **비용 센터** | {{ values.costCenter }} |
+
+- 만료된 리소스는 **매일 자동 삭제**됩니다
+- 삭제 **3일 전 및 당일** Discord `#lifecycle-alerts` 채널로 알림이 발송됩니다
+- 연장이 필요한 경우 `/extend` 커맨드를 사용하세요 (platform/sre 팀 승인 필요)
+
+## 문제 해결
+
+**프로비저닝 현황 대시보드**
+- Backstage 카탈로그 > 해당 리소스 > 개요 탭에서 실시간 상태를 확인하세요
+
+**Infra Assistant 챗봇**
+- Backstage 우측 하단의 챗봇 아이콘을 클릭하면 인프라 관련 질문에 답변을 받을 수 있습니다
+
+```bash
+# 이벤트 확인
+kubectl get events -n default --sort-by='.lastTimestamp' | grep {{ values.componentName }}
+```
+
+## 관련 링크
+
+- [Backstage 카탈로그](https://backstage.io/catalog) — 리소스 상태 및 메타데이터
+- [ArgoCD 대시보드](https://argocd.example.com) — 배포 현황
+- [GitHub 저장소](https://github.com/{{ values.repoOwner }}/{{ values.repoName }}) — 소스 코드

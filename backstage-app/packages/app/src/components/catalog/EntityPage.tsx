@@ -48,16 +48,16 @@ const cicdContent = (
   <EntitySwitch>
     <EntitySwitch.Case>
       <EmptyState
-        title="No CI/CD available for this entity"
+        title="이 엔티티에 사용 가능한 CI/CD가 없습니다"
         missing="info"
-        description="You need to add an annotation to your component if you want to enable CI/CD for it. You can read more about annotations in Backstage by clicking the button below."
+        description="CI/CD를 활성화하려면 컴포넌트에 annotation을 추가해야 합니다. 아래 버튼을 클릭하면 Backstage annotation에 대한 자세한 내용을 확인할 수 있습니다."
         action={
           <Button
             variant="contained"
             color="primary"
             href="https://backstage.io/docs/features/software-catalog/well-known-annotations"
           >
-            Read more
+            자세히 보기
           </Button>
         }
       />
@@ -110,7 +110,7 @@ const overviewContent = (
 
 const serviceEntityPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       {overviewContent}
     </EntityLayout.Route>
 
@@ -126,7 +126,7 @@ const serviceEntityPage = (
       <EntityKubernetesContent />
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/dependencies" title="Dependencies">
+    <EntityLayout.Route path="/dependencies" title="의존성">
       <Grid container spacing={3} alignItems="stretch">
         <Grid item md={6}>
           <EntityDependsOnComponentsCard />
@@ -137,7 +137,7 @@ const serviceEntityPage = (
       </Grid>
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
+    <EntityLayout.Route path="/docs" title="문서">
       {techdocsContent}
     </EntityLayout.Route>
   </EntityLayout>
@@ -145,7 +145,7 @@ const serviceEntityPage = (
 
 const websiteEntityPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       {overviewContent}
     </EntityLayout.Route>
 
@@ -161,7 +161,7 @@ const websiteEntityPage = (
       <EntityKubernetesContent />
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/dependencies" title="Dependencies">
+    <EntityLayout.Route path="/dependencies" title="의존성">
       <Grid container spacing={3} alignItems="stretch">
         <Grid item md={6}>
           <EntityDependsOnComponentsCard />
@@ -172,7 +172,7 @@ const websiteEntityPage = (
       </Grid>
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
+    <EntityLayout.Route path="/docs" title="문서">
       {techdocsContent}
     </EntityLayout.Route>
   </EntityLayout>
@@ -180,11 +180,11 @@ const websiteEntityPage = (
 
 const defaultEntityPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       {overviewContent}
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
+    <EntityLayout.Route path="/docs" title="문서">
       {techdocsContent}
     </EntityLayout.Route>
   </EntityLayout>
@@ -206,7 +206,7 @@ const componentPage = (
 
 const apiPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       <Grid container spacing={3}>
         {entityWarningContent}
         <Grid item md={6}>
@@ -218,7 +218,7 @@ const apiPage = (
       </Grid>
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
+    <EntityLayout.Route path="/docs" title="문서">
       {techdocsContent}
     </EntityLayout.Route>
   </EntityLayout>
@@ -226,7 +226,7 @@ const apiPage = (
 
 const userPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       <Grid container spacing={3}>
         {entityWarningContent}
         <Grid item xs={12} md={6}>
@@ -242,7 +242,7 @@ const userPage = (
 
 const groupPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       <Grid container spacing={3}>
         {entityWarningContent}
         <Grid item xs={12} md={6}>
@@ -264,7 +264,7 @@ const groupPage = (
 
 const systemPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       <Grid container spacing={3} alignItems="stretch">
         {entityWarningContent}
         <Grid item md={6}>
@@ -286,7 +286,7 @@ const systemPage = (
 
 const domainPage = (
   <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
+    <EntityLayout.Route path="/" title="개요">
       <Grid container spacing={3} alignItems="stretch">
         {entityWarningContent}
         <Grid item md={6}>
@@ -300,6 +300,34 @@ const domainPage = (
   </EntityLayout>
 );
 
+const resourcePage = (
+  <EntityLayout>
+    <EntityLayout.Route path="/" title="개요">
+      <Grid container spacing={3} alignItems="stretch">
+        {entityWarningContent}
+        <Grid item md={6}>
+          <EntityAboutCard />
+        </Grid>
+        <Grid item md={6}>
+          <EntityLinksCard />
+        </Grid>
+      </Grid>
+    </EntityLayout.Route>
+
+    <EntityLayout.Route
+      path="/kubernetes"
+      title="Kubernetes"
+      if={isKubernetesAvailable}
+    >
+      <EntityKubernetesContent />
+    </EntityLayout.Route>
+
+    <EntityLayout.Route path="/docs" title="문서">
+      {techdocsContent}
+    </EntityLayout.Route>
+  </EntityLayout>
+);
+
 export const entityPage = (
   <EntitySwitch>
     <EntitySwitch.Case if={isKind('component')} children={componentPage} />
@@ -308,6 +336,7 @@ export const entityPage = (
     <EntitySwitch.Case if={isKind('user')} children={userPage} />
     <EntitySwitch.Case if={isKind('system')} children={systemPage} />
     <EntitySwitch.Case if={isKind('domain')} children={domainPage} />
+    <EntitySwitch.Case if={isKind('resource')} children={resourcePage} />
 
     <EntitySwitch.Case>{defaultEntityPage}</EntitySwitch.Case>
   </EntitySwitch>

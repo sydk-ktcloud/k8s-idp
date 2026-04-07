@@ -280,6 +280,13 @@ spec:
           리전: **${{ parameters.region }}** | Backstage 카탈로그에서 Kubernetes 플러그인으로 실시간 상태 확인 가능
 
           > PR이 머지되면 약 5분 내에 Backstage 카탈로그에 자동 등록됩니다.
+
+          ## 접속 정보 확인
+          - **Backstage 카탈로그** > 해당 리소스 > 개요 탭에서 접속 정보를 확인하세요
+          - `kubectl get secret -n ${{ parameters.componentName }}`
+
+          ## 수명주기 안내
+          만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord `#lifecycle-alerts`로 알림이 발송됩니다.
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}

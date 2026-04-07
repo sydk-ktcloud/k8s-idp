@@ -366,10 +366,22 @@ spec:
         targetPath: apps/${{ parameters.componentName }}
 
   output:
-    text:
-      - title: "카탈로그 등록 안내"
-        content: |
-          PR이 머지되면 약 5분 내에 Backstage 카탈로그에 자동 등록됩니다.
     links:
       - title: Pull Request
         url: ${{ steps['publish'].output.remoteUrl }}
+    text:
+      - title: "프로비저닝이 완료되었습니다!"
+        content: |
+          **${{ parameters.componentName }}** 리소스가 성공적으로 생성 요청되었습니다.
+
+          ## 다음 단계
+          1. Pull Request를 머지하세요
+          2. ArgoCD가 자동으로 Crossplane claim을 배포합니다 (1~2분)
+          3. GCP 리소스가 프로비저닝됩니다 (5~15분)
+
+          ## 접속 정보 확인
+          - **Backstage 카탈로그** > 해당 리소스 > 개요 탭
+          - `kubectl get ${{ parameters.resourceType }} ${{ parameters.componentName }} -n default -o yaml`
+
+          ## 수명주기 안내
+          만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord `#lifecycle-alerts`로 알림이 발송됩니다.

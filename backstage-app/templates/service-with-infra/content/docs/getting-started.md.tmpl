@@ -1,0 +1,69 @@
+# 빠른 시작
+
+## 로컬 개발 환경 설정
+
+### 1. 저장소 클론
+
+```bash
+git clone https://github.com/${{ values.repoOwner }}/${{ values.repoName }}.git
+cd ${{ values.repoName }}
+```
+
+### 2. 의존성 설치
+
+{% if values.language == 'nodejs' %}
+```bash
+npm install
+```
+{% elif values.language == 'python' %}
+```bash
+pip install -r requirements.txt
+```
+{% elif values.language == 'go' %}
+```bash
+go mod tidy
+```
+{% endif %}
+
+### 3. 로컬 실행
+
+{% if values.language == 'nodejs' %}
+```bash
+npm start
+```
+서비스가 `http://localhost:3000` 에서 실행됩니다.
+{% elif values.language == 'python' %}
+```bash
+python app.py
+```
+서비스가 `http://localhost:5000` 에서 실행됩니다.
+{% elif values.language == 'go' %}
+```bash
+go run main.go
+```
+서비스가 `http://localhost:8080` 에서 실행됩니다.
+{% endif %}
+
+## 인프라 배포
+
+이 서비스는 **${{ values.resourceType }}** 인프라를 함께 프로비저닝합니다.
+
+1. PR을 `main` 브랜치에 머지합니다.
+2. ArgoCD가 Crossplane claim을 감지하고 인프라를 자동 프로비저닝합니다.
+3. 프로비저닝 완료 후 서비스가 배포됩니다.
+
+```bash
+git add .
+git commit -m "feat: 초기 서비스 및 인프라 설정"
+git push origin main
+```
+
+## 상태 확인
+
+```bash
+# Crossplane claim 상태 확인
+kubectl get claim -n ${{ values.namespace }}
+
+# 서비스 파드 상태 확인
+kubectl get pods -n ${{ values.namespace }}
+```

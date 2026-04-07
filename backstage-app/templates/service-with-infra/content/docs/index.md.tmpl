@@ -1,0 +1,12 @@
+# ${{ values.name }}
+
+${{ values.description | default('') }}
+
+## 리소스 정보
+
+| 항목 | 값 |
+|------|-----|
+| 소유자 | ${{ values.owner }} |
+| 언어 | ${{ values.language }} |
+| 인프라 유형 | ${{ values.resourceType }} |
+| 환경 | ${{ values.lifecycleTier | default('development') }} |

@@ -1,0 +1,46 @@
+# 아키텍처
+
+## 개요
+
+`${{ values.name }}` 서비스와 연결된 인프라(`${{ values.resourceType }}`)의 전체 아키텍처를 설명합니다.
+
+## 기술 스택
+
+| 구분 | 기술 |
+|------|------|
+| 언어 | ${{ values.language }} |
+| 인프라 | ${{ values.resourceType }} (Crossplane) |
+| 컨테이너 | Docker |
+| 오케스트레이션 | Kubernetes |
+| CI/CD | GitHub Actions + ArgoCD |
+| 모니터링 | Prometheus + Grafana |
+
+## 배포 구조
+
+```
+GitHub (소스코드 + Crossplane Claim)
+    ↓ PR 머지
+ArgoCD (GitOps CD)
+    ↓ Crossplane claim 배포
+Crossplane
+    ↓ GCP 리소스 프로비저닝
+${{ values.resourceType }} (GCP)
+    ↑ 연결
+Kubernetes 클러스터
+    └── Namespace: ${{ values.namespace | default(values.name) }}
+        ├── Deployment: ${{ values.name }}-service
+        └── Crossplane Claim: ${{ values.name }}-infra
+```
+
+## 네트워크 흐름
+
+```
+인터넷 → Ingress Controller → Service → Pod → ${{ values.resourceType }}
+```
+
+## 의존성
+
+- Kubernetes 클러스터 (GCP GKE)
+- Crossplane (인프라 프로비저닝)
+- ArgoCD (GitOps 배포)
+- Prometheus / Grafana (모니터링)

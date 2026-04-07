@@ -16,30 +16,171 @@ const API_GROUP = 'k8s-idp.example.org';
 const API_VERSION = 'v1alpha1';
 
 type CloudProvider = 'GCP' | 'AWS' | 'Azure';
+type ResourceCategory = 'database' | 'storage' | 'vm' | 'cluster' | 'webapp' | 'messaging' | 'cache';
 
 interface ClaimType {
   plural: string;
   kind: string;
   cloud: CloudProvider;
+  category: ResourceCategory;
 }
 
 const CLAIM_TYPES: ClaimType[] = [
-  { plural: 'gcpinstances', kind: 'GCPInstance', cloud: 'GCP' },
-  { plural: 'buckets', kind: 'Bucket', cloud: 'GCP' },
-  { plural: 'clusters', kind: 'Cluster', cloud: 'GCP' },
-  { plural: 'databases', kind: 'Database', cloud: 'GCP' },
-  { plural: 'webapps', kind: 'WebApp', cloud: 'GCP' },
-  { plural: 'pubsubs', kind: 'PubSub', cloud: 'GCP' },
-  { plural: 'caches', kind: 'Cache', cloud: 'GCP' },
-  { plural: 'ec2instances', kind: 'EC2Instance', cloud: 'AWS' },
-  { plural: 's3buckets', kind: 'S3Bucket', cloud: 'AWS' },
-  { plural: 'eksclusters', kind: 'EKSCluster', cloud: 'AWS' },
-  { plural: 'rdsdatabases', kind: 'RDSDatabase', cloud: 'AWS' },
-  { plural: 'azurevms', kind: 'AzureVM', cloud: 'Azure' },
-  { plural: 'azureblobstorages', kind: 'AzureBlobStorage', cloud: 'Azure' },
-  { plural: 'aksclusters', kind: 'AKSCluster', cloud: 'Azure' },
-  { plural: 'azuredatabases', kind: 'AzureDatabase', cloud: 'Azure' },
+  { plural: 'gcpinstances', kind: 'GCPInstance', cloud: 'GCP', category: 'vm' },
+  { plural: 'buckets', kind: 'Bucket', cloud: 'GCP', category: 'storage' },
+  { plural: 'clusters', kind: 'Cluster', cloud: 'GCP', category: 'cluster' },
+  { plural: 'databases', kind: 'Database', cloud: 'GCP', category: 'database' },
+  { plural: 'webapps', kind: 'WebApp', cloud: 'GCP', category: 'webapp' },
+  { plural: 'pubsubs', kind: 'PubSub', cloud: 'GCP', category: 'messaging' },
+  { plural: 'caches', kind: 'Cache', cloud: 'GCP', category: 'cache' },
+  { plural: 'ec2instances', kind: 'EC2Instance', cloud: 'AWS', category: 'vm' },
+  { plural: 's3buckets', kind: 'S3Bucket', cloud: 'AWS', category: 'storage' },
+  { plural: 'eksclusters', kind: 'EKSCluster', cloud: 'AWS', category: 'cluster' },
+  { plural: 'rdsdatabases', kind: 'RDSDatabase', cloud: 'AWS', category: 'database' },
+  { plural: 'azurevms', kind: 'AzureVM', cloud: 'Azure', category: 'vm' },
+  { plural: 'azureblobstorages', kind: 'AzureBlobStorage', cloud: 'Azure', category: 'storage' },
+  { plural: 'aksclusters', kind: 'AKSCluster', cloud: 'Azure', category: 'cluster' },
+  { plural: 'azuredatabases', kind: 'AzureDatabase', cloud: 'Azure', category: 'database' },
 ];
+
+// ─── atProvider 접속 정보 추출 헬퍼 ───────────────────────────────
+interface ConnectionInfo {
+  endpoint: string;
+  ipAddress: string;
+}
+
+function extractConnectionInfo(item: any, category: ResourceCategory): ConnectionInfo {
+  const atProvider = item.status?.atProvider || {};
+
+  let endpoint = '';
+  let ipAddress = '';
+
+  switch (category) {
+    case 'database': {
+      // GCP Cloud SQL: connectionName, AWS RDS: endpoint/address, Azure: fullyQualifiedDomainName
+      endpoint =
+        atProvider.connectionName ||
+        atProvider.endpoint?.address ||
+        atProvider.endpoint ||
+        atProvider.fullyQualifiedDomainName ||
+        '';
+      ipAddress = atProvider.publicIpAddress || atProvider.ipAddress || '';
+      break;
+    }
+    case 'vm': {
+      // GCP: networkInterfaces[0].accessConfigs[0].natIp, AWS EC2: publicIpAddress, Azure: publicIpAddress
+      ipAddress =
+        atProvider.publicIpAddress ||
+        atProvider.networkInterfaces?.[0]?.accessConfigs?.[0]?.natIp ||
+        atProvider.ipAddress ||
+        '';
+      endpoint = ipAddress;
+      break;
+    }
+    case 'storage': {
+      // GCP Bucket: selfLink/url, AWS S3: bucketRegionalDomainName, Azure Blob: primaryEndpoints.blob
+      endpoint =
+        atProvider.url ||
+        atProvider.selfLink ||
+        atProvider.bucketRegionalDomainName ||
+        atProvider.primaryEndpoints?.blob ||
+        '';
+      break;
+    }
+    case 'cluster': {
+      // GCP GKE: endpoint, AWS EKS: endpoint, Azure AKS: fqdn/privateClusterEndpoint
+      endpoint =
+        atProvider.endpoint ||
+        atProvider.clusterEndpoint ||
+        atProvider.fqdn ||
+        atProvider.privateClusterEndpoint ||
+        '';
+      break;
+    }
+    case 'webapp': {
+      endpoint =
+        atProvider.defaultHostname ||
+        atProvider.url ||
+        atProvider.endpoint ||
+        '';
+      break;
+    }
+    case 'messaging':
+    case 'cache':
+    default: {
+      endpoint = atProvider.endpoint || atProvider.host || '';
+      ipAddress = atProvider.ipAddress || '';
+      break;
+    }
+  }
+
+  return { endpoint, ipAddress };
+}
+
+// ─── 클라우드 콘솔 딥링크 생성 헬퍼 ──────────────────────────────
+interface ConsoleLink {
+  url: string;
+  title: string;
+  icon: string;
+}
+
+function buildConsoleLink(
+  cloud: CloudProvider,
+  category: ResourceCategory,
+  item: any,
+): ConsoleLink | null {
+  const name: string = item.metadata?.name || '';
+  const spec = item.spec || {};
+  const region: string = spec.region || spec.location || '';
+  const project: string = spec.projectId || spec.project || '';
+  const resourceGroup: string = spec.resourceGroupName || spec.resourceGroup || '';
+  const subscription: string = spec.subscriptionId || '';
+
+  switch (cloud) {
+    case 'GCP': {
+      const projectPath = project ? `project=${project}&` : '';
+      const links: Record<ResourceCategory, string> = {
+        vm: `https://console.cloud.google.com/compute/instances?${projectPath}`,
+        storage: `https://console.cloud.google.com/storage/browser/${name}?${projectPath}`,
+        cluster: `https://console.cloud.google.com/kubernetes/list?${projectPath}`,
+        database: `https://console.cloud.google.com/sql/instances/${name}/overview?${projectPath}`,
+        webapp: `https://console.cloud.google.com/appengine?${projectPath}`,
+        messaging: `https://console.cloud.google.com/cloudpubsub/topic/list?${projectPath}`,
+        cache: `https://console.cloud.google.com/memorystore/redis/instances?${projectPath}`,
+      };
+      return { url: links[category] || `https://console.cloud.google.com/?${projectPath}`, title: 'GCP Console', icon: 'cloud' };
+    }
+    case 'AWS': {
+      const regionPath = region ? `region=${region}` : '';
+      const links: Record<ResourceCategory, string> = {
+        vm: `https://console.aws.amazon.com/ec2/v2/home?${regionPath}#Instances`,
+        storage: `https://console.aws.amazon.com/s3/buckets/${name}?${regionPath}`,
+        cluster: `https://console.aws.amazon.com/eks/home?${regionPath}#/clusters/${name}`,
+        database: `https://console.aws.amazon.com/rds/home?${regionPath}#databases:`,
+        webapp: `https://console.aws.amazon.com/elasticbeanstalk/home?${regionPath}`,
+        messaging: `https://console.aws.amazon.com/sns/v3/home?${regionPath}#/topics`,
+        cache: `https://console.aws.amazon.com/elasticache/home?${regionPath}`,
+      };
+      return { url: links[category] || `https://console.aws.amazon.com/home?${regionPath}`, title: 'AWS Console', icon: 'cloud' };
+    }
+    case 'Azure': {
+      const subPath = subscription ? `subscriptions/${subscription}/` : '';
+      const rgPath = resourceGroup ? `resourceGroups/${resourceGroup}/` : '';
+      const links: Record<ResourceCategory, string> = {
+        vm: `https://portal.azure.com/#resource/${subPath}${rgPath}providers/Microsoft.Compute/virtualMachines/${name}`,
+        storage: `https://portal.azure.com/#resource/${subPath}${rgPath}providers/Microsoft.Storage/storageAccounts/${name}`,
+        cluster: `https://portal.azure.com/#resource/${subPath}${rgPath}providers/Microsoft.ContainerService/managedClusters/${name}`,
+        database: `https://portal.azure.com/#resource/${subPath}${rgPath}providers/Microsoft.DBforPostgreSQL/flexibleServers/${name}`,
+        webapp: `https://portal.azure.com/#resource/${subPath}${rgPath}providers/Microsoft.Web/sites/${name}`,
+        messaging: `https://portal.azure.com/#resource/${subPath}${rgPath}providers/Microsoft.ServiceBus/namespaces/${name}`,
+        cache: `https://portal.azure.com/#resource/${subPath}${rgPath}providers/Microsoft.Cache/Redis/${name}`,
+      };
+      return { url: links[category] || 'https://portal.azure.com/', title: 'Azure Portal', icon: 'cloud' };
+    }
+    default:
+      return null;
+  }
+}
 
 // ─── K8s In-Cluster API 호출 ───────────────────────────────────
 const SA_TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token';
@@ -128,23 +269,53 @@ class CrossplaneEntityProvider implements EntityProvider {
           const team =
             item.metadata?.labels?.team || 'platform';
 
+          const { endpoint, ipAddress } = extractConnectionInfo(item, ct.category);
+          const consoleLink = buildConsoleLink(ct.cloud, ct.category, item);
+
+          const region: string = item.spec?.region || item.spec?.location || '';
+          const secretName: string = item.spec?.writeConnectionSecretToRef?.name || '';
+
+          let provisioningStatus: string;
+          const syncCond = conditions.find(c => c.type === 'Synced');
+          if (isReady) {
+            provisioningStatus = 'Ready';
+          } else if (syncCond?.status === 'False') {
+            provisioningStatus = '오류';
+          } else {
+            provisioningStatus = '프로비저닝 중';
+          }
+
+          const annotations: Record<string, string> = {
+            'backstage.io/managed-by-location': `crossplane:${ct.plural}/${item.metadata.name}`,
+            'backstage.io/managed-by-origin-location': `crossplane:${ct.plural}/${item.metadata.name}`,
+            'crossplane.io/claim-kind': ct.kind,
+            'crossplane.io/cloud-provider': ct.cloud,
+            'k8s-idp/provisioning-status': provisioningStatus,
+            'k8s-idp/cloud-provider': ct.cloud,
+            'k8s-idp/resource-type': ct.category,
+          };
+
+          if (region) annotations['k8s-idp/region'] = region;
+          if (endpoint) annotations['k8s-idp/endpoint'] = endpoint;
+          if (ipAddress) annotations['k8s-idp/ip-address'] = ipAddress;
+          if (secretName) annotations['k8s-idp/secret-name'] = secretName;
+
+          const links: Array<{ url: string; title: string; icon: string }> = [];
+          if (consoleLink) links.push(consoleLink);
+
           entities.push({
             apiVersion: 'backstage.io/v1alpha1',
             kind: 'Resource',
             metadata: {
               name: item.metadata.name,
               namespace: 'default',
-              description: `${ct.cloud} ${ct.kind} — ${isReady ? 'Ready' : 'Provisioning'}`,
-              annotations: {
-                'backstage.io/managed-by-location': `crossplane:${ct.plural}/${item.metadata.name}`,
-                'backstage.io/managed-by-origin-location': `crossplane:${ct.plural}/${item.metadata.name}`,
-                'crossplane.io/claim-kind': ct.kind,
-                'crossplane.io/cloud-provider': ct.cloud,
-              },
+              description: `${ct.cloud} ${ct.kind} — ${isReady ? '준비 완료' : '프로비저닝 중'}`,
+              annotations,
               labels: {
                 'crossplane.io/cloud': ct.cloud.toLowerCase(),
                 'crossplane.io/ready': isReady ? 'true' : 'false',
               },
+              links,
             },
             spec: {
               type: `crossplane-${ct.cloud.toLowerCase()}`,

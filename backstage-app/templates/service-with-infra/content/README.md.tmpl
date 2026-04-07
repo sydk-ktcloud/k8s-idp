@@ -2,42 +2,60 @@
 
 {{ values.description }}
 
-## Infrastructure
+## 개요
 
-이 서비스는 다음 인프라와 함께 배포됩니다:
-- **Type**: {{ values.resourceType }}
+| 항목 | 내용 |
+|------|------|
+| **언어 / 프레임워크** | {% if values.language == 'nodejs' %}Node.js (Express){% elif values.language == 'python' %}Python (Flask){% elif values.language == 'go' %}Go (net/http){% endif %} |
+| **인프라 유형** | {% if values.resourceType == 'database' %}Cloud SQL 데이터베이스{% elif values.resourceType == 'bucket' %}GCS 버킷{% elif values.resourceType == 'gcpinstance' %}GCP VM 서버{% elif values.resourceType == 'cluster' %}GKE 클러스터{% endif %} |
+| **소유자** | {{ values.owner }} |
+| **환경 티어** | {{ values.lifecycleTier }} |
+| **비용 센터** | {{ values.costCenter }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
 
-## Getting Started
+## 빠른 시작
 
-### Prerequisites
+### 사전 요구사항
 
 {% if values.language == 'nodejs' -%}
-- Node.js 18+
-- npm or yarn
+- Node.js 18 이상
+- npm 또는 yarn
 {% elif values.language == 'python' -%}
-- Python 3.11+
+- Python 3.11 이상
 - pip
 {% elif values.language == 'go' -%}
-- Go 1.21+
-{% endif -%}
+- Go 1.21 이상
+{% endif %}
 
-### Environment Variables
+### 환경 변수 설정
 
 {% if values.resourceType == 'database' -%}
+접속 정보는 Kubernetes Secret으로 자동 주입됩니다. 로컬 개발 시에는 아래를 참고하세요:
+
 ```bash
 DATABASE_HOST={{ values.name }}-db
 DATABASE_PORT=5432
 DATABASE_NAME={{ values.name }}
-DATABASE_USER=<from-secret>
-DATABASE_PASSWORD=<from-secret>
+DATABASE_USER=<Backstage 카탈로그 또는 kubectl에서 확인>
+DATABASE_PASSWORD=<Backstage 카탈로그 또는 kubectl에서 확인>
 ```
 {% elif values.resourceType == 'bucket' -%}
 ```bash
 GCS_BUCKET_NAME={{ values.name }}
 ```
-{% endif -%}
+{% elif values.resourceType == 'gcpinstance' -%}
+```bash
+VM_HOST={{ values.name }}-vm
+```
+{% elif values.resourceType == 'cluster' -%}
+클러스터 kubeconfig는 프로비저닝 완료 후 Secret에서 확인하세요:
 
-### Installation
+```bash
+kubectl get secret -n crossplane-system | grep {{ values.name }}
+```
+{% endif %}
+
+### 설치 및 실행
 
 {% if values.language == 'nodejs' -%}
 ```bash
@@ -53,10 +71,109 @@ python app.py
 ```bash
 go run main.go
 ```
-{% endif -%}
+{% endif %}
 
-### Health Check
+### 헬스 체크
 
 ```bash
 curl http://localhost:3000/health
 ```
+
+## 배포
+
+이 서비스는 **ArgoCD**를 통해 자동으로 배포됩니다.
+
+1. `main` 브랜치에 코드를 머지하면 ArgoCD가 변경을 감지합니다
+2. 약 1~2분 내에 Kubernetes 클러스터에 자동 배포됩니다
+3. 클라우드 인프라 리소스는 프로비저닝까지 약 5~15분이 소요됩니다
+4. 배포 상태는 **Backstage 카탈로그 > 해당 서비스 > CI/CD 탭**에서 확인할 수 있습니다
+
+```bash
+# 배포 상태 직접 확인
+kubectl get deployment {{ values.name }} -n default
+kubectl rollout status deployment/{{ values.name }} -n default
+```
+
+## 접속 정보 확인
+
+인프라 리소스의 접속 정보(호스트, 포트, 비밀번호 등)는 두 가지 방법으로 확인할 수 있습니다.
+
+**방법 1: Backstage 카탈로그**
+- Backstage 카탈로그 > 해당 리소스 > 개요 탭에서 확인
+
+**방법 2: kubectl 명령어**
+
+{% if values.resourceType == 'database' -%}
+```bash
+# DB 접속 정보 확인
+kubectl get secret {{ values.name }}-db-secret -n default -o yaml
+
+# 디코딩 예시
+kubectl get secret {{ values.name }}-db-secret -n default \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+{% elif values.resourceType == 'bucket' -%}
+```bash
+# 버킷 정보 확인
+kubectl get bucket {{ values.name }} -n default -o yaml
+```
+{% elif values.resourceType == 'gcpinstance' -%}
+```bash
+# VM 정보 확인
+kubectl get gcpinstance {{ values.name }}-vm -n default -o yaml
+```
+{% elif values.resourceType == 'cluster' -%}
+```bash
+# 클러스터 kubeconfig 확인
+kubectl get secret -n crossplane-system | grep {{ values.name }}
+kubectl get secret {{ values.name }}-kubeconfig -n crossplane-system -o yaml
+```
+{% endif %}
+
+## 수명주기 정책
+
+| 항목 | 내용 |
+|------|------|
+| **환경 티어** | {{ values.lifecycleTier }} |
+{% if values.expiresAt %}| **만료일** | {{ values.expiresAt }} |{% endif %}
+| **비용 센터** | {{ values.costCenter }} |
+
+- 만료된 리소스는 **매일 자동 삭제**됩니다
+- 삭제 **3일 전 및 당일** Discord `#lifecycle-alerts` 채널로 알림이 발송됩니다
+- 연장이 필요한 경우 `/extend` 커맨드를 사용하세요 (platform/sre 팀 승인 필요)
+
+## 문제 해결
+
+**프로비저닝 현황 대시보드**
+- Backstage 카탈로그 > 해당 리소스 > 개요 탭에서 실시간 상태를 확인하세요
+
+**Infra Assistant 챗봇**
+- Backstage 우측 하단의 챗봇 아이콘을 클릭하면 인프라 관련 질문에 답변을 받을 수 있습니다
+
+**자주 발생하는 문제**
+
+```bash
+# 파드 상태 확인
+kubectl get pods -n default -l app={{ values.name }}
+
+# 파드 로그 확인
+kubectl logs -n default -l app={{ values.name }} --tail=100
+
+{% if values.resourceType == 'database' -%}
+# DB 프로비저닝 상태 확인
+kubectl get sqldatabase {{ values.name }}-db -n default
+kubectl describe sqldatabase {{ values.name }}-db -n default
+{% elif values.resourceType == 'bucket' -%}
+# 버킷 프로비저닝 상태 확인
+kubectl get bucket {{ values.name }} -n default
+{% elif values.resourceType == 'cluster' -%}
+# 클러스터 프로비저닝 상태 확인
+kubectl get cluster {{ values.name }}-cluster -n default
+{% endif %}
+```
+
+## 관련 링크
+
+- [Backstage 카탈로그](https://backstage.io/catalog) — 서비스 상태 및 메타데이터
+- [ArgoCD 대시보드](https://argocd.example.com) — 배포 현황
+- [GitHub 저장소](https://github.com/{{ values.repoOwner }}/{{ values.repoName }}) — 소스 코드

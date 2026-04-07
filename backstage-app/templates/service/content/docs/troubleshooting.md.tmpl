@@ -1,0 +1,54 @@
+# 문제 해결
+
+## 배포 상태 확인
+
+```bash
+# 파드 상태 확인
+kubectl get pods -n ${{ values.namespace | default(values.componentName) }}
+
+# 파드 상세 상태 확인
+kubectl describe pod -l app=${{ values.componentName }} -n ${{ values.namespace | default(values.componentName) }}
+
+# 이벤트 확인
+kubectl get events -n ${{ values.namespace | default(values.componentName) }} --sort-by='.lastTimestamp'
+```
+
+## 일반적인 문제
+
+### 파드가 시작되지 않는 경우
+
+```bash
+# 파드 로그 확인
+kubectl logs -l app=${{ values.componentName }} -n ${{ values.namespace | default(values.componentName) }} --previous
+
+# 이미지 풀 오류 확인
+kubectl describe pod -l app=${{ values.componentName }} -n ${{ values.namespace | default(values.componentName) }} | grep -A 5 Events
+```
+
+**원인**: 이미지 태그 오류, 레지스트리 인증 실패, 리소스 부족 등
+
+### 서비스에 접근이 안 되는 경우
+
+```bash
+# 서비스 엔드포인트 확인
+kubectl get endpoints ${{ values.componentName }} -n ${{ values.namespace | default(values.componentName) }}
+
+# Ingress 상태 확인
+kubectl describe ingress -n ${{ values.namespace | default(values.componentName) }}
+```
+
+### ArgoCD 동기화 실패
+
+```bash
+# ArgoCD 앱 상태 확인
+argocd app get ${{ values.componentName }}
+
+# 동기화 강제 실행
+argocd app sync ${{ values.componentName }} --force
+```
+
+## 도움 받기
+
+- [프로비저닝 현황 대시보드](https://backstage.example.com)
+- [Infra Assistant 챗봇](https://backstage.example.com/catalog/default/component/infra-assistant)
+- Discord `#platform-support` 채널

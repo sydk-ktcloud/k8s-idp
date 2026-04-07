@@ -1,0 +1,46 @@
+# 문제 해결
+
+## 프로비저닝 상태 확인
+
+```bash
+kubectl describe claim ${{ values.componentName }} -n default
+```
+
+## 일반적인 문제
+
+### 프로비저닝이 오래 걸리는 경우
+
+${{ values.cloudProvider | upper }} 서버 프로비저닝은 수 분이 소요될 수 있습니다.
+
+```bash
+# claim 상태 지속 확인
+kubectl get claim ${{ values.componentName }} -w
+```
+
+`READY=True`가 될 때까지 기다립니다. 10분 이상 지속되면 오류를 확인합니다.
+
+### Crossplane claim이 Ready가 아닌 경우
+
+```bash
+# Crossplane 컨트롤러 로그 확인
+kubectl logs -n crossplane-system -l app=crossplane --tail=50
+
+# managed resource 상태 확인
+kubectl get managed | grep ${{ values.componentName }}
+
+# 상세 오류 메시지 확인
+kubectl describe claim ${{ values.componentName }} | grep -A 10 Conditions
+```
+
+### ArgoCD 동기화 실패
+
+```bash
+argocd app get ${{ values.componentName }}
+argocd app sync ${{ values.componentName }} --force
+```
+
+## 도움 받기
+
+- [프로비저닝 현황 대시보드](https://backstage.example.com)
+- [Infra Assistant 챗봇](https://backstage.example.com/catalog/default/component/infra-assistant)
+- Discord `#platform-support` 채널

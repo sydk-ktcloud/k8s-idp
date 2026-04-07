@@ -1,0 +1,12 @@
+# ${{ values.componentName }}
+
+${{ values.cloudProvider | upper }} 서버 리소스입니다.
+
+## 리소스 정보
+
+| 항목 | 값 |
+|------|-----|
+| 소유자 | ${{ values.owner }} |
+| 클라우드 | ${{ values.cloudProvider | upper }} |
+| 리소스 유형 | 서버 |
+| 환경 | ${{ values.lifecycleTier | default('development') }} |
