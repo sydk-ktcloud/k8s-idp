@@ -12,6 +12,17 @@
     state: started
     enabled: true
 
+- name: tailscaled 환경 설정 (verbose=0 로그 폭증 방지)
+  copy:
+    dest: /etc/default/tailscaled
+    content: |
+      PORT=41641
+      FLAGS="-verbose=0"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart tailscaled
+
 - name: Tailscale logrotate 설정 배포
   template:
     src: tailscale-logrotate.j2
