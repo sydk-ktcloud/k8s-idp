@@ -161,42 +161,74 @@ spec:
           repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
           repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
-    - id: publish
-      name: Pull Request 생성
-      action: publish:github
+    - id: apply-namespace
+      name: 네임스페이스 즉시 생성
+      action: kubernetes:apply
       input:
-        description: "서버 생성 요청: ${{ parameters.componentName }} (${{ parameters.cloudProvider }})"
-        repoUrl: ${{ parameters.repoUrl }}
-        defaultBranch: main
-        targetPath: apps/${{ parameters.componentName }}
+        manifest: |
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: ${{ parameters.componentName }}
+            labels:
+              owner: ${{ parameters.owner }}
+              cost-center: ${{ parameters.costCenter }}
+              lifecycle-tier: ${{ parameters.lifecycleTier }}
+              expires-at: "${{ parameters.expiresAt }}"
+              backstage.io/kubernetes-id: ${{ parameters.componentName }}
+              app.kubernetes.io/name: ${{ parameters.componentName }}
+        clusterName: onprem
 
-    - id: register
-      name: 카탈로그 등록
-      action: catalog:register
+    - id: apply-claim
+      name: Crossplane Claim 즉시 적용
+      action: kubernetes:apply
       input:
-        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
-        catalogInfoPath: /catalog-info.yaml
+        manifest: ${{ steps['fetch-base'].output.files['claim.yaml'] }}
+        clusterName: onprem
+
+    - id: publish
+      name: Git 기록용 PR 생성 (자동 머지)
+      action: publish:github:pull-request
+      input:
+        title: "[auto-merge] 서버 생성: ${{ parameters.componentName }} (${{ parameters.cloudProvider }})"
+        description: |
+          > 이 PR은 기록용으로 자동 생성되었습니다. 리소스는 이미 프로비저닝 중입니다.
+
+          - **서비스**: ${{ parameters.componentName }}
+          - **클라우드**: ${{ parameters.cloudProvider }}
+          - **담당자**: ${{ parameters.owner }}
+          - **환경**: ${{ parameters.lifecycleTier }}
+        repoUrl: ${{ parameters.repoUrl }}
+        branchName: provision/${{ parameters.componentName }}
+        targetPath: apps/${{ parameters.componentName }}
+        labels:
+          - auto-merge
+          - provisioning
 
   output:
     links:
-      - title: Pull Request 확인하기
+      - title: PR 확인 (기록용)
         url: ${{ steps['publish'].output.remoteUrl }}
       - title: 카탈로그에서 열기
         icon: catalog
-        entityRef: ${{ steps['register'].output.entityRef }}
+        entityRef: component:default/${{ parameters.componentName }}
     text:
-      - title: "서버 프로비저닝이 완료되었습니다!"
+      - title: "✅ 프로비저닝이 시작되었습니다!"
         content: |
-          **${{ parameters.componentName }}** 서버가 성공적으로 생성 요청되었습니다.
+          **${{ parameters.componentName }}** 서버가 **즉시 프로비저닝**되고 있습니다.
+          PR 머지를 기다릴 필요 없이, Crossplane이 바로 리소스를 생성합니다.
 
-          ## 다음 단계
-          1. Pull Request를 머지하세요
-          2. ArgoCD가 자동으로 Crossplane claim을 배포합니다 (1~2분)
-          3. ${{ parameters.cloudProvider == 'gcp' && 'GCP' || parameters.cloudProvider == 'aws' && 'AWS' || 'Azure' }} 서버가 프로비저닝됩니다 (5~10분)
+          **프로비저닝 상태 확인 (약 5~10분 소요):**
+          ```
+          kubectl get ${{ parameters.cloudProvider == 'gcp' && 'gcpinstance' || parameters.cloudProvider == 'aws' && 'ec2instance' || 'azurevm' }} ${{ parameters.componentName }} -n ${{ parameters.componentName }}
+          ```
 
           ## 접속 정보 확인
           - **Backstage 카탈로그** > 해당 리소스 > 개요 탭
-          - `kubectl get secret -n default | grep ${{ parameters.componentName }}`
+          - `kubectl get secret -n ${{ parameters.componentName }}`
+
+          ## Git 기록
+          아래 PR은 감사 추적용으로 자동 생성되었습니다. 별도 머지 작업은 불필요합니다.
 
           ## 수명주기 안내
           만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord `#라이프사이클-알림`로 알림이 발송됩니다.

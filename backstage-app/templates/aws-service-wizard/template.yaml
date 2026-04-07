@@ -235,58 +235,81 @@ spec:
           repoOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
           repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
 
+    - id: apply-namespace
+      name: 네임스페이스 즉시 생성
+      action: kubernetes:apply
+      input:
+        manifest: |
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: ${{ parameters.componentName }}
+            labels:
+              owner: ${{ parameters.owner }}
+              cost-center: ${{ parameters.costCenter }}
+              lifecycle-tier: ${{ parameters.lifecycleTier }}
+              expires-at: "${{ parameters.expiresAt }}"
+              backstage.io/kubernetes-id: ${{ parameters.componentName }}
+              app.kubernetes.io/name: ${{ parameters.componentName }}
+        clusterName: onprem
+
+    - id: apply-claim
+      name: Crossplane Claim 즉시 적용
+      action: kubernetes:apply
+      input:
+        manifest: ${{ steps['fetch-base'].output.files['claim.yaml'] }}
+        clusterName: onprem
+
     - id: publish
-      name: Pull Request 생성
+      name: Git 기록용 PR 생성 (자동 머지)
       action: publish:github:pull-request
       input:
-        title: "AWS 인프라 프로비저닝: ${{ parameters.componentName }} (${{ parameters.serviceType }})"
+        title: "[auto-merge] AWS 인프라: ${{ parameters.componentName }} (${{ parameters.serviceType }})"
         description: |
-          ## AWS 서비스 위저드 프로비저닝 요청
+          > 이 PR은 기록용으로 자동 생성되었습니다. 리소스는 이미 프로비저닝 중입니다.
 
-          - **서비스 이름**: ${{ parameters.componentName }}
-          - **서비스 유형**: ${{ parameters.serviceType }}
-          - **팀**: ${{ parameters.team }}
+          - **서비스**: ${{ parameters.componentName }}
+          - **유형**: ${{ parameters.serviceType }}
           - **담당자**: ${{ parameters.owner }}
           - **환경**: ${{ parameters.lifecycleTier }}
           - **비용 센터**: ${{ parameters.costCenter }}
         repoUrl: ${{ parameters.repoUrl }}
         branchName: provision/${{ parameters.componentName }}
         targetPath: apps/${{ parameters.componentName }}
+        labels:
+          - auto-merge
+          - provisioning
 
   output:
     text:
-      - title: "✅ 인프라 구성이 완료되었습니다!"
+      - title: "✅ 프로비저닝이 시작되었습니다!"
         content: |
-          서비스 유형 **${{ parameters.serviceType }}** 에 맞는 AWS 인프라가 자동으로 설정되었습니다.
+          서비스 유형 **${{ parameters.serviceType }}** 에 맞는 AWS 인프라가 **즉시 프로비저닝**되고 있습니다.
+          PR 머지를 기다릴 필요 없이, Crossplane이 바로 리소스를 생성합니다.
 
-          **다음 단계:**
-          1. 아래 Pull Request 링크에서 변경 내용을 확인하고 머지하세요
-          2. ArgoCD가 자동으로 Crossplane claim을 배포합니다 (약 1~2분)
-          3. AWS가 실제 리소스를 프로비저닝합니다 (약 5~15분)
-
-          **프로비저닝 상태 확인 방법:**
+          **프로비저닝 상태 확인 (약 5~15분 소요):**
           ```
           # web-api
-          kubectl get ec2instance ${{ parameters.componentName }}-vm -n default
-          kubectl get rdsdatabase ${{ parameters.componentName }}-db -n default
+          kubectl get ec2instance ${{ parameters.componentName }}-vm -n ${{ parameters.componentName }}
+          kubectl get rdsdatabase ${{ parameters.componentName }}-db -n ${{ parameters.componentName }}
 
           # container-app (EKS)
-          kubectl get ekscluster ${{ parameters.componentName }}-eks -n default
-          kubectl describe ekscluster ${{ parameters.componentName }}-eks -n default
+          kubectl get ekscluster ${{ parameters.componentName }}-eks -n ${{ parameters.componentName }}
 
           # EKS kubeconfig (프로비저닝 완료 후)
           kubectl get secret -n crossplane-system | grep ${{ parameters.componentName }}
           ```
           리전: **${{ parameters.region }}** | Backstage 카탈로그에서 Kubernetes 플러그인으로 실시간 상태 확인 가능
 
-          > PR이 머지되면 약 5분 내에 Backstage 카탈로그에 자동 등록됩니다.
-
           ## 접속 정보 확인
           - **Backstage 카탈로그** > 해당 리소스 > 개요 탭에서 접속 정보를 확인하세요
           - `kubectl get secret -n ${{ parameters.componentName }}`
 
+          ## Git 기록
+          아래 PR은 감사 추적용으로 자동 생성되었습니다. 별도 머지 작업은 불필요합니다.
+
           ## 수명주기 안내
           만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord `#라이프사이클-알림`로 알림이 발송됩니다.
     links:
-      - title: Pull Request
+      - title: PR 확인 (기록용)
         url: ${{ steps['publish'].output.remoteUrl }}
