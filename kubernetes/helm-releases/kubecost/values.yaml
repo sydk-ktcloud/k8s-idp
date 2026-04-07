@@ -56,6 +56,10 @@ cloudCost:
     storageClass: "longhorn"
     size: 1Gi
 
+# Cluster Controller - 비활성화 (turndown/scaling 미사용, storage 연결 에러 방지)
+clusterController:
+  enabled: false
+
 # Frontend Service - ClusterIP (access via OAuth2 Proxy)
 frontend:
   service:
