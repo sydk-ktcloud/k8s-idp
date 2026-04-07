@@ -190,7 +190,7 @@ spec:
           enum:
             - true
           ui:widget: checkbox
-          description: "만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord #lifecycle-alerts로 알림이 발송됩니다. 연장 필요 시 /extend 커맨드를 사용하세요 (platform/sre 팀 승인 필요)."
+          description: "만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord #라이프사이클-알림로 알림이 발송됩니다. 연장 필요 시 /extend 커맨드를 사용하세요 (platform/sre 팀 승인 필요)."
 
     # ── Step 7: 저장소 선택 ────────────────────────────────────
     - title: "저장소를 선택하세요"
@@ -261,7 +261,7 @@ spec:
           - `kubectl get secret -n ${{ parameters.componentName }}`
 
           ## 수명주기 안내
-          만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord `#lifecycle-alerts`로 알림이 발송됩니다.
+          만료된 리소스는 자동 삭제됩니다. 삭제 3일 전·당일 Discord `#라이프사이클-알림`로 알림이 발송됩니다.
     links:
       - title: Pull Request 확인하기
         url: ${{ steps['publish'].output.remoteUrl }}
