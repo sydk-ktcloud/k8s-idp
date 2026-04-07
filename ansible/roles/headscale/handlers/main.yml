@@ -1,0 +1,6 @@
+---
+- name: restart headscale
+  community.docker.docker_container:
+    name: headscale
+    state: started
+    restart: true

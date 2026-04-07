@@ -1,0 +1,15 @@
+# Custom DERP Map - Managed by Ansible
+# Self-hosted DERP relay for NAT traversal
+regions:
+  999:
+    regionid: 999
+    regioncode: home
+    regionname: Home DERP
+    nodes:
+      - name: home-derp
+        regionid: 999
+        hostname: {{ headscale_external_ip }}
+        ipv4: {{ headscale_external_ip }}
+        stunport: 3478
+        derpport: 8080
+        insecurefortests: true

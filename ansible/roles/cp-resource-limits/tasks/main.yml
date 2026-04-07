@@ -1,0 +1,31 @@
+---
+# cp-resource-limits role: Control Plane static pod 리소스 제한 설정
+# apiserver 메모리 무제한 → OOM → tailscaled 등 데몬 죽음 → 노드 간헐적 offline 방지
+
+- name: kube-apiserver 리소스 제한 적용
+  script: set_static_pod_resources.py kube-apiserver '{{ cp_apiserver_resources | to_json }}'
+  args:
+    executable: python3
+  register: apiserver_result
+  changed_when: "'CHANGED' in apiserver_result.stdout"
+
+- name: etcd 리소스 제한 적용
+  script: set_static_pod_resources.py etcd '{{ cp_etcd_resources | to_json }}'
+  args:
+    executable: python3
+  register: etcd_result
+  changed_when: "'CHANGED' in etcd_result.stdout"
+
+- name: kube-controller-manager 리소스 제한 적용
+  script: set_static_pod_resources.py kube-controller-manager '{{ cp_controller_manager_resources | to_json }}'
+  args:
+    executable: python3
+  register: cm_result
+  changed_when: "'CHANGED' in cm_result.stdout"
+
+- name: kube-scheduler 리소스 제한 적용
+  script: set_static_pod_resources.py kube-scheduler '{{ cp_scheduler_resources | to_json }}'
+  args:
+    executable: python3
+  register: scheduler_result
+  changed_when: "'CHANGED' in scheduler_result.stdout"

@@ -30,7 +30,7 @@ spec:
       serviceAccountName: chatops-bot
       containers:
       - name: chatops-app
-        image: kylekim1223/chatops-bot:latest
+        image: kylekim1223/chatops-bot:sha-43a56b2
         imagePullPolicy: Always
         env:
         - name: AZURE_OPENAI_ENDPOINT

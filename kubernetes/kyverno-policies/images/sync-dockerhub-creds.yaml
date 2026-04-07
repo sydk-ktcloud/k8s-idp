@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sync-dockerhub-creds
+  annotations:
+    policies.kyverno.io/title: Docker Hub 인증 Secret 전파
+    policies.kyverno.io/category: Image
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      kyverno 네임스페이스의 dockerhub-creds Secret을
+      모든 네임스페이스에 자동으로 복제합니다.
+      Docker Hub rate limit 방지를 위한 인증 정보 전파입니다.
+spec:
+  rules:
+    - name: sync-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      generate:
+        synchronize: true
+        apiVersion: v1
+        kind: Secret
+        name: dockerhub-creds
+        namespace: "{{request.object.metadata.name}}"
+        clone:
+          namespace: kyverno
+          name: dockerhub-creds

@@ -24,10 +24,31 @@ spec:
     - from:
         - podSelector: {}
     # NodePort를 통한 외부 UI/API 접근 (port 8080)
-    - from: []
+    - ports:
+        - protocol: TCP
+          port: 8080
+    # Actions Runner → ArgoCD API (sync 트리거)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: actions-runner-system
       ports:
         - protocol: TCP
           port: 8080
+     # Prometheus 메트릭 수집
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8082
+        - protocol: TCP
+          port: 8083
+        - protocol: TCP
+          port: 9001
+        - protocol: TCP
+          port: 8084
   egress:
     # 네임스페이스 내 pod 간 통신 허용
     - to:
@@ -45,7 +66,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: auth
+              kubernetes.io/metadata.name: auth
           podSelector:
             matchLabels:
               app.kubernetes.io/name: dex

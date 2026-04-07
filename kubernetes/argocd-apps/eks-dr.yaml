@@ -1,0 +1,32 @@
+# EKS DR ArgoCD Application
+# 평시에는 sync 비활성 (dormant) — DR 활성화 시 수동 sync
+#
+# DR 활성화: argocd app sync eks-dr
+# Failback 후: argocd app set eks-dr --sync-policy none
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eks-dr
+  namespace: gitops
+  labels:
+    team: platform
+    system: eks-dr
+  annotations:
+    argocd.argoproj.io/description: "EKS DR 인프라 (Tailscale, Prometheus, Velero, NetworkPolicy)"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+    targetRevision: HEAD
+    path: kubernetes/manifests/eks-dr
+  destination:
+    # TODO: EKS Crossplane claim 배포 후 실제 API endpoint로 교체
+    server: https://EKS_API_ENDPOINT
+    namespace: default
+  syncPolicy:
+    # 평시: 자동 sync 비활성 (DR 활성화 시 수동 sync)
+    # automated:
+    #   prune: true
+    #   selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

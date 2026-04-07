@@ -1,0 +1,24 @@
+---
+# emergency-cleanup.yml - 디스크 풀 긴급 복구
+# 사용법: ansible-playbook playbooks/emergency-cleanup.yml
+
+- name: 긴급 디스크 정리
+  hosts: k8s_nodes
+  tasks:
+    - name: syslog truncate
+      shell: truncate -s 0 /var/log/syslog
+
+    - name: syslog.1 truncate
+      shell: truncate -s 0 /var/log/syslog.1
+      ignore_errors: true
+
+    - name: journal vacuum
+      shell: journalctl --vacuum-size=500M
+
+    - name: 디스크 상태 확인
+      shell: df -h / | tail -1
+      register: disk_status
+
+    - name: 디스크 상태 출력
+      debug:
+        msg: "{{ inventory_hostname }}: {{ disk_status.stdout }}"

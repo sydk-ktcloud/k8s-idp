@@ -1,0 +1,17 @@
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: AzureVM
+metadata:
+  name: azure-vm-test
+  namespace: default
+  labels:
+    team: platform
+    owner: kylekim
+    cost-center: platform
+    lifecycle-tier: dev
+    expires-at: "2026-04-12"
+spec:
+  name: azure-vm-test
+  vmSize: Standard_B2ms
+  location: koreacentral
+  diskSizeGb: 30
+  resourceGroupName: idp-azure-vm-test-rg

@@ -41,9 +41,11 @@ spec:
         args:
         - --provider=oidc
         - --oidc-issuer-url=http://dex.auth.svc.cluster.local:5556
+        - --login-url=http://100.64.0.1:30556/auth
         - --redeem-url=http://dex.auth.svc.cluster.local:5556/token
         - --oidc-jwks-url=http://dex.auth.svc.cluster.local:5556/keys
         - --redirect-url=http://100.64.0.1:30091/oauth2/callback
+        - --skip-oidc-discovery
         - --http-address=0.0.0.0:4180
         - --upstream=http://kubecost-frontend.kubecost.svc.cluster.local:9090
         - --skip-provider-button

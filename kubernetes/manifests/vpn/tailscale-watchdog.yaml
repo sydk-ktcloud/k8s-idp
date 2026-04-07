@@ -1,0 +1,101 @@
+# Tailscale Watchdog DaemonSet (On-prem nodes)
+# 호스트의 tailscaled가 응답 없을 경우 자동 재시작
+# 대상: k8s-cp, k8s-w1, k8s-w2, k8s-w3
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tailscale-watchdog
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: tailscale-watchdog
+    app.kubernetes.io/component: network-stability
+spec:
+  selector:
+    matchLabels:
+      app: tailscale-watchdog
+  template:
+    metadata:
+      labels:
+        app: tailscale-watchdog
+    spec:
+      hostPID: true
+      hostNetwork: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: watchdog
+          image: busybox:latest
+          securityContext:
+            privileged: true
+          command:
+            - /bin/sh
+            - -c
+            - |
+              HEADSCALE_IP="100.64.0.6"
+              FAIL_COUNT=0
+              MAX_FAIL=3
+              NODE_NAME=${NODE_NAME}
+
+              echo "[watchdog] Started on node: ${NODE_NAME}"
+
+              while true; do
+                # tailscaled 프로세스 확인
+                if ! nsenter -t 1 -m -u -i -n -p -- sh -c "
+                  pgrep tailscaled > /dev/null 2>&1
+                " 2>/dev/null; then
+                  FAIL_COUNT=$((FAIL_COUNT + 1))
+                  echo "[watchdog] tailscaled process not found (fail ${FAIL_COUNT}/${MAX_FAIL})"
+                else
+                  # tailscale socket 응답 확인 (ping to headscale, 5s timeout)
+                  PING_RESULT=$(nsenter -t 1 -m -u -i -n -p -- sh -c "
+                    tailscale ping --c 1 ${HEADSCALE_IP} 2>&1
+                  " 2>/dev/null)
+
+                  if echo "$PING_RESULT" | grep -q "pong\|via"; then
+                    # 정상 - 카운터 초기화
+                    if [ $FAIL_COUNT -gt 0 ]; then
+                      echo "[watchdog] Tailscale recovered on ${NODE_NAME}"
+                    fi
+                    FAIL_COUNT=0
+                  else
+                    FAIL_COUNT=$((FAIL_COUNT + 1))
+                    echo "[watchdog] Tailscale ping failed (fail ${FAIL_COUNT}/${MAX_FAIL}): ${PING_RESULT}"
+                  fi
+                fi
+
+                if [ $FAIL_COUNT -ge $MAX_FAIL ]; then
+                  echo "[watchdog] Restarting tailscaled on ${NODE_NAME} after ${MAX_FAIL} failures"
+                  nsenter -t 1 -m -u -i -n -p -- sh -c "
+                    systemctl restart tailscaled
+                  " 2>/dev/null && echo "[watchdog] tailscaled restarted" || echo "[watchdog] restart failed"
+                  FAIL_COUNT=0
+                  sleep 30
+                fi
+
+                sleep 60
+              done
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+      # GKE burst 노드(tailscale container 방식) 제외
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - k8s-cp
+                      - k8s-w1
+                      - k8s-w2
+                      - k8s-w3

@@ -1,0 +1,218 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backup-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: longhorn.backup
+    interval: 1m
+    rules:
+    - alert: LonghornVolumeBackupFailed
+      expr: longhorn_backup_state{state="Error"} == 1
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Longhorn 볼륨 백업 실패: {{ $labels.volume }}"
+        description: "MinIO 백업이 5분 이상 Error 상태입니다."
+
+    - alert: LonghornBackupTargetUnreachable
+      expr: longhorn_backup_target_reachable == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Longhorn 백업 타겟(MinIO)에 접근 불가"
+        description: "MinIO S3 백업 타겟이 2분 이상 응답하지 않습니다."
+
+    - alert: LonghornNodeStorageLow
+      expr: longhorn_node_storage_usage_bytes / longhorn_node_storage_capacity_bytes > 0.80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Longhorn 노드 {{ $labels.node }} 스토리지 사용률 80% 초과"
+        description: "현재 사용률: {{ $value | humanizePercentage }}"
+
+    - alert: LonghornVolumeActualSizeHigh
+      expr: longhorn_volume_actual_size_bytes / longhorn_volume_capacity_bytes > 0.85
+      for: 10m
+      labels:
+        severity: warning
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Longhorn 볼륨 {{ $labels.volume }} 용량 85% 초과"
+        description: "볼륨 확장 또는 데이터 정리가 필요합니다."
+
+  - name: velero.backup
+    interval: 5m
+    rules:
+    - alert: VeleroBackupFailed
+      expr: velero_backup_failure_total > 0
+      for: 0m
+      labels:
+        severity: critical
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Velero 백업 실패: {{ $labels.schedule }}"
+        description: "클러스터 상태 백업이 실패했습니다. 즉시 확인이 필요합니다."
+
+    - alert: VeleroBackupMissing
+      expr: time() - velero_backup_last_successful_timestamp > 90000
+      for: 0m
+      labels:
+        severity: warning
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Velero 백업이 25시간 이상 성공하지 않았습니다"
+        description: "일일 백업 스케줄 (01:00)이 정상 실행되지 않았습니다."
+
+  - name: loki.health
+    rules:
+    - alert: LokiIngestionRateHigh
+      expr: rate(loki_ingester_streams_created_total[5m]) > 1000
+      for: 10m
+      labels:
+        severity: warning
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Loki 로그 수집 속도가 비정상적으로 높습니다"
+        description: "현재 초당 스트림 생성 수: {{ $value }}"
+
+    - alert: LokiStorageNearFull
+      expr: kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"storage-loki.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"storage-loki.*"} > 0.85
+      for: 10m
+      labels:
+        severity: warning
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Loki PVC 용량 85% 초과"
+        description: "Loki WAL/인덱스 PVC 용량을 확인하세요."
+
+  - name: onprem.burst.trigger
+    interval: 30s
+    rules:
+    - alert: OnPremCPUHighBurstNeeded
+      expr: onprem:node_cpu_utilization:avg > 0.70
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+        trigger: gke-burst
+      annotations:
+        summary: "On-prem CPU {{ $value | humanizePercentage }} 초과 - GKE Burst 필요"
+        description: "On-prem 노드 평균 CPU 사용률이 2분간 70%를 초과했습니다."
+
+    - alert: OnPremMemoryHighBurstNeeded
+      expr: onprem:node_memory_utilization:avg > 0.80
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+        trigger: gke-burst
+      annotations:
+        summary: "On-prem Memory {{ $value | humanizePercentage }} 초과 - GKE Burst 필요"
+        description: "On-prem 노드 평균 메모리 사용률이 2분간 80%를 초과했습니다."
+
+    - alert: OnPremPendingPodsHighBurstNeeded
+      expr: onprem:pending_pods:count > 3
+      for: 1m
+      labels:
+        severity: warning
+        team: platform
+        trigger: gke-burst
+      annotations:
+        summary: "On-prem Pending Pod {{ $value }}개 - GKE Burst 스케일아웃 필요"
+        description: "스케줄링되지 못한 Pod가 1분 이상 3개를 초과합니다."
+
+  - name: gke.burst.cost
+    interval: 1m
+    rules:
+    # Autopilot: Pod 기반 비용 모니터링 (노드는 GKE가 자동 관리)
+    - alert: GKEBurstPodsRunningLong
+      expr: |
+        sum(kube_pod_status_phase{phase="Running",namespace="burst-workloads"}) > 0
+      for: 60m
+      labels:
+        severity: info
+        team: platform
+        cost_center: gke-burst
+      annotations:
+        summary: "GKE Burst Pod {{ $value }}개가 1시간 이상 실행 중"
+        description: "Autopilot 과금 중입니다. burst 원인이 해소되었는지 확인하세요."
+
+    - alert: GKEBurstPodCountHigh
+      expr: |
+        sum(kube_pod_status_phase{phase="Running",namespace="burst-workloads"}) >= 4
+      for: 30m
+      labels:
+        severity: warning
+        team: platform
+        cost_center: gke-burst
+      annotations:
+        summary: "GKE Burst Pod {{ $value }}개 30분 이상 실행 - 비용 초과 주의"
+        description: "burst-workloads에 Pod가 다수 실행 중입니다. Kubecost 대시보드를 확인하세요."
+
+  - name: backup.pipeline
+    interval: 5m
+    rules:
+    - alert: MinioS3ReplicationJobFailed
+      expr: |
+        kube_job_status_failed{namespace="minio-storage", job_name=~"minio-s3-replication.*"} > 0
+      for: 0m
+      labels:
+        severity: critical
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "MinIO → S3 DR 복제 Job 실패"
+        description: "minio-s3-replication CronJob이 실패했습니다. AWS S3 DR 백업이 중단됩니다."
+
+    - alert: MinioDown
+      expr: up{job="minio"} == 0 or absent(up{job="minio"})
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "MinIO가 5분 이상 다운 상태"
+        description: "MinIO가 응답하지 않습니다. Longhorn 백업과 S3 DR 복제가 모두 중단됩니다."
+
+    - alert: LonghornManagerNotReady
+      expr: |
+        kube_daemonset_status_number_ready{daemonset="longhorn-manager", namespace="longhorn-system"}
+        < kube_daemonset_status_desired_number_scheduled{daemonset="longhorn-manager", namespace="longhorn-system"}
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Longhorn Manager {{ $value }}개 Pod Not Ready"
+        description: "longhorn-manager DaemonSet의 Ready Pod 수가 부족합니다. 스토리지 및 백업에 영향을 줍니다."
+
+    - alert: LonghornVolumeDegraded
+      expr: count(longhorn_volume_robustness{robustness="degraded"}) > 0
+      for: 10m
+      labels:
+        severity: warning
+        team: platform
+        category: backup-storage
+      annotations:
+        summary: "Longhorn 볼륨 {{ $value }}개가 degraded 상태"
+        description: "복제본 수가 부족한 볼륨이 있습니다. 노드 상태를 확인하세요."

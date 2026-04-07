@@ -1,0 +1,74 @@
+# On-Prem 클러스터 Heartbeat (Dead Man's Switch)
+#
+# 5분마다 S3에 타임스탬프를 업로드하여 클러스터 생존 신호를 보냄.
+# S3 파일이 15분 이상 갱신되지 않으면 → 온프레미스 장애로 판단.
+#
+# AWS CloudWatch 알림 조건:
+#   Lambda가 5분마다 S3 오브젝트 LastModified 확인
+#   15분 이상 미갱신 시 → SNS → Discord Webhook
+#
+# 사전 조건:
+#   kubectl create secret generic aws-replicator-credentials -n minio-storage \
+#     --from-literal=aws-access-key=<AWS_ACCESS_KEY_ID> \
+#     --from-literal=aws-secret-key=<AWS_SECRET_ACCESS_KEY>
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-heartbeat
+  namespace: minio-storage
+  labels:
+    app: cluster-heartbeat
+    team: platform
+    system: monitoring
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app: cluster-heartbeat
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: heartbeat
+            image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # S3 alias 설정
+              mc alias set s3 https://s3.us-west-2.amazonaws.com \
+                "$AWS_ACCESS_KEY" "$AWS_SECRET_KEY"
+
+              # heartbeat 파일 생성 및 업로드
+              TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              HOSTNAME=${HOSTNAME:-unknown}
+              echo "{\"timestamp\":\"$TIMESTAMP\",\"cluster\":\"k8s-idp-onprem\",\"status\":\"alive\",\"pod\":\"$HOSTNAME\"}" > /tmp/heartbeat.json
+
+              mc cp /tmp/heartbeat.json s3/sydk-velero-dr-usw2/heartbeat/heartbeat.json
+              echo "Heartbeat sent to S3: $TIMESTAMP"
+            env:
+            - name: AWS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-replicator-credentials
+                  key: aws-access-key
+            - name: AWS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-replicator-credentials
+                  key: aws-secret-key
+            resources:
+              requests:
+                cpu: 50m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 64Mi

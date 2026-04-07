@@ -114,12 +114,12 @@ data:
           target: /app/examples/entities.yaml
           
     proxy:
-          '/kubecost':
-            target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
-            changeOrigin: true
-    
-        kubecost:
-          baseUrl: /api/proxy/kubecost
+      '/kubecost':
+        target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
+        changeOrigin: true
+
+    kubecost:
+      baseUrl: /api/proxy/kubecost
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -138,7 +138,7 @@ spec:
     spec:
       containers:
       - name: backstage
-        image: kylekim1223/backstage-backend:latest
+        image: kylekim1223/backstage-backend:sha-5535754
         imagePullPolicy: Always
         env:
         - name: APP_CONFIG_backend_database_client
@@ -159,7 +159,10 @@ spec:
         - name: APP_CONFIG_rollbar_accountToken
           value: disabled
         - name: APP_CONFIG_scaffolder_github_token
-          value: disabled
+          valueFrom:
+            secretKeyRef:
+              name: backstage-backend-secrets
+              key: github-token
         - name: APP_CONFIG_scaffolder_gitlab_api_token
           value: disabled
         - name: APP_CONFIG_scaffolder_azure_api_token
@@ -167,7 +170,7 @@ spec:
         - name: APP_CONFIG_scaffolder_bitbucket_token
           value: "x-token-disabled"
         - name: BACKSTAGE_SKIP_PLUGINS
-          value: "rollbar,scaffolder"
+          value: "rollbar"
         ports:
         - containerPort: 7000
         volumeMounts:

@@ -18,11 +18,12 @@ import {
 import { TechDocsAddons } from '@backstage/plugin-techdocs-react';
 import { ReportIssue } from '@backstage/plugin-techdocs-module-addons-contrib';
 import { UserSettingsPage } from '@backstage/plugin-user-settings';
-import { apis } from './apis';
+import { apis, oidcAuthApiRef } from './apis';
 import { entityPage } from './components/catalog/EntityPage';
 import { Root } from './components/Root';
 import { HomePage } from './components/home/HomePage';
 import { ProvisioningDashboard } from './components/dashboard/ProvisioningDashboard';
+import { InfraAssistantWidget } from './components/InfraAssistantWidget';
 
 import {
   AlertDisplay,
@@ -31,7 +32,6 @@ import {
 } from '@backstage/core-components';
 import { createApp } from '@backstage/app-defaults';
 import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
-import { oidcAuthApiRef } from './apis';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
@@ -107,6 +107,7 @@ export default app.createRoot(
     <OAuthRequestDialog />
     <AppRouter>
       <Root>{routes}</Root>
+      <InfraAssistantWidget />
     </AppRouter>
   </>,
 );

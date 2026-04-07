@@ -1,0 +1,97 @@
+# MinIO → AWS S3 오프사이트 백업 복제 (DR용)
+# 매일 04:30 UTC에 실행 (GCS 복제 이후)
+# EKS DR 클러스터에서 Velero restore 시 이 S3 버킷 사용
+#
+# 사전 조건:
+#   kubectl create secret generic aws-replicator-credentials -n minio-storage \
+#     --from-literal=aws-access-key=<AWS_ACCESS_KEY_ID> \
+#     --from-literal=aws-secret-key=<AWS_SECRET_ACCESS_KEY>
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-s3-replication
+  namespace: minio-storage
+  labels:
+    app: minio-s3-replication
+    team: platform
+    system: backup
+spec:
+  schedule: "30 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels:
+            app: minio-s3-replication
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: mc-mirror
+            image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "=== MinIO → AWS S3 DR 백업 복제 시작 ==="
+
+              mc alias set minio http://minio.minio-storage:9000 \
+                "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" || { echo "MinIO alias failed"; exit 1; }
+
+              mc alias set s3 https://s3.us-west-2.amazonaws.com \
+                "$AWS_ACCESS_KEY" "$AWS_SECRET_KEY" || { echo "S3 alias failed"; exit 1; }
+
+              FAILED=0
+
+              echo "[1/2] Velero 백업 → S3..."
+              if ! mc mirror --overwrite minio/velero s3/sydk-velero-dr-usw2; then
+                echo "[1/2] FAILED: velero mirror"
+                FAILED=$((FAILED + 1))
+              fi
+              echo "[1/2] 완료"
+
+              echo "[2/2] Longhorn 백업 → S3..."
+              if ! mc mirror --overwrite minio/longhorn-backups s3/sydk-longhorn-dr-usw2; then
+                echo "[2/2] FAILED: longhorn mirror"
+                FAILED=$((FAILED + 1))
+              fi
+              echo "[2/2] 완료"
+
+              if [ "$FAILED" -gt 0 ]; then
+                echo "=== $FAILED개 복제 실패 — Job을 실패로 표시 ==="
+                exit 1
+              fi
+              echo "=== AWS S3 DR 백업 복제 완료 ==="
+            env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_USER
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_PASSWORD
+            - name: AWS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-replicator-credentials
+                  key: aws-access-key
+            - name: AWS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-replicator-credentials
+                  key: aws-secret-key
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi

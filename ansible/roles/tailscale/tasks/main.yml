@@ -1,0 +1,49 @@
+---
+# tailscale role: Tailscale 설치 및 Headscale 연결
+
+- name: Tailscale 설치 스크립트 실행
+  shell: curl -fsSL https://tailscale.com/install.sh | sh
+  args:
+    creates: /usr/bin/tailscale
+
+- name: tailscaled 서비스 활성화
+  systemd:
+    name: tailscaled
+    state: started
+    enabled: true
+
+- name: tailscaled 환경 설정 (verbose=0 로그 폭증 방지)
+  copy:
+    dest: /etc/default/tailscaled
+    content: |
+      PORT=41641
+      FLAGS="-verbose=0"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart tailscaled
+
+- name: Tailscale logrotate 설정 배포
+  template:
+    src: tailscale-logrotate.j2
+    dest: /etc/logrotate.d/tailscale
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: logrotate hourly cron 활성화 (tailscale 로그 폭증 방지)
+  copy:
+    content: |
+      #!/bin/sh
+      /usr/sbin/logrotate /etc/logrotate.d/tailscale
+    dest: /etc/cron.hourly/tailscale-logrotate
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Headscale 서버에 노드 등록 (이미 등록된 경우 스킵)
+  shell: |
+    tailscale status --json | grep -q '"BackendState":"Running"' && exit 0
+    tailscale up --login-server=http://{{ headscale_server }}:8080 --authkey={{ headscale_authkey }} --accept-routes
+  when: headscale_authkey is defined
+  changed_when: false

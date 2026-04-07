@@ -7,7 +7,7 @@ kind: ServiceAccount
 metadata:
   name: backstage
   namespace: backstage
-automountServiceAccountToken: false
+automountServiceAccountToken: true
 
 ---
 # ClusterRole: 클러스터 범위 리소스만 (namespaces, nodes, Crossplane)
@@ -19,16 +19,31 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["namespaces"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch"]  # Backstage K8s plugin 필수
   - apiGroups: ["apiextensions.crossplane.io"]
     resources: ["compositeresourcedefinitions", "compositions", "claims"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
+  # GCP claims
   - apiGroups: ["k8s-idp.example.org"]
-    resources: ["gcpinstances", "buckets", "clusters", "databases"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+    resources: ["gcpinstances", "buckets", "clusters", "databases", "webapps", "pubsubs", "caches"]
+    verbs: ["get", "list", "create", "update", "patch"]
   - apiGroups: ["k8s-idp.example.org"]
-    resources: ["xgcpinstances", "xbuckets", "xclusters", "xdatabases"]
-    verbs: ["get", "list", "watch"]
+    resources: ["xgcpinstances", "xbuckets", "xclusters", "xdatabases", "xwebapps", "xpubsubs", "xcaches"]
+    verbs: ["get", "list"]
+  # AWS claims
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["ec2instances", "s3buckets", "eksclusters", "rdsdatabases"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["xec2instances", "xs3buckets", "xeksclusters", "xrdsdatabases"]
+    verbs: ["get", "list"]
+  # Azure claims
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["azurevms", "azureblobstorages", "aksclusters", "azuredatabases"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["k8s-idp.example.org"]
+    resources: ["xazurevms", "xazureblobstorages", "xaksclusters", "xazuredatabases"]
+    verbs: ["get", "list"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -54,16 +69,16 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses", "networkpolicies"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -90,16 +105,16 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses", "networkpolicies"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -126,16 +141,16 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses", "networkpolicies"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -162,16 +177,16 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods", "services", "configmaps", "persistentvolumeclaims", "events"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses", "networkpolicies"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -233,6 +248,9 @@ spec:
       containers:
       - name: postgresql
         image: postgres:15-alpine
+        args:
+          - "-c"
+          - "max_connections=50"
         env:
         - name: POSTGRES_USER
           value: backstage
@@ -287,7 +305,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Replace=true
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: backstage-backend
@@ -301,9 +319,12 @@ spec:
         env: prod
         system: platform
         service: backstage-backend
+      annotations:
+        checksum/config: "v1"
 
     spec:
       serviceAccountName: backstage
+      automountServiceAccountToken: true
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -315,7 +336,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
       - name: backstage
-        image: kylekim1223/backstage-backend:latest
+        image: kylekim1223/backstage-backend:sha-ffce8ff
         imagePullPolicy: Always
         envFrom:
         - secretRef:
@@ -338,13 +359,13 @@ spec:
             path: /healthcheck
             port: 7007
           initialDelaySeconds: 30
-          periodSeconds: 10
+          periodSeconds: 15
         livenessProbe:
           httpGet:
             path: /healthcheck
             port: 7007
           initialDelaySeconds: 60
-          periodSeconds: 15
+          periodSeconds: 30
       volumes:
       - name: production-config
         configMap:
@@ -392,6 +413,11 @@ data:
           user: ${POSTGRES_USER}
           password: ${POSTGRES_PASSWORD}
           database: ${POSTGRES_DB}
+        pool:
+          min: 2
+          max: 20
+          acquireTimeoutMillis: 30000
+          idleTimeoutMillis: 30000
     
     auth:
       environment: production
@@ -418,6 +444,17 @@ data:
       baseUrl: /api/proxy/kubecost
     
     catalog:
+      providers:
+        github:
+          k8s-idp-apps:
+            organization: 'sydk-ktcloud'
+            catalogPath: '/apps/*/catalog-info.yaml'
+            filters:
+              repository: 'k8s-idp'
+              branch: 'main'
+            schedule:
+              frequency: { minutes: 5 }
+              timeout: { minutes: 3 }
       locations:
         - type: file
           target: ./examples/entities.yaml

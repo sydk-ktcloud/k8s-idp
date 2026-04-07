@@ -1,11 +1,18 @@
+{% set repoOwner = values.repoOwner %}
+{% set repoName = values.repoName %}
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: {{ values.componentName }}
   description: "{{ values.description }}"
   annotations:
-    backstage.io/source-location: url:https://github.com/{{ values.destination.owner }}/{{ values.destination.repo }}
+    github.com/project-slug: {{ repoOwner }}/{{ repoName }}
+    backstage.io/source-location: url:https://github.com/{{ repoOwner }}/{{ repoName }}
     backstage.io/kubernetes-id: {{ values.componentName }}
+    kubecost.com/service-label: {{ values.componentName }}
+    kubecost.com/namespace: {{ values.namespace }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
   tags:
     - {{ values.serviceType }}
     - {{ values.userCount }}
@@ -35,6 +42,6 @@ metadata:
       icon: compute
     {% endif %}
 spec:
-  type: service
-  lifecycle: experimental
-  owner: user:guest
+  type: {{ values.serviceType }}
+  lifecycle: {{ values.lifecycleTier }}
+  owner: {{ values.owner }}

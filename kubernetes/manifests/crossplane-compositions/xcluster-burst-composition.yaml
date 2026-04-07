@@ -11,15 +11,16 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XClusterBurst
   writeConnectionSecretsToNamespace: crossplane-system
-
   # ── EnvironmentConfig: GCP 프로젝트 수준 기본값 ───────────────
   environment:
     environmentConfigs:
       - type: Reference
         ref:
           name: gcp-platform
-
   resources:
+    # ── GKE Autopilot Cluster ─────────────────────────────────
+    # Autopilot: 클러스터 관리비 무료, Pod 실행분만 과금
+    # NodePool은 GKE가 자동 관리하므로 별도 리소스 불필요
     - name: gke-burst-cluster
       base:
         apiVersion: container.gcp.upbound.io/v1beta1
@@ -27,24 +28,12 @@ spec:
         spec:
           forProvider:
             labels:
-              environment: burst
               managed-by: crossplane
-              cost-center: burst-workload
-              preemptible: "true"
+              resource-type: gke-burst-cluster
             location: asia-northeast3
             network: ""
             subnetwork: ""
-            initialNodeCount: 1
-            enableIntranodeVisibility: true
-            nodeConfig:
-              - machineType: e2-standard-2
-                diskSizeGb: 50
-                preemptible: true
-                oauthScopes:
-                  - "https://www.googleapis.com/auth/cloud-platform"
-                labels:
-                  environment: burst
-                  preemptible: "true"
+            enableAutopilot: true
           writeConnectionSecretToRef:
             namespace: crossplane-system
             name: placeholder
@@ -55,7 +44,9 @@ spec:
           toFieldPath: metadata.annotations[crossplane.io/external-name]
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
-        # network: EnvironmentConfig 기본값 사용 (spec.network="default"이면 EnvironmentConfig URL 적용)
+        - fromFieldPath: spec.autopilot
+          toFieldPath: spec.forProvider.enableAutopilot
+        # network: EnvironmentConfig 기본값 사용
         - type: FromEnvironmentFieldPath
           fromFieldPath: defaultNetworkUrl
           toFieldPath: spec.forProvider.network
@@ -63,59 +54,49 @@ spec:
         - type: FromEnvironmentFieldPath
           fromFieldPath: defaultSubnetworkUrl
           toFieldPath: spec.forProvider.subnetwork
-        - fromFieldPath: spec.machineType
-          toFieldPath: spec.forProvider.nodeConfig[0].machineType
-        - fromFieldPath: spec.diskSizeGb
-          toFieldPath: spec.forProvider.nodeConfig[0].diskSizeGb
-        - fromFieldPath: spec.preemptible
-          toFieldPath: spec.forProvider.nodeConfig[0].preemptible
         - fromFieldPath: metadata.uid
           toFieldPath: spec.writeConnectionSecretToRef.name
           transforms:
             - type: string
               string:
                 fmt: "%s-gke-cluster-conn"
+
+        # ── FinOps 라벨 ───────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional
+
       connectionDetails:
         - name: kubeconfig
           fromConnectionSecretKey: kubeconfig
-
-    - name: gke-burst-nodepool
-      base:
-        apiVersion: container.gcp.upbound.io/v1beta1
-        kind: NodePool
-        spec:
-          forProvider:
-            clusterSelector:
-              matchControllerRef: true
-            location: asia-northeast3
-            initialNodeCount: 1
-            autoscaling:
-              - minNodeCount: 0
-                maxNodeCount: 5
-            nodeConfig:
-              - machineType: e2-standard-2
-                diskSizeGb: 50
-                preemptible: true
-                oauthScopes:
-                  - "https://www.googleapis.com/auth/cloud-platform"
-                labels:
-                  environment: burst
-                  preemptible: "true"
-            management:
-              - autoRepair: true
-                autoUpgrade: true
-          providerConfigRef:
-            name: default
-      patches:
-        - fromFieldPath: spec.location
-          toFieldPath: spec.forProvider.location
-        - fromFieldPath: spec.machineType
-          toFieldPath: spec.forProvider.nodeConfig[0].machineType
-        - fromFieldPath: spec.diskSizeGb
-          toFieldPath: spec.forProvider.nodeConfig[0].diskSizeGb
-        - fromFieldPath: spec.preemptible
-          toFieldPath: spec.forProvider.nodeConfig[0].preemptible
-        - fromFieldPath: spec.minNodeCount
-          toFieldPath: spec.forProvider.autoscaling[0].minNodeCount
-        - fromFieldPath: spec.maxNodeCount
-          toFieldPath: spec.forProvider.autoscaling[0].maxNodeCount

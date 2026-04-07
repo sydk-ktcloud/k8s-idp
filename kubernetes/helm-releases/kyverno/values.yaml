@@ -1,0 +1,95 @@
+replicaCount: 1
+
+admissionController:
+  replicas: 1
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
+
+backgroundController:
+  replicas: 1
+  rbac:
+    coreClusterRole:
+      extraResources:
+        - apiGroups:
+            - ""
+          resources:
+            - secrets
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
+
+cleanupController:
+  replicas: 1
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
+
+reportsController:
+  replicas: 1
+  metricsService:
+    labels:
+      release: prometheus
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus
+    interval: 30s
+
+cleanupJobs:
+  admissionReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+  clusterAdmissionReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+  ephemeralReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+  clusterEphemeralReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: "v1.32.0"
+
+config:
+  # Audit 모드로 시작 (2주 후 Enforce로 전환)
+  defaultPolicyFailureAction: Audit
+  webhookTimeoutSeconds: 15
+  # 시스템 네임스페이스에서는 정책 적용 제외
+  resourceFilters:
+    - "[*,crossplane-system,*]"
+    - "[*,kyverno,*]"
+    - "[*,vault,*]"
+    - "[*,external-secrets,*]"
+    - "[*,gitops,*]"
+    - "[*,cert-manager,*]"
+    - "[*,kube-system,*]"
+    - "[*,kube-public,*]"
+    - "[*,kube-node-lease,*]"

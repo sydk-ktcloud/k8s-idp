@@ -1,5 +1,9 @@
 # Secret 'tailscale-auth'은 ExternalSecret(Vault)에 의해 자동 생성됩니다.
 # 참조: security/vault-infra/eso/external-secrets/tailscale-auth.yaml
+#
+# login-server: Cloud Headscale (GCP e2-micro, 항시 가동)
+# On-prem Headscale SPOF 해소 — On-prem 다운 시에도 GKE↔EKS VPN 유지
+# Cloud Headscale 프로비저닝: infrastructure/headscale-cloud/setup.sh
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -20,6 +24,7 @@ spec:
         app: tailscale
     spec:
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: tailscale
       containers:
         - name: tailscale
@@ -35,7 +40,16 @@ spec:
             - name: TS_ACCEPT_DNS
               value: "true"
             - name: TS_EXTRA_ARGS
-              value: "--login-server=http://100.64.0.1:8080 --advertise-tags=tag:gke-burst"
+              value: "--login-server=http://34.64.109.168:8080 --advertise-tags=tag:gke-burst"
+            # Pod별 고유 state Secret — 동일 IP 공유 방지
+            - name: TS_KUBE_SECRET
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           securityContext:
             capabilities:
               add:
@@ -63,7 +77,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["create", "get", "update"]
+    verbs: ["create", "get", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

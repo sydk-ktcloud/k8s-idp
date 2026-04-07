@@ -6,17 +6,20 @@ metadata:
 spec:
   replicas: 2
   template:
+    metadata:
+      labels:
+        actions-runner: ""
     spec:
       repository: sydk-ktcloud/k8s-idp
       labels:
         - self-hosted
         - k8s-idp
-      image: summerwind/actions-runner:latest
+      image: summerwind/actions-runner:v2.333.1-ubuntu-24.04
       serviceAccountName: actions-runner
       resources:
         requests:
-          cpu: 100m
-          memory: 256Mi
-        limits:
           cpu: 500m
-          memory: 512Mi
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi

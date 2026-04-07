@@ -10,11 +10,16 @@ metadata:
     app.kubernetes.io/part-of: observability
 spec:
   project: default
-  source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/grafana
-    directory:
-      recurse: true
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: grafana
+      targetRevision: 8.12.1
+      helm:
+        valueFiles:
+          - $values/kubernetes/helm-releases/grafana/values.yaml
+    - repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+      targetRevision: HEAD
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

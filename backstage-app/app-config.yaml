@@ -6,62 +6,44 @@ organization:
   name: My Company
 
 backend:
-  # Used for enabling authentication, secret is shared by all backend plugins
-  # See https://backstage.io/docs/auth/service-to-service-auth for
-  # information on the format
-  # auth:
-  #   keys:
-  #     - secret: ${BACKEND_SECRET}
   baseUrl: http://localhost:7007
   listen:
     port: 7007
-    # Uncomment the following host directive to bind to specific interfaces
-    # host: 127.0.0.1
   csp:
     connect-src: ["'self'", 'http:', 'https:']
-    # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
-    # Default Helmet Content-Security-Policy values can be removed by setting the key to false
   cors:
     origin: http://localhost:3000
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
-  # This is for local development only, it is not recommended to use this in production
-  # The production database configuration is stored in app-config.production.yaml
   database:
     client: better-sqlite3
     connection: ':memory:'
-  # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
 
 proxy:
-  ### Example for how to add a proxy endpoint for the frontend.
-  ### A typical reason to do this is to handle HTTPS and CORS for internal services.
-  # endpoints:
-  #   '/test':
-  #     target: 'https://example.com'
-  #     changeOrigin: true
   endpoints:
     '/kubecost':
       target: http://kubecost-frontend.kubecost.svc.cluster.local:9090
       changeOrigin: true
-# Reference documentation http://backstage.io/docs/features/techdocs/configuration
-# Note: After experimenting with basic setup, use CI/CD to generate docs
-# and an external cloud storage when deploying TechDocs for production use-case.
-# https://backstage.io/docs/features/techdocs/how-to-guides#how-to-migrate-from-techdocs-basic-to-recommended-deployment-approach
+
+    '/azure-openai':
+      target: https://chatops-openai-ktcloud.cognitiveservices.azure.com
+      changeOrigin: true
+      credentials: dangerously-allow-unauthenticated
+      headers:
+        api-key: ${AZURE_OPENAI_API_KEY}
+
 techdocs:
-  builder: 'local' # Alternatives - 'external'
+  builder: 'local'
   generator:
-    runIn: 'docker' # Alternatives - 'local'
+    runIn: 'docker'
   publisher:
-    type: 'local' # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+    type: 'local'
 
 auth:
-  # see https://backstage.io/docs/auth/ to learn about auth providers
   providers:
-    # See https://backstage.io/docs/auth/guest/provider
     guest: {}
 
 scaffolder:
-  # see https://backstage.io/docs/features/software-templates/configuration for software template options
 
 catalog:
   import:
@@ -70,85 +52,63 @@ catalog:
   rules:
     - allow: [Component, System, API, Resource, Location]
   locations:
-    # Local example data, file locations are relative to the backend process, typically `packages/backend`
     - type: file
       target: ../../examples/entities.yaml
 
-    # Local example template
     - type: file
       target: ../../examples/template/template.yaml
       rules:
         - allow: [Template]
 
-    # Service wizard template - 질문 기반 GCP 인프라 구성 마법사
     - type: file
       target: ../../templates/service-wizard/template.yaml
       rules:
         - allow: [Template]
 
-    # AWS service wizard - 질문 기반 AWS 인프라 구성 마법사
     - type: file
       target: ../../templates/aws-service-wizard/template.yaml
       rules:
         - allow: [Template]
 
-    # Simple server template - 서버 빠른 시작 (초보자용)
     - type: file
       target: ../../templates/simple-server/template.yaml
       rules:
         - allow: [Template]
 
-    # Infrastructure-only template - GCP 리소스 프로비저닝
     - type: file
       target: ../../templates/infrastructure-only/template.yaml
       rules:
         - allow: [Template]
 
-    # AWS infrastructure template - AWS 리소스 프로비저닝
     - type: file
       target: ../../templates/aws-infrastructure/template.yaml
       rules:
         - allow: [Template]
 
-    # Azure service wizard - 초보자용 Azure 인프라 마법사
     - type: file
       target: ../../templates/azure-service-wizard/template.yaml
       rules:
         - allow: [Template]
 
-    # Azure infrastructure template - Azure 리소스 프로비저닝
     - type: file
       target: ../../templates/azure-infrastructure/template.yaml
       rules:
         - allow: [Template]
 
-    # Service template - 서비스 생성
     - type: file
       target: ../../templates/service/template.yaml
       rules:
         - allow: [Template]
 
-    # Service with infrastructure template - 서비스 + 인프라 묶음
     - type: file
       target: ../../templates/service-with-infra/template.yaml
       rules:
         - allow: [Template]
 
-    # Local example organizational data
     - type: file
       target: ../../examples/org.yaml
       rules:
         - allow: [User, Group]
-
-    ## Uncomment these lines to add more example data
-    # - type: url
-    #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
-
-    ## Uncomment these lines to add an example org
-    # - type: url
-    #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
-    #   rules:
-    #     - allow: [User, Group]
 
 kubernetes:
   serviceLocatorMethod:
@@ -161,9 +121,9 @@ kubernetes:
           authProvider: serviceAccount
           skipTLSVerify: true
           skipMetricsLookup: true
+
 kubecost:
   baseUrl: /api/proxy/kubecost
-# see https://backstage.io/docs/permissions/getting-started for more on the permission framework
+
 permission:
-  # setting this to `false` will disable permissions
   enabled: true

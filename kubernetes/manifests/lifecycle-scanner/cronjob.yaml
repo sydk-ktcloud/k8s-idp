@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lifecycle-scanner
+  namespace: gitops
+  labels:
+    app.kubernetes.io/name: lifecycle-scanner
+    app.kubernetes.io/component: lifecycle
+spec:
+  schedule: "0 8 * * *"   # 매일 오전 8시 UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: lifecycle-scanner
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: scanner
+              image: docker.io/kylekim1223/lifecycle-scanner:latest
+              imagePullPolicy: Always
+              env:
+                - name: DISCORD_LIFECYCLE_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: lifecycle-scanner-secret
+                      key: discord-lifecycle-webhook-url
+                - name: DRY_RUN
+                  value: "false"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop:
+                    - ALL

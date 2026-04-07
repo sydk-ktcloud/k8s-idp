@@ -16,29 +16,71 @@ spec:
         kind: Bucket
         spec:
           forProvider:
-            region: us-east-1
+            region: ""
             tags:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
               managed-by: crossplane
               resource-type: s3-bucket
           providerConfigRef:
             name: default
       patches:
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.bucket
+          policy:
+            fromFieldPath: Required
+
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: spec.accessControl
+          toFieldPath: spec.forProvider.acl
+          policy:
+            fromFieldPath: Optional
+
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional
+
     - name: s3-bucket-versioning
       base:
         apiVersion: s3.aws.upbound.io/v1beta1
         kind: BucketVersioning
         spec:
           forProvider:
-            region: us-east-1
+            region: ""
             versioningConfiguration:
               - status: Suspended
             bucketSelector:
@@ -48,6 +90,9 @@ spec:
       patches:
         - fromFieldPath: spec.region
           toFieldPath: spec.forProvider.region
+          policy:
+            fromFieldPath: Required
+
         - type: CombineFromComposite
           combine:
             variables:

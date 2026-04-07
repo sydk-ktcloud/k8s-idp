@@ -34,18 +34,19 @@ spec:
             identity:
               - type: SystemAssigned
             tags:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
               managed-by: crossplane
               resource-type: aks-cluster
           providerConfigRef:
             name: default
       patches:
+        # location: EnvironmentConfig 기본값 → spec 값으로 override 가능
+        - type: FromEnvironmentFieldPath
+          fromFieldPath: defaultLocation
+          toFieldPath: spec.forProvider.location
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
+          policy:
+            fromFieldPath: Optional
         # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
         - type: FromEnvironmentFieldPath
           fromFieldPath: defaultResourceGroup
@@ -63,10 +64,47 @@ spec:
             fromFieldPath: Optional
         - fromFieldPath: spec.nodeCount
           toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
+          policy:
+            fromFieldPath: Required
         - fromFieldPath: spec.vmSize
           toFieldPath: spec.forProvider.defaultNodePool[0].vmSize
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
+          policy:
+            fromFieldPath: Required
+        # ── FinOps 태그 ────────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.tags[Name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.tags[cost-center]
+          policy:
+            fromFieldPath: Required
+            
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.tags[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.tags[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.tags[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.tags[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.tags[app-name]
+          policy:
+            fromFieldPath: Optional
         # ── 클러스터 상태 → composite status 버블업 ────────────
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.provisioningState
@@ -78,3 +116,4 @@ spec:
           toFieldPath: status.fqdn
           policy:
             fromFieldPath: Optional
+            

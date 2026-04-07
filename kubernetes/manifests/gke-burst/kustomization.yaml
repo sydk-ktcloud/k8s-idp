@@ -1,14 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: burst-workloads
-
 resources:
-  - namespace.yaml
-  - burst-workload-demo.yaml
-  - keda-scaler.yaml
-
-commonLabels:
-  team: platform
-  owner: team-platform
-  system: burst
+  - argocd-multi-cluster.yaml

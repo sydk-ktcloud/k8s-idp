@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
       - name: trip-main
-        image: kylekim1223/trip-front:latest
+        image: kylekim1223/trip-front:v1.0.0
         env:
         - name: VITE_SERVICE_NAME
           value: "MAIN_PORTAL"

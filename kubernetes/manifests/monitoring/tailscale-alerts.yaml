@@ -1,0 +1,53 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tailscale-network-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: tailscale.connectivity
+      interval: 60s
+      rules:
+        # k8s-cp API server가 일정 시간 이상 응답 없을 때
+        - alert: KubernetesAPIServerUnreachable
+          expr: up{job="kubernetes-apiservers"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kubernetes API server unreachable"
+            description: "API server has been unreachable for more than 2 minutes. Possible Tailscale connectivity loss on k8s-cp."
+
+        # 노드가 NotReady 상태
+        - alert: NodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node {{ $labels.node }} is NotReady"
+            description: "Node {{ $labels.node }} has been NotReady for more than 3 minutes. Check Tailscale connectivity."
+
+        # 노드의 kubelet이 응답 없음
+        - alert: KubeletDown
+          expr: up{job="kubelet"} == 0
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kubelet on {{ $labels.node }} is down"
+            description: "Kubelet on {{ $labels.node }} has not reported metrics for 3 minutes."
+
+        # Tailscale watchdog pod가 없는 노드 감지
+        - alert: TailscaleWatchdogMissing
+          expr: |
+            (kube_node_info) unless on(node)
+            (kube_pod_info{namespace="kube-system", pod=~"tailscale-watchdog-.*"} * on(pod, namespace) group_left(node) kube_pod_info)
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Tailscale watchdog missing on {{ $labels.node }}"
+            description: "Node {{ $labels.node }} does not have a tailscale-watchdog pod running."

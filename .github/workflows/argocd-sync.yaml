@@ -19,15 +19,25 @@ jobs:
     steps:
       - name: Sync ArgoCD Application
         env:
-          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_SERVER: http://argocd-server.gitops.svc.cluster.local
           ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
           ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
           APP_NAME: ${{ inputs.application }}
           TIMEOUT: ${{ inputs.timeout }}
         run: |
           echo "Syncing ArgoCD Application: ${APP_NAME}"
-          
-          LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${ARGOCD_SERVER}/api/v1/session" \
+
+          # DNS/네트워크 안정화 대기 (pod 시작 직후 NetworkPolicy 적용 지연 대응)
+          for attempt in 1 2 3 4 5; do
+            if getent hosts argocd-server.gitops.svc.cluster.local >/dev/null 2>&1; then
+              echo "DNS resolved (attempt ${attempt})"
+              break
+            fi
+            echo "Waiting for DNS... (attempt ${attempt})"
+            sleep 3
+          done
+
+          LOGIN_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -X POST "${ARGOCD_SERVER}/api/v1/session" \
             -H "Content-Type: application/json" \
             -d "{\"username\":\"${ARGOCD_USERNAME}\",\"password\":\"${ARGOCD_PASSWORD}\"}")
           
@@ -49,7 +59,7 @@ jobs:
           
           echo "ArgoCD login successful"
           
-          SYNC_RESPONSE=$(curl -s -X POST "${ARGOCD_SERVER}/api/v1/applications/${APP_NAME}/sync" \
+          SYNC_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -X POST "${ARGOCD_SERVER}/api/v1/applications/${APP_NAME}/sync" \
             -H "Authorization: Bearer ${ARGOCD_TOKEN}" \
             -H "Content-Type: application/json" \
             -d '{"revision":"HEAD"}')
@@ -59,7 +69,7 @@ jobs:
           MAX_ITER=$((TIMEOUT / 5))
           for i in $(seq 1 $MAX_ITER); do
             sleep 5
-            STATUS=$(curl -s "${ARGOCD_SERVER}/api/v1/applications/${APP_NAME}" \
+            STATUS=$(curl -s --connect-timeout 10 --max-time 30 "${ARGOCD_SERVER}/api/v1/applications/${APP_NAME}" \
               -H "Authorization: Bearer ${ARGOCD_TOKEN}" | jq -r '.status.sync.status')
             
             echo "Sync status: ${STATUS}"

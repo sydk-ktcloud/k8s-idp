@@ -10,11 +10,16 @@ metadata:
     app.kubernetes.io/part-of: observability
 spec:
   project: default
-  source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/prometheus
-    directory:
-      recurse: true
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 72.9.1
+      helm:
+        valueFiles:
+          - $values/kubernetes/helm-releases/prometheus/values.yaml
+    - repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+      targetRevision: HEAD
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -22,3 +27,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

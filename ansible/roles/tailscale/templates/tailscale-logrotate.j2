@@ -1,0 +1,10 @@
+/var/log/tailscale.log {
+    su syslog adm
+    hourly
+    rotate 3
+    maxsize 50M
+    missingok
+    notifempty
+    compress
+    copytruncate
+}

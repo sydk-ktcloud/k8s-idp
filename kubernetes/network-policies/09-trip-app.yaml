@@ -111,6 +111,98 @@ spec:
         - podSelector:
             matchLabels:
               app: trip-db
+    # Cart API (내부 통신)
+    - ports:
+        - protocol: TCP
+          port: 8081
+      to:
+        - podSelector:
+            matchLabels:
+              app: trip-cart-api
+    # Payment API (내부 통신)
+    - ports:
+        - protocol: TCP
+          port: 8082
+      to:
+        - podSelector:
+            matchLabels:
+              app: trip-payment-api
+    # Alloy OTLP (트레이싱)
+    - ports:
+        - protocol: TCP
+          port: 4317
+      to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+
+---
+# Cart API (Backend → Cart 내부 통신)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-cart-api-allow
+  namespace: trip-app
+spec:
+  podSelector:
+    matchLabels:
+      app: trip-cart-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8081
+      from:
+        - podSelector:
+            matchLabels:
+              app: trip-backend
+  egress:
+    # DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Alloy OTLP (트레이싱)
+    - ports:
+        - protocol: TCP
+          port: 4317
+      to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+
+---
+# Payment API (Backend → Payment 내부 통신)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trip-payment-api-allow
+  namespace: trip-app
+spec:
+  podSelector:
+    matchLabels:
+      app: trip-payment-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8082
+      from:
+        - podSelector:
+            matchLabels:
+              app: trip-backend
+  egress:
+    # DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
     # Alloy OTLP (트레이싱)
     - ports:
         - protocol: TCP

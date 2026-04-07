@@ -1,0 +1,87 @@
+---
+# common role: OS 레벨 로그 관리 및 안정성 설정
+
+- name: rsyslog - tailscaled 로그 분리 및 rate-limit
+  copy:
+    dest: /etc/rsyslog.d/10-tailscale.conf
+    content: |
+      $imjournalRatelimitInterval 60
+      $imjournalRatelimitBurst 1000
+      :programname, isequal, "tailscaled" /var/log/tailscale.log
+      :programname, isequal, "tailscaled" stop
+    mode: "0644"
+  notify: restart rsyslog
+
+- name: rsyslog - 기본 syslog logrotate 비활성화
+  command: mv /etc/logrotate.d/rsyslog /etc/logrotate.d/rsyslog.disabled
+  args:
+    removes: /etc/logrotate.d/rsyslog
+
+- name: logrotate - syslog 제한 (500MB, 일 단위)
+  copy:
+    dest: /etc/logrotate.d/syslog-limit
+    content: |
+      /var/log/syslog
+      /var/log/kern.log
+      /var/log/auth.log
+      {
+          rotate 3
+          daily
+          maxsize 500M
+          missingok
+          notifempty
+          compress
+          delaycompress
+          postrotate
+              /usr/lib/rsyslog/rsyslog-rotate
+          endscript
+      }
+    mode: "0644"
+
+- name: logrotate - tailscale.log 제한 (100MB)
+  copy:
+    dest: /etc/logrotate.d/tailscale
+    content: |
+      /var/log/tailscale.log {
+          rotate 2
+          daily
+          maxsize 100M
+          missingok
+          notifempty
+          compress
+          delaycompress
+      }
+    mode: "0644"
+
+- name: journald - 용량 제한 설정
+  copy:
+    dest: /etc/systemd/journald.conf.d/size-limit.conf
+    content: |
+      [Journal]
+      SystemMaxUse=500M
+      SystemKeepFree=1G
+      MaxFileSec=1day
+    mode: "0644"
+  notify: restart journald
+
+- name: journald - 설정 디렉토리 확인
+  file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: "0755"
+
+- name: multipath - Longhorn iSCSI 디바이스 blacklist
+  copy:
+    dest: /etc/multipath.conf
+    content: |
+      defaults {
+          user_friendly_names yes
+      }
+      blacklist {
+          device {
+              vendor "IET"
+              product "VIRTUAL-DISK"
+          }
+      }
+    mode: "0644"
+  notify: reload multipathd

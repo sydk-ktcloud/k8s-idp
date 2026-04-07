@@ -17,6 +17,8 @@ spec:
     helm:
       valuesObject:
         alloy:
+          reporting:
+            enabled: false
           extraPorts:
             - name: otlp-grpc
               port: 4317
@@ -73,17 +75,29 @@ spec:
               loki.process "parse_logs" {
                 forward_to = [loki.write.default.receiver]
 
-                stage.json {
-                  expressions = {
-                    level   = "level",
-                    trace_id = "trace_id",
+                stage.match {
+                  selector = "{job!=\"\"}"
+                  pipeline_name = "json_logs"
+ 
+                  stage.json {
+                    expressions = {
+                      level    = "level",
+                      trace_id = "trace_id",
+                      span_id  = "span_id",
+                    }
                   }
-                }
-
-                stage.labels {
-                  values = {
-                    level   = "level",
-                    trace_id = "trace_id",
+ 
+                  stage.labels {
+                    values = {
+                      level = "level",
+                    }
+                  }
+ 
+                  stage.structured_metadata {
+                    values = {
+                      trace_id = "trace_id",
+                      span_id  = "span_id",
+                    }
                   }
                 }
               }
@@ -114,8 +128,7 @@ spec:
                     insecure = true
                   }
                 }
-              }
-             
+              }   
           resources:
             requests:
               cpu: 100m

@@ -1,0 +1,86 @@
+# MinIO Storage NetworkPolicy
+# MinIO는 여러 서비스(Velero, Longhorn, Loki, Tempo)의 S3 백엔드로 사용됨
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minio-allow
+  namespace: minio-storage
+spec:
+  podSelector:
+    matchLabels:
+      app: minio
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Velero → MinIO (백업 저장)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: velero
+    ports:
+    - protocol: TCP
+      port: 9000
+  # Longhorn → MinIO (백업 저장)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: longhorn-system
+    ports:
+    - protocol: TCP
+      port: 9000
+  # Loki → MinIO (로그 청크 저장)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9000
+  # Tempo → MinIO (트레이스 블록 저장)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9000
+  # MinIO 클러스터 내부 통신 (Distributed Mode)
+  - from:
+    - podSelector:
+        matchLabels:
+          app: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  # MinIO Console (Prometheus 메트릭 포함)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9001
+  egress:
+  # MinIO 클러스터 내부 통신 (Distributed Mode)
+  - to:
+    - podSelector:
+        matchLabels:
+          app: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  # S3 오프사이트 복제 (AWS S3, mc mirror)
+  - ports:
+    - protocol: TCP
+      port: 443
+  # DNS
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53

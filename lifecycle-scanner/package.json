@@ -1,0 +1,12 @@
+{
+  "name": "lifecycle-scanner",
+  "version": "1.0.0",
+  "description": "k8s-idp Claim lifecycle scanner — expires-at 기반 자동 알림 및 삭제",
+  "main": "scan.js",
+  "scripts": {
+    "start": "node scan.js"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^0.21.0"
+  }
+}

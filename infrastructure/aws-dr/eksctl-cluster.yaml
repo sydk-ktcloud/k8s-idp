@@ -1,0 +1,25 @@
+# EKS DR 클러스터 설정
+# 적용: eksctl create cluster -f infrastructure/aws-dr/eksctl-cluster.yaml
+# 삭제: eksctl delete cluster -f infrastructure/aws-dr/eksctl-cluster.yaml
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: k8s-idp-dr
+  region: us-west-2
+  version: "1.32"
+
+managedNodeGroups:
+  - name: dr-spot
+    instanceType: t3.small
+    spot: true
+    minSize: 0
+    maxSize: 2
+    desiredCapacity: 0  # 평시 0대, DR 시 스케일업
+    labels:
+      role: dr
+      team: platform
+    tags:
+      system: dr
+      team: platform

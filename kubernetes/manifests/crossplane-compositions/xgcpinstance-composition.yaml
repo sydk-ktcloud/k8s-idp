@@ -16,41 +16,64 @@ spec:
         kind: Instance
         spec:
           forProvider:
-            labels:
-              team: platform
-              owner: team-platform
-              cost-center: internal-platform
-              env: prod
-              system: infra
-              service: gcp-instance
-              managed-by: crossplane
-              resource-type: instance
-            machineType: e2-medium
+            project: sydk-ktcloud
             zone: us-central1-a
+            labels:
+              managed-by: crossplane
+              resource-type: gcp-instance
+            machineType: e2-medium
             bootDisk:
-              initializeParams:
-                size: 100
-            networkInterfaces:
-              - accessConfigs:
-                  - type: ONE_TO_ONE_NAT
+              - autoDelete: true
+                initializeParams:
+                  - image: projects/debian-cloud/global/images/family/debian-11
+                    size: 100
+            networkInterface:
+              - accessConfig:
+                  - natIp: ""
+                    networkTier: STANDARD
+                network: projects/sydk-ktcloud/global/networks/default
           providerConfigRef:
             name: default
       patches:
         - fromFieldPath: spec.machineType
           toFieldPath: spec.forProvider.machineType
-          transforms:
-            - type: string
-              string:
-                fmt: "zones/%s"
-        - fromFieldPath: spec.region
+        - fromFieldPath: spec.zone
           toFieldPath: spec.forProvider.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%s-a"
         - fromFieldPath: spec.diskSize
-          toFieldPath: spec.forProvider.bootDisk.initializeParams.size
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
-        - fromFieldPath: metadata.labels
-          toFieldPath: spec.forProvider.labels
+          toFieldPath: spec.forProvider.bootDisk[0].initializeParams[0].size
+
+        # ── FinOps 라벨 ───────────────────────────────────────
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.labels[name]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[cost-center]
+          toFieldPath: spec.forProvider.labels[cost-center]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[owner]
+          toFieldPath: spec.forProvider.labels[owner]
+          policy:
+            fromFieldPath: Required
+
+        - fromFieldPath: metadata.labels[lifecycle-tier]
+          toFieldPath: spec.forProvider.labels[lifecycle-tier]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[expires-at]
+          toFieldPath: spec.forProvider.labels[expires-at]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[backstage.io/kubernetes-id]
+          toFieldPath: spec.forProvider.labels[backstage-kubernetes-id]
+          policy:
+            fromFieldPath: Optional
+
+        - fromFieldPath: metadata.labels[app.kubernetes.io/name]
+          toFieldPath: spec.forProvider.labels[app-name]
+          policy:
+            fromFieldPath: Optional

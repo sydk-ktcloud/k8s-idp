@@ -118,6 +118,16 @@ repoServer:
         matchLabels:
           app.kubernetes.io/name: argocd-repo-server
 
+applicationSet:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
 # Disable Dex server (using external Dex)
 dex:
   enabled: false

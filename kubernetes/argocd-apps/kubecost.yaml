@@ -10,11 +10,16 @@ metadata:
     app.kubernetes.io/component: finops
 spec:
   project: default
-  source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/kubecost
-    directory:
-      recurse: true
+  sources:
+    - repoURL: https://kubecost.github.io/kubecost/
+      chart: kubecost
+      targetRevision: 3.1.5
+      helm:
+        valueFiles:
+          - $values/kubernetes/helm-releases/kubecost/values.yaml
+    - repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+      targetRevision: HEAD
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: kubecost

@@ -96,9 +96,15 @@ spec:
             ttl: 1h
           # [수정] 최소 권한 원칙 적용: external-secrets SA로 범위 제한
           - name: default-app-role
+            bound_service_account_names: ["*"]
+            bound_service_account_namespaces: ["*"]
+            policies: ["allow_secrets"]
+            ttl: 1h
+          # ESO ClusterSecretStore 전용: k8s/* 전체 경로 읽기 허용
+          - name: eso-cluster-role
             bound_service_account_names: ["external-secrets"]
             bound_service_account_namespaces: ["external-secrets"]
-            policies: ["allow_secrets"]
+            policies: ["eso-read-all"]
             ttl: 1h
 
     policies:
@@ -132,7 +138,19 @@ spec:
           path "auth/token/renew-self"  { capabilities = ["update"] }
           path "sys/capabilities-self" { capabilities = ["update"] }
 
-      # 3. 비상용: 모든 권한 (Break-Glass)
+      # 3. ESO ClusterSecretStore 전용: k8s/* 시크릿 읽기
+      - name: eso-read-all
+        rules: |
+          path "secret/data/k8s/*" {
+            capabilities = ["read", "list"]
+          }
+          path "secret/metadata/k8s/*" {
+            capabilities = ["read", "list"]
+          }
+          path "auth/token/lookup-self" { capabilities = ["read"] }
+          path "auth/token/renew-self"  { capabilities = ["update"] }
+
+      # 4. 비상용: 모든 권한 (Break-Glass)
       - name: break-glass
         rules: |
           path "*" { capabilities = ["create", "read", "update", "delete", "list", "sudo"] }

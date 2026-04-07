@@ -1,0 +1,14 @@
+FROM python:3.12-slim
+
+RUN pip install --no-cache-dir \
+    boto3 \
+    google-auth \
+    google-cloud-billing \
+    google-cloud-bigquery \
+    azure-identity \
+    azure-mgmt-consumption \
+    azure-mgmt-costmanagement
+
+COPY monitor.py /app/monitor.py
+
+ENTRYPOINT ["python3", "/app/monitor.py"]

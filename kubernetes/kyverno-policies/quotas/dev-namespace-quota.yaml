@@ -1,0 +1,43 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dev-namespace-quota
+  annotations:
+    policies.kyverno.io/title: Dev Namespace Resource Quota
+    policies.kyverno.io/category: Quotas
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      idp.k8s/dev-namespace=true 레이블이 있는 네임스페이스에 자동으로
+      k8s-idp.example.org 리소스 Quota를 생성합니다.
+spec:
+  rules:
+    - name: generate-dev-resource-quota
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              selector:
+                matchLabels:
+                  idp.k8s/dev-namespace: "true"
+      generate:
+        apiVersion: v1
+        kind: ResourceQuota
+        name: idp-dev-quota
+        namespace: "{{ request.object.metadata.name }}"
+        synchronize: true
+        data:
+          spec:
+            hard:
+              count/clusters.k8s-idp.example.org: "2"
+              count/eksclusters.k8s-idp.example.org: "1"
+              count/aksclusters.k8s-idp.example.org: "1"
+              count/gcpinstances.k8s-idp.example.org: "3"
+              count/databases.k8s-idp.example.org: "2"
+              count/rdsdatabases.k8s-idp.example.org: "2"
+              count/azuredatabases.k8s-idp.example.org: "2"
+              count/buckets.k8s-idp.example.org: "3"
+              count/s3buckets.k8s-idp.example.org: "3"
+              count/azureblobstorages.k8s-idp.example.org: "3"
+              count/ec2instances.k8s-idp.example.org: "3"
+              count/azurevms.k8s-idp.example.org: "3"

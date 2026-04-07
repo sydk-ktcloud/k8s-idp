@@ -1,0 +1,134 @@
+# Prometheus Reverse Proxy for KEDA
+# 평시: On-prem Prometheus로 프록시
+# DR 시: EKS Prometheus로 전환 (scripts/dr-activate.sh)
+#
+# KEDA ScaledObject는 항상 이 proxy를 바라봄 → metric source 전환이 투명
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-upstream
+  namespace: burst-workloads
+  labels:
+    app: prometheus-proxy
+data:
+  # 평시: On-prem Prometheus (Tailscale 경유)
+  upstream_url: "http://10.102.177.113:9090"
+  # DR 시 scripts/dr-activate.sh가 EKS Prometheus Tailscale IP로 변경:
+  # kubectl patch configmap prometheus-upstream -n burst-workloads \
+  #   -p '{"data":{"upstream_url":"http://<EKS_TAILSCALE_IP>:9090"}}'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-proxy-nginx
+  namespace: burst-workloads
+  labels:
+    app: prometheus-proxy
+data:
+  nginx.conf: |
+    worker_processes 1;
+    events { worker_connections 128; }
+    http {
+      resolver 10.96.0.10 valid=30s;
+      server {
+        listen 9090;
+        location / {
+          set $upstream UPSTREAM_PLACEHOLDER;
+          proxy_pass $upstream;
+          proxy_set_header Host $host;
+          proxy_connect_timeout 5s;
+          proxy_read_timeout 30s;
+        }
+        location /healthz {
+          return 200 'ok';
+          add_header Content-Type text/plain;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-proxy
+  namespace: burst-workloads
+  labels:
+    app: prometheus-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-proxy
+  template:
+    metadata:
+      labels:
+        app: prometheus-proxy
+    spec:
+      initContainers:
+      # upstream URL을 ConfigMap에서 읽어 nginx.conf에 주입
+      - name: config-renderer
+        image: busybox:1.36
+        command: ['sh', '-c']
+        args:
+        - |
+          UPSTREAM=$(cat /config-input/upstream_url)
+          sed "s|UPSTREAM_PLACEHOLDER|${UPSTREAM}|g" /config-input-nginx/nginx.conf > /config-output/nginx.conf
+        volumeMounts:
+        - name: upstream-config
+          mountPath: /config-input
+        - name: nginx-config-template
+          mountPath: /config-input-nginx
+        - name: nginx-config
+          mountPath: /config-output
+      containers:
+      - name: nginx
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          initialDelaySeconds: 2
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 15
+      volumes:
+      - name: upstream-config
+        configMap:
+          name: prometheus-upstream
+      - name: nginx-config-template
+        configMap:
+          name: prometheus-proxy-nginx
+      - name: nginx-config
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-proxy
+  namespace: burst-workloads
+  labels:
+    app: prometheus-proxy
+spec:
+  selector:
+    app: prometheus-proxy
+  ports:
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP

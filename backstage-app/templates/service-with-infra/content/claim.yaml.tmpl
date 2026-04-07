@@ -4,6 +4,13 @@ kind: Database
 metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.name }}
   databaseVersion: {{ values.databaseVersion }}
@@ -16,6 +23,13 @@ kind: Bucket
 metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.name }}
   location: {{ values.location }}
@@ -27,6 +41,13 @@ kind: GCPInstance
 metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.name }}
   machineType: {{ values.machineType }}
@@ -39,6 +60,13 @@ kind: Cluster
 metadata:
   name: {{ values.name }}
   namespace: {{ values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ values.name }}
+    backstage.io/kubernetes-id: {{ values.name }}-infra
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
 spec:
   name: {{ values.name }}
   location: {{ values.clusterLocation }}

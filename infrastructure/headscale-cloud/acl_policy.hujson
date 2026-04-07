@@ -1,0 +1,35 @@
+// Cloud Headscale ACL Policy
+// On-prem, GKE Burst, EKS DR 노드 간 통신 허용
+
+{
+  "groups": {
+    "group:k8s-admins": ["k8s-team"],
+    "group:k8s-workers": ["k8s-team"]
+  },
+  "tagOwners": {
+    "tag:onprem":    ["group:k8s-admins"],
+    "tag:gke-burst": ["group:k8s-admins"],
+    "tag:eks-dr":    ["group:k8s-admins"]
+  },
+  "acls": [
+    // 모든 클러스터 노드 간 전체 통신 허용 (K8s Service/Pod CIDR 라우팅)
+    {
+      "action": "accept",
+      "src": ["*"],
+      "dst": ["*:*"]
+    }
+  ],
+  "autoApprovers": {
+    "routes": {
+      // On-prem: Pod/Service CIDR 자동 승인
+      "10.244.0.0/16": ["tag:onprem"],
+      "10.96.0.0/12":  ["tag:onprem"],
+      // GKE Burst: 동일 CIDR
+      "10.244.0.0/16": ["tag:gke-burst"],
+      "10.96.0.0/12":  ["tag:gke-burst"],
+      // EKS DR: VPC CIDR (EKS 기본)
+      "10.244.0.0/16": ["tag:eks-dr"],
+      "10.96.0.0/12":  ["tag:eks-dr"]
+    }
+  }
+}

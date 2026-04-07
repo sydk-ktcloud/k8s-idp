@@ -9,12 +9,48 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # 외부 접근 (frontend, oauth2-proxy)
     - from: []
       ports:
         - protocol: TCP
           port: 9090
         - protocol: TCP
           port: 4180
+    # kubecost 내부 pod 간 통신
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: kubecost
+      ports:
+        - protocol: TCP
+          port: 9000
+        - protocol: TCP
+          port: 8123
+        - protocol: TCP
+          port: 9004
+        - protocol: TCP
+          port: 9005
+        - protocol: TCP
+          port: 9006
+        - protocol: TCP
+          port: 9363
+        - protocol: TCP
+          port: 5000
+        - protocol: TCP
+          port: 9732
+
+    # Grafana 
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+      ports:
+        - protocol: TCP
+          port: 9004   # aggregator (allocation/summary, savings)
+          
   egress:
     # k8s API access (no 'to' = all destinations)
     - ports:
@@ -22,13 +58,30 @@ spec:
           port: 443
         - protocol: TCP
           port: 6443
+    # kubecost 내부 pod 간 통신 (aggregator, local-store, cloud-cost, forecasting, ClickHouse 등)
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: kubecost
+              app.kubernetes.io/instance: kubecost
       ports:
         - protocol: TCP
           port: 9090
+        - protocol: TCP
+          port: 9000   # ClickHouse native
+        - protocol: TCP
+          port: 8123   # ClickHouse HTTP
+        - protocol: TCP
+          port: 9004   # aggregator
+        - protocol: TCP
+          port: 9005   # cloud-cost
+        - protocol: TCP
+          port: 9006   # local-store
+        - protocol: TCP
+          port: 9363   # ClickHouse metrics
+        - protocol: TCP
+          port: 5000   # forecasting
+        - protocol: TCP
+          port: 9732   # cluster-controller
     - to:
         - namespaceSelector:
             matchLabels:

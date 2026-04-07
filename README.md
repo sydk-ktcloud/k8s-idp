@@ -1,878 +1,564 @@
 # K8S-IDP: Kubernetes Internal Developer Platform
 
-Kubernetes 기반 내부 개발자 플랫폼 (IDP) 인프라 설정 저장소입니다.
+## 프로젝트 소개
 
-## 개요
+여행 플랫폼 비즈니스 회사의 **인프라팀**이 사내 개발자를 위해 구축한 **Internal Developer Platform (IDP)** 입니다.
 
-이 저장소는 다음 구성요소의 Infrastructure as Code (IaC)를 포함합니다:
+개발자가 클라우드 리소스를 셀프서비스로 프로비저닝하고, 인프라팀은 보안·모니터링·비용최적화·오토스케일링·재해복구 등 견고한 운영 체계를 갖추는 것을 목표로 합니다. 여행 플랫폼 자체가 주 목적이 아니므로, trip-app은 간단한 UI 및 결제 시스템만 구현되어 있습니다.
+
+**핵심 목표:**
+- Backstage + Crossplane 기반 **셀프서비스 멀티 클라우드 프로비저닝** (GCP / AWS / Azure)
+- GitOps(ArgoCD) + Vault + Kyverno 기반 **보안 및 정책 자동화**
+- LGTM 스택 기반 **통합 관찰가능성** (Metrics, Logs, Traces)
+- GKE Burst + EKS DR 기반 **오토스케일링 및 재해복구**
+- Discord ChatOps + AI 분석 기반 **운영 자동화**
+
+---
+
+## 아키텍처 개요
 
 ### 플랫폼 레이어
 
-| 레이어 | 컴포넌트 | 상태 | 설명 |
-|--------|----------|------|------|
-| **인프라** | VM (KVM/libvirt) | ✅ 배포됨 | 4VM: 1 CP + 3 Workers |
-| **네트워크** | Cilium CNI + Hubble | ✅ 배포됨 | eBPF 기반 네트워킹 + 관찰가능성 |
-| **서비스 메시** | Istio Ambient Mesh | ✅ 배포됨 | mTLS 암호화, Sidecar 없음 |
-| **VPN** | Headscale + Headplane | ✅ 배포됨 | Self-hosted Tailscale + Web UI |
-| **SSO** | Dex OIDC | ✅ 배포됨 | 7명 사용자, 다중 서비스 연동 |
-| **GitOps** | ArgoCD | ✅ 배포됨 | Application of Apps 패턴 |
-| **시크릿** | Vault | 🔄 구성됨 | HA Raft 구성, 배포 대기 |
-| **저장소** | Longhorn + MinIO | ✅ 배포됨 | 블록 스토리지 + 오브젝트 스토리지 |
-| **관찰가능성** | Prometheus + Grafana + LGTM | ✅ 배포됨 | Metrics, Logs, Traces |
-| **백업** | Longhorn Backup + Velero | ✅ 배포됨 | PV 백업 + 클러스터 상태 백업 |
+| 레이어 | 컴포넌트 | 설명 |
+|--------|----------|------|
+| **인프라** | VM (KVM/libvirt) | 4VM: 1 CP (28GB) + 3 Workers (28GB each), Ansible 프로비저닝 |
+| **네트워크** | Cilium CNI + Hubble | eBPF 기반 네트워킹 + 관찰가능성 |
+| **서비스 메시** | Istio Ambient Mesh | mTLS 암호화, Sidecar 없음 |
+| **VPN** | Cloud Headscale (GCP) | GCP 항시 가동, On-prem SPOF 해소 |
+| **SSO** | Dex OIDC | 7명 사용자, 다중 서비스 연동 |
+| **GitOps** | ArgoCD | Application of Apps 패턴 |
+| **시크릿** | Vault + ESO | 단일 인스턴스 + External Secrets Operator |
+| **저장소** | Longhorn + MinIO | 블록 + 오브젝트 스토리지 (분산 HA) |
+| **관찰가능성** | Prometheus + Grafana + LGTM | Metrics, Logs, Traces 통합 (Loki S3 백엔드) |
+| **백업** | Longhorn + Velero + MinIO → S3/GCS | PV + 클러스터 상태 + 오프사이트 복제 |
+| **DR** | EKS Active-Passive + GKE Burst | Dormant EKS → DR 활성화 → GKE Burst 연결 |
 
 ### 개발자 플랫폼
 
-| 컴포넌트 | 상태 | 설명 |
-|----------|------|------|
-| **Backstage** | ✅ 배포됨 | 개발자 포털, 서비스 카탈로그, 셀프서비스 |
-| **Crossplane** | ✅ 배포됨 | 클라우드 리소스 프로비저닝 (GCP / AWS / Azure) |
-| **GKE Burst** | ✅ 배포됨 | 온프레미스 부하 초과 시 GKE로 자동 확장 |
-| **ChatOps** | ✅ 배포됨 | Discord 기반 K8s 관리 봇 |
-| **Kubecost** | ✅ 배포됨 | 비용 모니터링 및 최적화 |
+| 컴포넌트 | 설명 |
+|----------|------|
+| **Backstage** | 개발자 포털, 서비스 카탈로그, 셀프서비스 프로비저닝 |
+| **Crossplane** | 멀티 클라우드 리소스 프로비저닝 (GCP 8종 / AWS 4종 / Azure 4종) |
+| **GKE Burst** | On-prem/EKS 부하 초과 시 trip-app GKE 자동 확장 |
+| **ChatOps** | Discord 기반 K8s 관리 봇 + AI 로그 분석 |
+| **Kubecost** | 비용 모니터링 및 최적화 |
+| **Kyverno** | 리소스 수명주기·보안 정책 적용 |
+| **Cloud Credit Monitor** | AWS/GCP/Azure 크레딧·비용 Discord 알림 CronJob |
+| **Lifecycle Scanner** | 만료 리소스 자동 감지·알림·삭제 CronJob |
 
-## 아키텍처
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Host Server (32C/128GB/2TB)                         │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │                           KVM / libvirt                                  ││
-│  │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                   ││
-│  │   │ k8s-cp  │  │ k8s-w1  │  │ k8s-w2  │  │ k8s-w3  │                   ││
-│  │   │ 4C/16GB │  │ 8C/32GB │  │ 8C/32GB │  │ 8C/32GB │                   ││
-│  │   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘                   ││
-│  └────────┼────────────┼────────────┼────────────┼─────────────────────────┘│
-│           └────────────┴─────┬──────┴────────────┘                           │
-│                              │ (3 Worker Nodes = HA 분산 배치)               │
-│  ┌───────────────────────────┴─────────────────────────────────────────────┐│
-│  │                    Kubernetes Cluster (v1.32.0)                          ││
-│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
-│  │  │              Service Mesh Layer (Istio Ambient Mesh)               │ ││
-│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐│ ││
-│  │  │  │   istiod    │  │   ztunnel   │  │   HBONE mTLS Tunneling      ││ ││
-│  │  │  │ (Control    │  │ (Node-level │  │   (Port 15008)              ││ ││
-│  │  │  │  Plane)     │  │  L4 Proxy)  │  │   모든 서비스 간 암호화       ││ ││
-│  │  │  └─────────────┘  └─────────────┘  └─────────────────────────────┘│ ││
-│  │  └────────────────────────────────────────────────────────────────────┘ ││
-│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
-│  │  │          Platform Services  [replicas:3, PDB, anti-affinity]       │ ││
-│  │  │  ┌──────────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────┐       │ ││
-│  │  │  │    ArgoCD    │ │   Dex    │ │Backstage │ │  Crossplane │       │ ││
-│  │  │  │server  ×3    │ │   ×3     │ │backend×3 │ │  (IaC)      │       │ ││
-│  │  │  │controller×3  │ │+redis-ha │ │+HPA      │ │             │       │ ││
-│  │  │  │repoServer×3  │ │  ×3      │ │          │ │             │       │ ││
-│  │  │  └──────────────┘ └──────────┘ └──────────┘ └─────────────┘       │ ││
-│  │  │  PodDisruptionBudgets: argocd-server, argocd-controller,           │ ││
-│  │  │                        argocd-repo-server, dex, backstage-backend  │ ││
-│  │  └────────────────────────────────────────────────────────────────────┘ ││
-│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
-│  │  │                    Observability Stack                              │ ││
-│  │  │  ┌───────────┐ ┌─────────┐ ┌──────┐ ┌───────┐ ┌───────────┐       │ ││
-│  │  │  │ Prometheus│ │ Grafana │ │ Loki │ │ Tempo │ │   Alloy   │       │ ││
-│  │  │  └───────────┘ └─────────┘ └──────┘ └───────┘ └───────────┘       │ ││
-│  │  └────────────────────────────────────────────────────────────────────┘ ││
-│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
-│  │  │              Storage Layer  [Distributed HA]                        │ ││
-│  │  │  ┌────────────┐         ┌──────────────────────────────────┐       │ ││
-│  │  │  │  Longhorn  │         │  MinIO Distributed (×4 StatefulSet│       │ ││
-│  │  │  │ (Block)    │         │  Erasure Coding, PDB minAvail:2) │       │ ││
-│  │  │  └────────────┘         └──────────────────────────────────┘       │ ││
-│  │  └────────────────────────────────────────────────────────────────────┘ ││
-│  │  ┌────────────────────────────────────────────────────────────────────┐ ││
-│  │  │           GKE Burst  [KEDA + Tailscale VPN]                         │ ││
-│  │  │  온프레미스 부하 초과 시 GKE 클러스터로 워크로드 자동 확장              │ ││
-│  │  └────────────────────────────────────────────────────────────────────┘ ││
-│  └───────────────────────────────────────────────────────────────────────────┘│
-│                              │                                              │
-│  ┌───────────────────────────┴───────────────────────────────────────────┐  │
-│  │                    Headscale (VPN / Mesh Network)                      │  │
-│  │                         + Headplane (Web UI)                            │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-## 디렉토리 구조
+### 멀티 클러스터 구성
 
 ```
-k8s-idp/
-├── infrastructure/               # 인프라 설정
-│   ├── libvirt/                 # VM 생성 (vm-setup.sh, cloud-init)
-│   ├── kubernetes/              # K8s 초기 설정 (kubeadm, cilium)
-│   ├── headscale/               # VPN 서버 설정
-│   └── headplane/               # VPN 관리 Web UI
-├── security/                    # 보안 구성
-│   └── vault/                   # Vault HA 설정 (helm, docs)
-├── kubernetes/                  # K8s 매니페스트
-│   ├── namespaces/              # Namespace 정의
-│   ├── helm-releases/           # Helm 차트 배포
-│   │   ├── argocd/             # ArgoCD GitOps
-│   │   ├── backstage/          # 개발자 포털
-│   │   ├── crossplane/         # 클라우드 프로비저닝
-│   │   ├── dex/                # SSO/OIDC
-│   │   ├── grafana/            # 시각화
-│   │   ├── kubecost/           # 비용 관리
-│   │   ├── longhorn/           # 스토리지
-│   │   ├── prometheus/         # 메트릭
-│   │   └── vault/              # 시크릿 (계획)
-│   ├── manifests/               # K8s 매니페스트
-│   │   ├── argocd-rbac/        # ArgoCD 권한
-│   │   ├── backstage-custom/   # Backstage 커스텀
-│   │   ├── cert-manager/       # 인증서 관리
-│   │   ├── cilium/             # CNI/Hubble 설정
-│   │   ├── pdb/                # PodDisruptionBudget (서비스별 HA 보호)
-│   │   ├── gke-burst/            # GKE Burst 클러스터 매니페스트 (KEDA, Tailscale)
-│   │   ├── istio-ambient/       # Istio Ambient Mesh (mTLS, NetworkPolicy)
-│   │   ├── crossplane-compositions/  # XRD/Composition (GCP 8종, AWS 4종, Azure 4종)
-│   │   │   ├── aws/            # EC2Instance, S3Bucket, EKSCluster, RDSDatabase
-│   │   │   └── azure/          # AzureVM, AzureBlobStorage, AKSCluster, AzureDatabase
-│   │   └── crossplane-providers/     # GCP / AWS / Azure Provider
-│   ├── argocd-apps/             # ArgoCD Application 정의
-│   ├── network-policies/        # Zero Trust 네트워크 정책
-│   ├── observability/           # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
-│   └── storage/                 # 스토리지 (Longhorn, MinIO)
-├── apps/                        # Backstage Scaffolder 생성 리소스
-│   ├── .argocd/                 # ApplicationSet (자동 감지)
-│   └── gke-burst/               # GKE Burst Cluster Claim
-├── backstage-app/               # Backstage 개발자 포털
-│   ├── packages/
-│   │   ├── app/                # Frontend (React)
-│   │   └── backend/            # Backend (Node.js)
-│   └── templates/              # Scaffolder 템플릿 (Nunjucks {{ values.* }} 문법)
-│       ├── service-wizard/         # GCP 마법사 (초보자용)
-│       ├── aws-service-wizard/     # AWS 마법사 (초보자용)
-│       ├── azure-service-wizard/   # Azure 마법사 (초보자용)
-│       ├── simple-server/          # 멀티 클라우드 VM 빠른 시작
-│       ├── infrastructure-only/    # GCP 직접 구성 (숙련자용)
-│       ├── aws-infrastructure/     # AWS 직접 구성 (숙련자용)
-│       ├── azure-infrastructure/   # Azure 직접 구성 (숙련자용)
-│       ├── service/                # 서비스 컴포넌트 생성
-│       └── service-with-infra/     # 서비스 + GCP 인프라 묶음
-├── chatops-app/                 # Discord ChatOps 봇
-│   ├── commands/               # 슬래시 커맨드
-│   └── services/               # K8s/OpenAI 연동
-├── scripts/                     # 설치 스크립트
-│   ├── setup-k8s.sh            # K8s 클러스터 설치
-│   ├── setup-headscale.sh      # VPN 서버 설정
-│   ├── enable-hubble-ui.sh     # Hubble UI 활성화
-│   ├── apply-network-policies.sh # Zero Trust 정책 적용
-│   └── setup-github-runner.sh  # GitHub Actions Runner
-├── kubeconfig/                  # 팀별 Kubeconfig
-├── docs/                        # 문서
-│   ├── remote-access-guide.md  # 원격 접속 가이드
-│   ├── k8s-access-guide.md     # K8s 접근 가이드
-│   └── hubble-install-guide.md # Hubble 설치 가이드
-└── README.md
+┌──────────────────────────────────────────────────────────────────┐
+│              Cloud Headscale (GCP, VPN Control Plane)             │
+└──────┬──────────────────────┬──────────────────────┬─────────────┘
+       │ tag:onprem           │ tag:gke-burst         │ tag:eks-dr
+┌──────▼──────────┐   ┌──────▼──────────────┐   ┌────▼────────────┐
+│ On-prem (Primary)│   │ GKE Burst (GCP)     │   │ EKS DR (AWS)    │
+│ 4VM, K8s v1.32   │   │ asia-northeast3     │   │ ap-northeast-2  │
+│                  │   │ Autopilot + Spot    │   │ dormant (노드 0) │
+│ trip-app         │   │                     │   │                  │
+│ Backstage        │──▶│ trip-app overflow   │   │ DR 활성화 시:    │
+│ Monitoring       │   │ KEDA ScaledObject   │   │ trip-app         │
+│ ChatOps          │   │                     │   │ Backstage (경량)  │
+│ Crossplane       │   │ Prometheus Proxy    │◀──│ Prometheus       │
+└──────────────────┘   └─────────────────────┘   └─────────────────┘
+
+평시: On-prem Prometheus → GKE Proxy → KEDA → trip-app burst
+DR:   EKS Prometheus → GKE Proxy → KEDA → trip-app burst
 ```
 
-## 클러스터 정보
+---
 
-| 노드 | IP (Internal) | Tailscale IP | 역할 |
-|------|---------------|--------------|------|
-| k8s-cp | 192.168.122.109 | 100.64.0.1 | Control Plane |
-| k8s-w1 | 192.168.122.211 | 100.64.0.2 | Worker |
-| k8s-w2 | 192.168.122.136 | 100.64.0.4 | Worker |
-| k8s-w3 | 192.168.122.194 | 100.64.0.3 | Worker |
+## 주요 기능
 
-### Namespaces
+### Backstage 셀프서비스 프로비저닝
 
-| Namespace | 용도 |
-|-----------|------|
-| `istio-system` | Istio Ambient Mesh (istiod, ztunnel) |
-| `auth` | Dex OIDC |
-| `gitops` | ArgoCD |
-| `backstage` | 개발자 포털 |
-| `crossplane-system` | 클라우드 프로비저닝 |
-| `monitoring` | Prometheus, Grafana, LGTM |
-| `kubecost` | 비용 모니터링 |
-| `longhorn-system` | 분산 스토리지 |
-| `vault` | 시크릿 관리 (계획) |
-| `minio-storage` | 오브젝트 스토리지 + 백업 S3 허브 |
-| `velero` | 클러스터 상태 백업 |
-| `kube-system` | Cilium CNI, Hubble |
+개발자가 Backstage Scaffolder 템플릿을 통해 클라우드 리소스를 직접 프로비저닝합니다.
 
-## 애플리케이션
-
-### 1. Backstage (개발자 포털)
-
-**목적**: 서비스 카탈로그, 문서화, 셀프서비스 프로비저닝
-
-**주요 기능**:
-- 서비스 카탈로그 (Catalog)
-- 기술 문서 (TechDocs)
-- 셀프서비스 템플릿 (Scaffolder)
-- Kubernetes 리소스 조회
-- Crossplane 기반 멀티 클라우드 리소스 프로비저닝 (GCP / AWS / Azure)
-
-**Scaffolder 템플릿**:
 | 템플릿 | 대상 | 특징 |
 |--------|------|------|
-| `service-wizard` | GCP VM/GCS/GKE/SQL | 3문항 마법사, GCP 초보자 권장 |
-| `aws-service-wizard` | AWS EC2/S3/RDS | 3문항 마법사, AWS 초보자 권장 |
-| `azure-service-wizard` | Azure VM/Blob/AKS/PostgreSQL | 3문항 마법사, Azure 초보자 권장 |
-| `simple-server-template` | GCP/AWS/Azure 서버 | 3가지 선택만으로 VM 즉시 생성 |
-| `infrastructure-only-template` | GCP 직접 구성 | 숙련자용 GCP 세부 설정 |
-| `aws-infrastructure-template` | AWS 직접 구성 | 숙련자용 AWS 세부 설정 |
-| `azure-infrastructure-template` | Azure 직접 구성 | 숙련자용 Azure 세부 설정 |
-| `service-template` | 서비스 컴포넌트 | 코드 저장소 + 카탈로그 등록 |
-| `service-with-infra` | 서비스 + GCP 인프라 | 서비스 + 인프라 묶음 |
+| `service-wizard` | GCP VM/GCS/GKE/SQL | 3문항 마법사, 초보자 권장 |
+| `aws-service-wizard` | AWS EC2/S3/RDS | 3문항 마법사, 초보자 권장 |
+| `azure-service-wizard` | Azure VM/Blob/AKS/DB | 3문항 마법사, 초보자 권장 |
+| `simple-server-template` | GCP/AWS/Azure VM | 3가지 선택만으로 즉시 생성 |
+| `infrastructure-only` | GCP 직접 구성 | 숙련자용 세부 설정 |
+| `aws-infrastructure` | AWS 직접 구성 | 숙련자용 세부 설정 |
+| `azure-infrastructure` | Azure 직접 구성 | 숙련자용 세부 설정 |
+| `service` / `service-with-infra` | 서비스 컴포넌트 | 코드 저장소 + 카탈로그 등록 |
 
-> **마법사 패턴**: 서비스 유형(web-api/file-service/container-app/data-processing)과 규모(dev/standard/large) 선택만으로 Crossplane Claim이 자동 생성됩니다.
+모든 템플릿에 **수명주기 설정 단계** 포함 — 환경 티어(dev/staging/prod), 만료일, 비용 센터, 담당자 입력 및 정책 동의 필수.
 
-> **템플릿 문법**: 모든 템플릿 파일(`.tmpl`)은 Backstage Scaffolder의 Nunjucks 문법을 사용하며, 파라미터는 `{{ values.paramName }}` 형식으로 참조합니다.
+### Crossplane Compositions
 
-**기술 스택**: Backstage v1.49.0, React, Node.js 22
+| 클라우드 | 리소스 타입 |
+|----------|------------|
+| **GCP** | VM, Storage, Database, GKE, Cache, PubSub, WebApp, **Burst Cluster** |
+| **AWS** | EC2, S3, RDS, EKS |
+| **Azure** | VM, Blob Storage, PostgreSQL/MySQL, AKS |
 
-### 2. ChatOps (Discord 봇)
+**FinOps 비용 추적**: 모든 Composition에 FinOps 라벨/태그 자동 패치 — `name`, `cost-center`, `owner`, `lifecycle-tier`, `expires-at`, `backstage-kubernetes-id`, `app-name`을 GCP labels / AWS tags / Azure tags로 전파하여 클라우드 비용 귀속 추적 지원.
 
-**목적**: Discord 기반 Kubernetes 운영 자동화
+### ChatOps (Discord 봇)
 
-**주요 기능**:
-- `/pods` - 문제 파드 조회
-- `/allpods` - 전체 파드 조회
-- `/logs` - 파드 로그 확인
-- `/analyze` - AI 로그 분석 (OpenAI)
-- `/status` - 시스템 상태 확인
+| 카테고리 | 커맨드 |
+|----------|--------|
+| **운영** | `/pods`, `/allpods`, `/logs`, `/analyze` (AI), `/status` |
+| **수명주기** | `/resources`, `/expiring [days]`, `/extend`, `/delete-resource`, `/setlifecyclechannel` |
 
-**기술 스택**: Discord.js, Kubernetes Client, OpenAI API
+---
 
-### 3. Crossplane Compositions (멀티 클라우드)
+## 리소스 수명주기 정책
 
-**목적**: 개발자 셀프서비스 클라우드 리소스 프로비저닝 (GCP / AWS / Azure)
+무분별한 클라우드 리소스 프로비저닝 방지를 위한 3계층 구조:
 
-#### GCP
-| 타입 | XRD | GCP 리소스 |
-|------|-----|------------|
-| VM | XGCPInstance | Compute Engine |
-| Storage | XBucket | Cloud Storage |
-| Database | XDatabase | Cloud SQL |
-| Cluster | XCluster | GKE |
-| Cache | XCache | Memorystore |
-| Messaging | XPubSub | Pub/Sub |
-| WebApp | XWebApp | 통합 웹앱 |
-| **Burst Cluster** | **XClusterBurst** | **GKE (온프레미스 burst 확장용)** |
-
-#### AWS
-| 타입 | XRD | AWS 리소스 |
-|------|-----|------------|
-| VM | XEC2Instance | EC2 Instance |
-| Storage | XS3Bucket | S3 Bucket + BucketVersioning |
-| Database | XRDSDatabase | RDS Instance (postgres/mysql) |
-| Cluster | XEKSCluster | EKS Cluster + NodeGroup |
-
-#### Azure
-| 타입 | XRD | Azure 리소스 |
-|------|-----|--------------|
-| VM | XAzureVM | Linux Virtual Machine + NetworkInterface |
-| Storage | XAzureBlobStorage | Storage Account + Container |
-| Database | XAzureDatabase | PostgreSQL/MySQL Flexible Server |
-| Cluster | XAKSCluster | AKS Kubernetes Cluster |
-
-### 4. GKE Burst 확장
-
-**목적**: 온프레미스 클러스터 부하 초과 시 GKE로 워크로드 burst 확장
-
-**동작 방식**:
-1. `ClusterBurst` Claim 생성 → Crossplane이 GKE 클러스터 자동 프로비저닝
-2. Cluster + NodePool (autoscaling 0~5) 구성
-3. 연결 정보(`kubeconfig`)가 `default/gke-burst-kubeconfig` Secret에 자동 저장
-
-**리소스 구성**:
-- **XRD**: `xclusterbursts.k8s-idp.example.org`
-- **Composition**: `xclusterburst.gcp.k8s-idp.example.org`
-- **Claim**: `apps/gke-burst/claim.yaml`
-- **GKE 클러스터**: `k8s-idp-burst` (asia-northeast3, e2-standard-2, preemptible)
-
-**kubeconfig 획득**:
-```bash
-# Crossplane이 자동 생성한 Secret에서 추출
-kubectl get secret gke-burst-kubeconfig -n default \
-  -o jsonpath='{.data.kubeconfig}' | base64 -d > gke-burst-kubeconfig.yaml
-
-# 또는 gcloud로 직접 획득
-KUBECONFIG=kubeconfig/gke-burst \
-  gcloud container clusters get-credentials k8s-idp-burst \
-  --project=sydk-ktcloud --region=asia-northeast3
+```
+[Layer 1: Backstage Template]  ← 요청 시점 soft gate (필수 필드 + 정책 동의)
+         ↓ GitHub PR
+[Layer 2: Kyverno Admission]   ← 클러스터 입장 hard gate (필수 레이블 · 사이즈 제한)
+         ↓ ArgoCD Deploy
+[Layer 3: Lifecycle Scanner]   ← 운영 중 자동 감지/알림/삭제 (CronJob + ChatOps)
 ```
 
-## SSO 구성 (Dex)
+| 티어 | 기본 TTL | 최대 TTL |
+|------|----------|----------|
+| `dev` | 7일 | 30일 |
+| `staging` | 30일 | 90일 |
+| `prod` | 무제한 | 무제한 (플랫폼팀 PR 승인 필요) |
 
-### 사용자 계정
+**Kyverno 정책:**
 
-| 사용자 | 이메일 | 역할 |
-|--------|--------|------|
-| admin | admin@k8s.local | 관리자 |
-| platform | platform@k8s.local | Platform Lead |
-| gitops | gitops@k8s.local | GitOps Engineer |
-| finops | finops@k8s.local | FinOps Engineer |
-| security | security@k8s.local | Security Engineer |
-| sre | sre@k8s.local | SRE / Observability |
-| ai | ai@k8s.local | AI / ChatOps Engineer |
+| 정책 | 모드 | 내용 |
+|------|------|------|
+| 수명주기 레이블 필수 | **Enforce** | 5개 레이블(team, owner, cost-center, tier, expires-at) 필수 + expires-at YYYY-MM-DD 형식 검증 |
+| TTL 초과 차단 | **Enforce** | 티어별 최대 TTL 초과 차단 |
+| dev 과대 리소스 차단 | **Enforce** | dev 티어 과대 VM/클러스터/DB 차단 (GKE/EKS/AKS/GCP VM/EC2/Azure VM/RDS/Azure DB/GCP DB) |
+| 시스템 NS 생성 차단 | **Enforce** | 시스템 네임스페이스에 Claim 생성 차단 (backstage 포함 13개 NS) |
+| 권한 상승 차단 | **Enforce** | escalate/impersonate/bind verb 차단 (시스템 ClusterRole 자동 제외) |
+| latest 태그 차단 | **Enforce** | `:latest` 태그 이미지 차단 (containers, initContainers, ephemeralContainers) |
+| Falco Talon 인프라 보호 | **Enforce** | 핵심 인프라 NS에 Falco Talon NetworkPolicy 자동 생성 차단 |
+| dev NS 쿼터 자동 생성 | Generate | dev 네임스페이스 ResourceQuota 자동 생성 |
+| Docker Hub 인증 Secret 전파 | Generate | `dockerhub-creds` Secret을 모든 네임스페이스에 자동 복제 (rate limit 방지) |
+| imagePullSecrets 자동 주입 | Mutate | 모든 Pod에 `dockerhub-creds` imagePullSecrets 자동 주입 |
 
-### 연동 서비스
-
-- ArgoCD (GitOps)
-- Grafana (관찰가능성)
-- Backstage (개발자 포털)
-- kubectl (oidc-login)
+---
 
 ## 보안
 
+### Docker Hub Rate Limit 대응
+
+Docker Hub 비인증 pull 제한(100회/6시간)에 대응하여 클러스터 전역에 인증 정보를 자동 배포합니다.
+
+```
+dockerhub-creds (kyverno NS) ──▶ Kyverno Generate ──▶ 모든 NS에 Secret 자동 복제
+                                  Kyverno Mutate  ──▶ 모든 Pod에 imagePullSecrets 자동 주입
+```
+
+- **Generate 정책**: Namespace 생성/업데이트 시 `dockerhub-creds` Secret을 `kyverno` NS에서 자동 clone (`synchronize: true`)
+- **Mutate 정책**: Pod 생성 시 `imagePullSecrets: [{name: dockerhub-creds}]` 자동 주입 (kube-system 등 시스템 NS 제외)
+- **제외 네임스페이스**: `config.resourceFilters`에 포함된 시스템 NS (crossplane-system, vault, gitops 등)에는 수동 배포
+
 ### RBAC 최소 권한 원칙
 
-#### ArgoCD
-- `cluster-admin` 대신 전용 `ClusterRole(argocd-application-controller)` 사용
-- `escalate` / `impersonate` 권한 명시적 제외 → 권한 상승 공격 차단
-- 파일: `kubernetes/manifests/argocd-rbac/`
+- **ArgoCD**: 전용 ClusterRole 사용, `escalate`/`impersonate`/`bind` 제외 (Kyverno 자동 차단)
+- **Backstage**: 클러스터 레벨 읽기 최소화, 네임스페이스별 Role 분리
+- **ChatOps**: 네임스페이스별 RoleBinding으로 pods/log 접근 제한
+- **Tailscale**: `kube-system` 네임스페이스 Role + `resourceNames` 특정 Secret만 허용
 
-#### Backstage
-- ClusterRole: `namespaces`, Crossplane XRD/Claims 읽기만 허용
-- 네임스페이스 리소스(pods, services, deployments 등)는 각 namespace Role로 분리
-  - 적용 대상: `trip-app`, `chatops`, `monitoring`, `backstage`
-- `secrets` 클러스터 전체 읽기 권한 제거
-- `automountServiceAccountToken: false`
-- 파일: `kubernetes/manifests/backstage-custom/backstage.yaml`
+### 네트워크 보안
 
-#### ChatOps 봇
-- 클러스터 전체 pod 조회 ClusterRoleBinding 제거
-- namespaces 읽기는 ClusterRole 유지 (cluster-scoped 리소스)
-- pods/log 접근은 네임스페이스별 RoleBinding으로 제한
-  - 적용 대상: `trip-app`, `chatops`, `monitoring`, `backstage`
-- `automountServiceAccountToken: false`
-- 파일: `kubernetes/manifests/chatops/rbac.yaml`
+- **NetworkPolicy (Zero Trust)**: 모든 네임스페이스 `default-deny-all` 기반, 필요한 통신만 명시적 허용
+- **Istio Ambient Mesh**: 서비스 간 mTLS 암호화 (STRICT 모드, monitoring만 PERMISSIVE)
+- **Pod Security Admission**: `enforce: baseline` + `audit/warn: restricted`
 
-#### Tailscale
-- 클러스터 전체 Secrets 접근 ClusterRole 제거
-- `kube-system` 네임스페이스 Role로 축소 + `resourceNames`로 특정 Secret만 허용
-- nodes 읽기는 ClusterRole 유지 (cluster-scoped 리소스)
-- 파일: `kubernetes/manifests/vpn/tailscale-daemonset.yaml`
+### 시크릿 관리 (Vault + ESO)
+
+```
+관리자 (vault kv put) → Vault (단일 인스턴스) → ESO (K8s Auth) → K8s Secret → Pod
+```
+
+- Vault 경로 규칙: `secret/k8s/{namespace}/{secret-name}`
+- 12종 ExternalSecret으로 자동 동기화 (auth, gitops, backstage, monitoring 등)
+- **주의**: Vault에는 반드시 plaintext로 저장 (base64 이중 인코딩 방지)
+
+### 런타임 보안
+
+- **Falco + Falco Talon**: 런타임 이상 탐지 및 자동 대응 (NetworkPolicy 격리 등)
+- **Kyverno 인프라 보호**: Falco Talon이 핵심 인프라 네임스페이스(longhorn-system, velero, minio-storage 등)를 격리하지 못하도록 차단하여 백업 파이프라인 보호
+- **Trivy Operator**: 컨테이너 CVE, RBAC 과다 권한, ConfigAudit 지속 스캔
 
 ---
 
-### NetworkPolicy (Zero Trust)
-
-모든 네임스페이스에 `default-deny-all` 기반으로 필요한 통신만 명시적으로 허용합니다.
-
-| 네임스페이스 | 정책 파일 | 주요 허용 트래픽 |
-|---|---|---|
-| `gitops` | `02-argocd.yaml` | 내부 컴포넌트 통신, Dex OIDC, k8s API, GitHub/Helm |
-| `auth` | `01-dex.yaml` | ArgoCD/Backstage/Grafana → Dex, LDAP 등 |
-| `backstage` | `04-backstage.yaml` | DB 내부 통신, k8s API, 외부 443 |
-| `monitoring` | `03-monitoring.yaml` | 전 네임스페이스 메트릭 scrape, Grafana UI |
-| `chatops` | `08-chatops.yaml` | Discord + Azure OpenAI (443 외부), Prometheus, k8s API |
-| `trip-app` | `09-trip-app.yaml` | 서비스 간 통신 (frontend→backend→DB), NodePort ingress |
-| `kube-system` | `07-cilium-hubble.yaml` | Hubble 관찰가능성 |
-| `longhorn-system` | `06-longhorn.yaml` | 스토리지 내부 통신 |
-
-**Cilium 특이사항**: `kube-apiserver` reserved identity는 표준 `ipBlock`으로 매칭 불가.
-`CiliumNetworkPolicy + toEntities: kube-apiserver`로 처리 (`02-argocd.yaml`).
-
----
-
-### Istio Ambient Mesh (mTLS)
-
-모든 서비스 간 트래픽은 Istio Ambient Mesh를 통해 mTLS로 암호화됩니다.
-
-#### 아키텍처
+## 관찰가능성 (LGTM 스택)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Istio Ambient Mesh                                │
-│                                                                          │
-│  ┌─────────────┐     ┌─────────────────────────────────────────────┐    │
-│  │   istiod    │     │              ztunnel (per-node)               │    │
-│  │ (Control    │────▶│  ┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐  │    │
-│  │  Plane)     │     │  │Node 1 │  │Node 2 │  │Node 3 │  │Node 4 │  │    │
-│  └─────────────┘     │  └───┬───┘  └───┬───┘  └───┬───┘  └───┬───┘  │    │
-│                       │      │          │          │          │      │    │
-│                       └──────┼──────────┼──────────┼──────────┼──────┘    │
-│                              │          │          │          │           │
-│  ┌───────────────────────────┴──────────┴──────────┴──────────┴──────┐    │
-│  │                    HBONE mTLS Tunnel (Port 15008)                  │    │
-│  │         모든 서비스 간 트래픽 자동 암호화 (Sidecar 없음)            │    │
-│  └────────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-│  Pod A ──▶ ztunnel ──▶ HBONE Tunnel ──▶ ztunnel ──▶ Pod B               │
-│         (L4 mTLS)         (암호화)         (L4 mTLS)                      │
-└─────────────────────────────────────────────────────────────────────────┘
+App Pod (stdout/stderr) → Alloy (DaemonSet) → Loki (로그) + Tempo (트레이스)
+                          Prometheus (메트릭 스크레이프) → Grafana (통합 시각화 + 알림)
 ```
 
-#### mTLS 상태 (네임스페이스별)
+| 컴포넌트 | 역할 | 보존 기간 |
+|----------|------|-----------|
+| Prometheus | 메트릭 수집 (30s 간격) | 15일 |
+| Loki | 로그 집계 | 30일 |
+| Tempo | 분산 트레이스 | 7일 |
+| Alloy | 로그·트레이스 수집 에이전트 | - |
+| Grafana | 시각화 + 알림 | - |
 
-| 네임스페이스 | mTLS 모드 | 비고 |
-|-------------|-----------|------|
-| `trip-app` | STRICT | 완전 mTLS 강제 |
-| `backstage` | STRICT | 완전 mTLS 강제 |
-| `chatops` | STRICT | 완전 mTLS 강제 |
-| `gitops` | STRICT | ArgoCD 포함 |
-| `auth` | STRICT | Dex 포함 |
-| `monitoring` | PERMISSIVE | 메트릭 수집 호환성 |
+### 알림 체계
 
-#### 설정 파일
-
-| 파일 | 설명 |
-|------|------|
-| `kubernetes/manifests/istio-ambient/allow-ambient-hostprobes.yaml` | kubelet health probe 허용 |
-| `kubernetes/manifests/istio-ambient/peer-authentication.yaml` | STRICT mTLS 정책 |
-| `kubernetes/manifests/istio-ambient/istio-ambient-hbone.yaml` | HBONE 터널 (Port 15008) 허용 |
-| `infrastructure/kubernetes/cilium-istio-patch.yaml` | Cilium Istio 호환성 설정 |
-
-#### 주요 설정값
-
-```yaml
-# Cilium Istio 호환성 (infrastructure/kubernetes/cilium-istio-patch.yaml)
-cni-exclusive: "false"
-bpf-lb-sock-hostns-only: "true"
-```
-
-#### 해결한 이슈들
-
-| 이슈 | 원인 | 해결 방안 |
-|------|------|----------|
-| **클러스터 DNS 전체 불능** | 잘못된 CiliumClusterwideNetworkPolicy | namespace-scoped 정책으로 교체 |
-| **HBONE mTLS 터널 차단** | Port 15088 미허용 | 각 namespace에 `istio-ambient-hbone` NetworkPolicy 추가 |
-| **kubelet health probe 인터셉션** | Istio 1.29 INPOD 모드 이슈 | 특정 파드에 `istio.io/dataplane-mode: none` 적용 |
-
-#### Health Probe 예외 파드
-
-Istio 1.29 INPOD 모드의 알려진 이슈로 인해 다음 파드들은 ambient mesh에서 제외:
-
-| 네임스페이스 | 파드 |
-|-------------|------|
-| `monitoring` | prometheus-kube-state-metrics, alertmanager |
-| `monitoring` | loki-chunks-cache, loki-results-cache |
-| `auth` | dex |
-| `gitops` | argocd-notifications-controller |
-
-#### 검증 명령어
-
-```bash
-# mTLS 상태 확인
-istioctl authn tls-check
-
-# ztunnel 로그에서 mTLS 확인
-kubectl logs -n istio-system -l app=ztunnel | grep "connection_security_policy"
-
-# 특정 네임스페이스 mTLS 활성화
-kubectl label namespace <namespace> istio.io/dataplane-mode=ambient
-
-# mTLS 비활성화 (롤백)
-kubectl label namespace <namespace> istio.io/dataplane-mode-
-```
-
----
-
-### Pod Security Admission (PSA)
-
-표준 Kubernetes PSA로 워크로드 보안 수준을 관리합니다.
-
-| 네임스페이스 | enforce | audit | warn |
-|---|---|---|---|
-| `backstage` | baseline | restricted | restricted |
-| `chatops` | baseline | restricted | restricted |
-| `trip-app` | baseline | restricted | restricted |
-| `gitops`, `auth`, `monitoring` | baseline | baseline | baseline |
-
-- `enforce: baseline` — 기존 워크로드 영향 최소화
-- `audit/warn: restricted` — 위반 사항 가시성 확보 (배포는 차단하지 않음)
-- 파일: `kubernetes/namespaces/core.yaml`
-
-### Resource 제한 (LimitRange)
-
-리소스 무제한 소비 방지를 위한 기본값 설정.
-
-| 네임스페이스 | 파일 | default request | default limit |
-|---|---|---|---|
-| `trip-app` | `manifests/trip-app/resource-management.yaml` | cpu: 100m / memory: 128Mi | cpu: 500m / memory: 512Mi |
-
----
-
-### 취약점 스캐닝 (Trivy Operator)
-
-클러스터 내 지속적 보안 감사를 위해 Trivy Operator를 배포합니다.
-
-- **VulnerabilityReport**: 컨테이너 이미지 CVE 스캔
-- **ConfigAuditReport**: RBAC 과다 권한, resource limits 미설정, latest 태그 사용 탐지
-- **RbacAssessmentReport**: ServiceAccount 권한 과다 리포트
-- Grafana 대시보드 연동 가능
-- 파일: `kubernetes/argocd-apps/trivy-operator.yaml`
-
----
-
-### 팀별 접근 권한 (ArgoCD + kubectl)
-
-| 팀 | ArgoCD Role | kubectl 권한 |
-|----|------|------|
-| Admin, Platform, GitOps, Security, SRE | role:admin | cluster-admin |
-| FinOps, AI | role:readonly | view |
-
-## 로깅 전략
-
-클러스터의 모든 관측 신호는 **LGTM 스택**을 통해 단일 Grafana 대시보드로 통합됩니다.
-
-### 로깅 스택 구성
+Prometheus Alertmanager + Discord Webhook 기반으로 목적별 6개 Discord 채널에 알림을 라우팅합니다.
 
 ```
-애플리케이션 파드
-      │ stdout/stderr
-      ▼
-  Alloy (DaemonSet)  ──── OTLP 트레이스 ────▶  Tempo
-      │                                        (분산 추적)
-      │ Loki Push API
-      ▼
-    Loki                  Prometheus  ◀──── 전 네임스페이스 스크레이프
-  (로그 집계)             (메트릭 수집)
-      │                       │
-      └───────────┬───────────┘
-                  ▼
-               Grafana
-           (통합 시각화 + 알림)
+PrometheusRule → Alertmanager → Discord 채널 (목적별 라우팅)
+CronJob / Lambda → Discord Webhook 직접 전송 (전용 채널)
 ```
 
-| 컴포넌트 | 역할 | 보존 기간 | 스토리지 |
-|----------|------|-----------|----------|
-| **Prometheus** | 메트릭 수집 (30s 간격) | 15일 / 45GiB | 50Gi Longhorn |
-| **Loki** | 로그 집계 | 30일 | 10Gi Longhorn + MinIO S3 |
-| **Tempo** | 분산 트레이스 | 7일 | 10Gi Longhorn + MinIO S3 |
-| **Alloy** | 로그·트레이스 수집 에이전트 | - | DaemonSet (상태 없음) |
-| **Grafana** | 시각화 + 알림 | - | 1Gi Longhorn |
+**`#백업-스토리지-알림`** — Longhorn, Velero, MinIO 등 스토리지·백업 관련
 
-### 로그 수집 방식
+| 알림 | 심각도 | 조건 |
+|------|--------|------|
+| LonghornVolumeBackupFailed | critical | 백업 Error 5분 이상 |
+| LonghornBackupTargetUnreachable | critical | MinIO 타겟 2분 이상 무응답 |
+| LonghornNodeStorageLow | warning | 노드 스토리지 80% 초과 |
+| LonghornVolumeDegraded | warning | 복제본 부족 10분 이상 |
+| LonghornManagerNotReady | critical | longhorn-manager Pod 부족 |
+| VeleroBackupFailed | critical | 클러스터 백업 실패 |
+| VeleroBackupMissing | warning | 25시간 이상 백업 미수행 |
+| MinioDown | critical | MinIO 5분 이상 다운 |
+| MinioS3ReplicationJobFailed | critical | S3 DR 복제 Job 실패 |
+| LokiStorageNearFull | warning | Loki PVC 85% 초과 |
 
-- **Alloy DaemonSet**: 모든 노드에 배포되어 파드의 `stdout`/`stderr`를 자동 수집
-- **JSON 파싱**: `level`, `trace_id` 필드를 자동 추출하여 Loki 레이블로 저장
-- **TraceID 연동**: Loki 로그에서 TraceID를 추출해 Grafana에서 Tempo 트레이스로 바로 이동 가능
+**`#재해복구-알림`** — DR 장애 감지 및 Heartbeat 모니터링
 
-### Loki S3 이중 스키마 (마이그레이션)
+| 알림 | 심각도 | 조건 |
+|------|--------|------|
+| Dead Man's Switch (AWS Lambda) | critical | On-prem heartbeat 15분 미갱신 시 장애 알림 |
+| Heartbeat 정상 복귀 | info | 장애 후 heartbeat 수신 재개 시 알림 |
 
-Loki는 기존 `filesystem` 스키마와 신규 `S3` 스키마를 병행 운영합니다.
+**`#버스트-알림`** — GKE Burst 오토스케일링 발동·비용 관련
 
-| 기간 | 스토리지 | 비고 |
-|------|----------|------|
-| 2024-01-01 ~ 2026-04-06 | Longhorn PVC (filesystem) | 기존 데이터, 자연 만료 대기 |
-| 2026-04-07 ~ | MinIO S3 (`loki-chunks` 버킷) | 신규 데이터 |
+| 알림 | 심각도 | 조건 |
+|------|--------|------|
+| ActiveCPUHighBurstNeeded | warning | CPU 70% 초과 2분 |
+| ActiveMemoryHighBurstNeeded | warning | Memory 80% 초과 2분 |
+| ActivePendingPodsHighBurstNeeded | warning | Pending Pod 3개 초과 1분 |
+| GKEBurstActive | info | Burst 발동/해제 추적 |
+| GKEBurstPodsRunningLong | info | Burst Pod 1시간 이상 실행 (과금 중) |
+| GKEBurstPodCountHigh | warning | Burst Pod 4개 이상 30분 |
 
----
+**`#클러스터-알림`** — Alertmanager 기본 알림 (노드·서비스 장애 등)
 
-## 고가용성 (HA) 및 오토스케일링
+| 알림 | 심각도 | 조건 |
+|------|--------|------|
+| KubernetesAPIServerUnreachable | critical | API server 2분 이상 무응답 |
+| NodeNotReady | critical | 노드 NotReady 3분 이상 |
+| KubeletDown | warning | Kubelet 3분 이상 무응답 |
+| TailscaleWatchdogMissing | warning | Tailscale watchdog Pod 누락 |
+| LokiIngestionRateHigh | warning | 로그 수집 속도 비정상 (>1000/s) |
+| kube-prometheus-stack 내장 알림 | 다양 | Watchdog, KubeScheduler, etcd 등 기본 룰셋 |
 
-플랫폼 핵심 서비스는 단일 장애점(SPOF) 제거를 목표로 **replicas:3 + PodDisruptionBudget + Anti-Affinity**를 기본으로 구성합니다.
+**`#라이프사이클-알림`** — 리소스 수명주기 자동 관리
 
-### 서비스별 HA 구성
-
-| 서비스 | Replicas | PDB (minAvailable) | Anti-Affinity | TopologySpread |
-|--------|----------|--------------------|---------------|----------------|
-| ArgoCD Server | 3 | 1 | preferred / hostname | ✅ |
-| ArgoCD Controller | 3 | 1 | preferred / hostname | - |
-| ArgoCD Repo Server | 3 | 1 | preferred / hostname | ✅ |
-| ArgoCD Redis-HA | 3 | - | **required** / hostname | - |
-| Dex (SSO) | 3 | 1 | preferred / hostname | ✅ |
-| Backstage Backend | 3 + HPA | 1 | preferred / hostname | - |
-| MinIO Distributed | 4 (StatefulSet) | 2 | required / hostname | - |
-
-> **MinIO PDB minAvailable:2**: 4-node Erasure Coding 구성에서 quorum(최소 2노드) 보장을 위해 2로 설정.
-> **Redis-HA required anti-affinity**: 3개 Worker 노드 각각에 1개씩 강제 분산. 노드 수가 3 미만이면 스케줄 불가.
-
-### PodDisruptionBudget
-
-노드 드레인(`kubectl drain`) 또는 클러스터 업그레이드 시 서비스 연속성을 보장합니다.
-
-```
-kubernetes/manifests/pdb/
-├── argocd-server-pdb.yaml          # minAvailable: 1
-├── argocd-application-controller-pdb.yaml  # minAvailable: 1
-├── argocd-repo-server-pdb.yaml     # minAvailable: 1
-├── dex-pdb.yaml                    # minAvailable: 1
-├── backstage-backend-pdb.yaml      # minAvailable: 1
-└── minio-pdb.yaml                  # minAvailable: 2
-```
-
-PDB는 `kubectl drain` 시 최소 파드 수 이하로 종료되는 것을 차단합니다.
-```bash
-# PDB 상태 확인
-kubectl get pdb -A
-
-# 드레인 시 PDB 적용 확인
-kubectl drain <node> --ignore-daemonsets --delete-emptydir-data
-```
-
-### Anti-Affinity / TopologySpreadConstraints
-
-모든 HA 서비스에 `podAntiAffinity`를 적용하여 동일 노드에 같은 서비스의 파드가 집중되지 않도록 합니다.
-
-| 정책 | 대상 | 동작 |
+| 알림 | 소스 | 주기 |
 |------|------|------|
-| `preferredDuringScheduling` | ArgoCD, Dex, Backstage | 가능하면 분산, 불가시 같은 노드도 허용 |
-| `requiredDuringScheduling` | ArgoCD Redis-HA, MinIO | 반드시 다른 노드에 배치 (불가시 Pending) |
+| 만료 임박 리소스 감지 | Lifecycle Scanner CronJob | 매일 |
+| 만료 리소스 자동 삭제 | Lifecycle Scanner CronJob | 매일 |
 
-`topologySpreadConstraints`(`maxSkew:1`)는 ArgoCD Server, Repo Server, Dex에 추가 적용되어 노드 간 파드 수 편차를 1 이내로 유지합니다.
+**`#비용-알림`** — 클라우드 크레딧·비용 모니터링
 
-### HPA (Horizontal Pod Autoscaler)
+| 알림 | 소스 | 주기 |
+|------|------|------|
+| AWS/GCP/Azure 크레딧·비용 현황 | Cloud Credit Monitor CronJob | 매일 |
 
-Backstage Backend는 CPU/Memory 기반 HPA로 부하에 따라 자동 스케일링됩니다.
+---
 
-```yaml
-# backstage-backend HPA (예정)
-minReplicas: 3
-maxReplicas: 6
-metrics:
-  - CPU utilization: 70%
-  - Memory utilization: 80%
-```
+## 고가용성 (HA)
 
-> HPA 적용 파일: `kubernetes/manifests/backstage-custom/backstage.yaml` (파일 끝 섹션)
+플랫폼 핵심 서비스는 **replicas:3 + PDB + Anti-Affinity** 기본 구성:
 
-### MinIO Distributed Mode
-4-node StatefulSet + Erasure Coding + HA 구성:
-```
-minio-0 (k8s-w1)  minio-1 (k8s-w2)  minio-2 (k8s-w3)  minio-3 (k8s-w1)
-    └─────────────────── Erasure Coding (N/2 내구성) ──────────────────┘
-```
-- **required anti-affinity**: 각 파드가 서로 다른 노드에 배치
-- **PDB minAvailable:2**: 최소 2노드 유지 (quorum 보장)
-- **volumeClaimTemplates**: 파드별 독립 20Gi Longhorn PVC 자동 생성
-- **헬스체크**: `/minio/health/live`, `/minio/health/ready` 엔드포인트
+| 서비스 | Replicas | PDB (minAvailable) | Anti-Affinity |
+|--------|----------|--------------------|---------------|
+| ArgoCD (Server/Controller/RepoServer) | 3 | 1 | preferred |
+| ArgoCD Redis-HA | 3 | - | **required** |
+| Dex (SSO) | 3 | 1 | preferred |
+| Backstage Backend | 3 + HPA | 1 | preferred |
+| MinIO Distributed | 4 (StatefulSet) | 2 | required |
 
-```bash
-# MinIO 분산 상태 확인
-kubectl exec -n minio-storage minio-0 -- mc admin info local
-```
+---
 
-### GKE Burst 오토스케일링
+## GKE Burst 오토스케일링 (Autopilot)
 
-온프레미스 클러스터 용량 초과 시 GKE로 워크로드를 자동 확장합니다.
+Primary 클러스터(On-prem 또는 EKS DR) 부하 초과 시 trip-app을 GKE로 overflow 확장합니다.
 
-```
-온프레미스 클러스터           GKE Burst Cluster
-       │                            │
-  KEDA ScaledObject ────────▶  GKE NodePool (0~5)
-  (부하 감지)                   Tailscale VPN 연결
-       │
-  burst-workload-demo (Job)
-```
+**GKE Autopilot** 기반으로 운영하여 클러스터 관리비 무료, Pod 실행분만 과금 (유휴 시 $0).
 
-| 컴포넌트 | 파일 | 역할 |
-|----------|------|------|
-| KEDA ScaledObject | `manifests/gke-burst/keda-scaler.yaml` | 메트릭 기반 GKE 워크로드 트리거 |
-| Tailscale DaemonSet | `manifests/gke-burst/tailscale-gke.yaml` | GKE ↔ 온프레미스 VPN 터널 |
-| ArgoCD MultiCluster | `manifests/gke-burst/argocd-multi-cluster.yaml` | GKE 클러스터 GitOps 등록 |
-| Burst Job | `manifests/gke-burst/burst-workload-demo.yaml` | 실제 burst 워크로드 샘플 |
+**동작 방식:**
+1. `ClusterBurst` Claim 생성 → Crossplane이 GKE Autopilot 자동 프로비저닝
+2. KEDA ScaledObject가 Prometheus Proxy를 통해 Primary 메트릭 모니터링
+3. 임계값 초과 시 Autopilot이 노드 자동 프로비저닝 + Spot Pod 수평 확장
+
+| 트리거 | 동작 |
+|--------|------|
+| Primary CPU > 70% (2분) | Spot Pod scale-out |
+| Primary Memory > 80% (2분) | Spot Pod scale-out |
+| Pending Pod > 3개 (1분) | Spot Pod scale-out |
+| HTTP 요청률 > 100 req/s | Pod 수평 확장 |
+| 유휴 > 15분 cooldown | scale-to-zero ($0) |
+
+**비용 최적화:** Autopilot(관리비 무료) + Spot Pod(60-91% 할인) + KEDA scale-to-zero 조합.
+
+**메트릭 소스 전환** (Prometheus Proxy 패턴): KEDA는 항상 `prometheus-proxy`를 바라보고, Proxy upstream을 ConfigMap으로 전환하여 평시(On-prem) / DR시(EKS) 자동 대응.
+
+---
+
+## Disaster Recovery (DR)
+
+온프레미스 장애 시 **EKS(AWS)**에서 핵심 서비스를 최소 복구하는 Active-Passive 구성입니다.
+
+| 지표 | 목표 |
+|------|------|
+| RPO | 24시간 (일일 Velero 백업) |
+| RTO | 30분 (노드 scale-up + Velero restore) |
+
+**장애 감지 (Dead Man's Switch):**
+- On-prem CronJob이 5분마다 S3에 heartbeat 업로드
+- AWS Lambda가 15분 미갱신 시 Discord 장애 알림
+
+**DR 흐름:**
+1. `./scripts/dr-activate.sh` → EKS 노드 scale-up → Velero 복구
+2. GKE Proxy upstream → EKS Prometheus로 전환 → burst 자동 발동
+
+**Failback 흐름:**
+1. `./scripts/dr-failback.sh` → On-prem 복구 확인 → EKS 백업 후 정리
+2. GKE Proxy → On-prem 복귀, EKS `nodeCount: 0` (dormant)
+
+| 항목 | 평시 | DR 발동 시 |
+|------|------|-----------|
+| EKS + S3 + Lambda | ~$74-76/월 | ~$104-106/월 |
+
+> DR 복구 상세 절차는 [`docs/dr-runbook.md`](docs/dr-runbook.md) 참조.
 
 ---
 
 ## 백업 전략
 
-### 아키텍처
-
-MinIO를 내부 S3 허브로 활용하여 외부 클라우드 의존 없이 모든 백업을 단일 오브젝트 스토리지로 집중합니다.
+MinIO를 내부 S3 허브로 활용하며, 오프사이트 복제로 클라우드에 DR 백업을 유지합니다.
 
 ```
-┌───────────────────────────────────────────────────────────┐
-│            MinIO (minio-storage, S3 Hub)                   │
-│  longhorn-backups │ velero │ loki-chunks │ tempo-traces    │
-└──────────┬────────────────────────────────────────────────┘
-           │ S3 API (minio.minio-storage:9000)
-   ┌───────┼──────────────────────┬─────────────┐
-   │       │                      │             │
-Longhorn  Velero                Loki         Tempo
-(PV 백업) (클러스터 상태 백업)  (로그 청크)  (트레이스)
+Longhorn (PV 스냅샷/백업) ─┐
+Velero (클러스터 상태)     ─┤── MinIO (S3 Hub) ── CronJob 04:30 UTC ──→ AWS S3
+Loki (로그 청크)           ─┤                                  (us-west-2)
+Tempo (트레이스 블록)      ─┘
 ```
 
-### Longhorn PV 백업
+| 백업 유형 | 스케줄 | 보존 | 대상 |
+|-----------|--------|------|------|
+| Velero 클러스터 백업 | 매일 01:00 | 14일 (336h) | MinIO `velero` 버킷 |
+| Longhorn 스냅샷 | 매일 02:00 | 7개 | 로컬 (MinIO 독립) |
+| Longhorn → MinIO 백업 | 매일 03:00 | 14개 | MinIO `longhorn-backups` 버킷 |
+| MinIO → S3 오프사이트 복제 | 매일 04:30 | DR용 | `sydk-velero-dr-usw2`, `sydk-longhorn-dr-usw2` |
 
-Longhorn은 MinIO를 S3 백업 타겟으로 사용하여 클러스터 내 모든 PV를 자동 백업합니다.
+**백업 파이프라인 보호:**
 
-| 작업 | 스케줄 | 보존 개수 | 설명 |
-|------|--------|-----------|------|
-| **스냅샷** | 매일 02:00 | 7개 | 로컬 스냅샷 (MinIO 독립적) |
-| **백업** | 매일 03:00 | 14개 | MinIO `longhorn-backups` 버킷으로 전송 |
+| 보호 메커니즘 | 설명 |
+|---------------|------|
+| Kyverno `block-falco-talon-critical-ns` | Falco Talon의 핵심 NS (longhorn-system, velero, minio-storage 등) NetworkPolicy 자동 생성 차단 |
+| Longhorn CRD ArgoCD 앱 (`longhorn-crds`) | Helm chart CRD 22종을 별도 ArgoCD 앱으로 관리하여 누락 방지 |
+| S3 복제 실패 감지 | `mc mirror` 실패 시 Job exit 1 반환 → Prometheus 알림 |
+| PrometheusRule `backup.pipeline` | LonghornManagerNotReady, MinioDown, S3ReplicationFailed, VolumeDegraded 알림 |
 
-**백업 대상 PV 목록 (총 ~295Gi)**
+---
 
-| 컴포넌트 | 크기 | 네임스페이스 |
-|----------|------|-------------|
-| Prometheus | 50Gi | monitoring |
-| Kubecost (aggregator DB) | 128Gi | kubecost |
-| Kubecost (localStore) | 32Gi | kubecost |
-| MinIO | 50Gi | minio-storage |
-| Loki | 10Gi | monitoring |
-| Tempo | 10Gi | monitoring |
-| AlertManager | 5Gi | monitoring |
-| Kubecost (finops agent) | 8Gi | kubecost |
-| Kubecost (cloudCost) | 1Gi | kubecost |
-| Grafana | 1Gi | monitoring |
+## CI/CD 파이프라인
 
-관련 파일:
-- `kubernetes/helm-releases/longhorn/values.yaml` — `backupTarget`, `snapshotDataIntegrity` 설정
-- `kubernetes/storage/longhorn-backup-secret.yaml` — S3 자격증명 (longhorn-system)
-- `kubernetes/storage/longhorn-recurringjobs.yaml` — RecurringJob 스케줄 정의
+Self-hosted Runner (Actions Runner Controller) + ArgoCD GitOps 기반:
 
-### Velero 클러스터 상태 백업
-
-Velero는 Kubernetes 리소스(Deployment, ConfigMap, Secret, PV 등)를 MinIO에 백업합니다.
-
-| 항목 | 값 |
-|------|----|
-| 스케줄 | 매일 01:00 |
-| 보존 기간 | 14일 (336h) |
-| 백업 범위 | 전체 네임스페이스 (`velero` 제외) |
-| 저장 위치 | MinIO `velero` 버킷 |
-
-```bash
-# 백업 상태 확인
-kubectl get backups -n velero
-
-# 수동 백업 실행
-velero backup create manual-$(date +%Y%m%d) --include-namespaces='*'
-
-# 복구
-velero restore create --from-backup <backup-name>
+```
+git push main → GitHub Actions (self-hosted) → Docker build/push → ArgoCD sync
 ```
 
-관련 파일:
-- `kubernetes/argocd-apps/velero.yaml` — ArgoCD Application
-- `kubernetes/helm-releases/velero/values.yaml` — 스케줄, 백업 대상, MinIO 설정
-
-### MinIO 내구성
-
-MinIO의 데이터 자체는 Longhorn PVC(2-replica) 위에 저장됩니다. Longhorn 로컬 스냅샷은 MinIO와 독립적으로 동작하므로 MinIO 장애 시에도 스냅샷을 통한 복구가 가능합니다.
-
-> **한계**: 현재 구성은 클러스터 전체 소실에 대한 완전한 보호를 제공하지 않습니다. 완전한 DR(Disaster Recovery)을 위해서는 MinIO → 외부 S3(AWS/GCS)로의 `rclone sync` 추가가 권장됩니다.
-
-### MinIO 버킷 구성
-
-| 버킷 | 사용처 | 버전 관리 |
-|------|--------|-----------|
-| `longhorn-backups` | Longhorn PV 백업 | ✅ 활성화 |
-| `velero` | Velero 클러스터 백업 | - |
-| `loki-chunks` | Loki 로그 청크 | ✅ 활성화 |
-| `tempo-traces` | Tempo 트레이스 블록 | - |
-
-### 자격증명 관리
-
-모든 백업 자격증명은 Kubernetes Secret으로 관리되며, Git에는 `REPLACE_ME` 플레이스홀더만 저장됩니다.
-
-| Secret | 네임스페이스 | 용도 |
-|--------|-------------|------|
-| `minio-credentials` | minio-storage | MinIO 루트 계정 |
-| `longhorn-backup-target-secret` | longhorn-system | Longhorn → MinIO S3 |
-| `velero-credentials` | velero | Velero → MinIO S3 |
-| `loki-minio-credentials` | monitoring | Loki → MinIO S3 |
-| `tempo-minio-credentials` | monitoring | Tempo → MinIO S3 |
-
-> Vault 구성 완료 후 각 Secret을 `ExternalSecret`으로 교체할 예정입니다.
-
-### 백업 모니터링 및 알림
-
-Grafana에서 **"Backup & Storage"** 폴더 아래 통합 대시보드를 제공합니다.
-
-**알림 규칙** (`kubernetes/helm-releases/prometheus/backup-alerts.yaml`):
-
-| 알림 | 심각도 | 조건 |
-|------|--------|------|
-| `LonghornVolumeBackupFailed` | critical | Longhorn 백업 Error 상태 5분 지속 |
-| `LonghornBackupTargetUnreachable` | critical | MinIO 백업 타겟 2분 이상 응답 없음 |
-| `LonghornNodeStorageLow` | warning | 노드 스토리지 사용률 80% 초과 |
-| `LonghornVolumeActualSizeHigh` | warning | 볼륨 용량 사용률 85% 초과 |
-| `VeleroBackupFailed` | critical | Velero 백업 실패 |
-| `VeleroBackupMissing` | warning | 25시간 이상 성공한 백업 없음 |
-| `LokiIngestionRateHigh` | warning | Loki 로그 수집 속도 비정상 |
+| Workflow | 트리거 | 동작 |
+|----------|--------|------|
+| `deploy.yaml` | `main` push (backstage 제외) | ArgoCD sync |
+| `backstage.yaml` | `backstage-app/**` push/PR | TypeCheck → Lint → Test → Docker push → sync |
+| `chatops.yaml` | `chatops-app/**` push | Docker push → sync |
+| `approval-gate.yaml` | PR (Cluster/prod 리소스) | 플랫폼팀 리뷰 자동 요청 |
 
 ---
 
 ## 빠른 시작
 
-### 1. VM 생성
 ```bash
+# 1. VM 생성
 ./infrastructure/libvirt/vm-setup.sh
-```
 
-### 2. Kubernetes 설치
-```bash
+# 2. 노드 OS 설정 (로그 관리, multipath, CP 리소스 제한)
+cd ansible && ansible-playbook site.yml
+
+# 3. Kubernetes 설치
 ./scripts/setup-k8s.sh
-```
 
-### 3. VPN 연결
-```bash
+# 4. VPN 연결
 ./scripts/setup-headscale.sh
-```
 
-### 4. 플랫폼 배포 (ArgoCD)
-```bash
+# 5. 플랫폼 배포 (ArgoCD)
 kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 ```
 
-## CI/CD 파이프라인
+### Ansible Roles
 
-Self-hosted runner (Actions Runner Controller) + ArgoCD GitOps 기반 파이프라인입니다.
+| Role | 대상 | 설명 |
+|------|------|------|
+| `common` | 전체 노드 | rsyslog 필터링, logrotate, journald 제한, multipath 블랙리스트 |
+| `k8s-prereq` | 전체 노드 | 커널 모듈, containerd, kubelet 로그 제한 |
+| `cp-resource-limits` | Control Plane | Static pod 메모리 제한 (apiserver 10Gi, etcd 2Gi, CM 1Gi, scheduler 512Mi) |
+| `tailscale` | 전체 노드 | Tailscale 설치 및 Headscale 등록 |
+| `headscale` | KVM 호스트 | Headscale 컨테이너 + DERP 설정 |
 
-### 인프라
+> 시크릿은 Ansible Vault로 암호화 (`ansible/inventory/group_vars/all/vault.yml`)
 
-| 컴포넌트 | 설명 |
-|----------|------|
-| **Actions Runner Controller** | k8s 클러스터 내 self-hosted runner 운영 (`actions-runner-system`) |
-| **Runner** | `sydk-ktcloud/k8s-idp` 레포 전용 2 replicas, GitHub App 인증 |
-| **ArgoCD** | GitOps sync 엔드포인트 (`gitops` 네임스페이스) |
+---
 
-### Workflows
-
-| 워크플로우 | 트리거 | 동작 |
-|------------|--------|------|
-| **Deploy to K8s** | `main` push (backstage 제외) | ArgoCD `k8s-idp` app sync |
-| **Backstage CI/CD** | `backstage-app/**` push/PR | TypeCheck → Lint → Test → Docker 빌드/푸시 → ArgoCD sync |
-| **Chatops CI/CD** | `chatops-app/**` push | Docker 빌드/푸시 → ArgoCD sync |
-
-### 배포 흐름
+## 디렉토리 구조
 
 ```
-git push → GitHub Actions (self-hosted runner)
-               │
-               ├─ backstage-app/** → Build & Push (kylekim1223/backstage-backend)
-               ├─ chatops-app/**   → Build & Push (kylekim1223/chatops-bot)
-               │
-               └─ ArgoCD Sync (argocd-sync.yaml reusable workflow)
-                      │
-                      └─ ArgoCD pulls from Git → k8s 클러스터 반영
+k8s-idp/
+├── infrastructure/          # VM, K8s 초기 설정, VPN, AWS DR 인프라
+├── security/                # Vault + ESO 구성
+├── kubernetes/
+│   ├── namespaces/          # Namespace 정의
+│   ├── helm-releases/       # Helm 차트 (ArgoCD, Backstage, Prometheus 등)
+│   ├── manifests/           # K8s 매니페스트 (PDB, NetworkPolicy, Istio, GKE Burst, EKS DR 등)
+│   ├── argocd-apps/         # ArgoCD Application 정의 (App of Apps)
+│   ├── kyverno-policies/    # 수명주기, 보안, 격리 정책
+│   ├── network-policies/    # Zero Trust 네트워크 정책
+│   ├── observability/       # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
+│   └── storage/             # Longhorn, MinIO, 백업 설정
+├── ansible/                 # 노드 OS 설정 Ansible (Vault 암호화, 로그/스토리지/CP 리소스 제한)
+├── apps/                    # Backstage Scaffolder 생성 리소스 + GKE Burst Claim
+├── backstage-app/           # Backstage 개발자 포털 (React + Node.js)
+│   └── templates/           # Scaffolder 템플릿 9종 (GCP/AWS/Azure 마법사 + 직접 구성)
+├── lifecycle-scanner/       # 만료 리소스 자동 정리 CronJob
+├── chatops-app/             # Discord ChatOps 봇 (운영 + 수명주기 커맨드)
+├── scripts/                 # 설치, DR 활성화/복귀, 모니터링 스크립트
+├── kubeconfig/              # 팀별 Kubeconfig
+└── docs/                    # 운영 가이드 문서
 ```
 
-### 필요한 GitHub Secrets
+---
 
-| Secret | 용도 |
-|--------|------|
-| `ARGOCD_SERVER` | ArgoCD API 엔드포인트 |
-| `ARGOCD_USERNAME` | ArgoCD 로그인 계정 |
-| `ARGOCD_PASSWORD` | ArgoCD 로그인 비밀번호 |
-| `DOCKERHUB_USERNAME` | Docker Hub 푸시 계정 |
-| `DOCKER_PASSWORD` | Docker Hub 토큰 |
+## Troubleshooting
+
+### Pod Eviction — DiskPressure (ephemeral-storage)
+
+**증상**: Pod가 `Evicted` 상태, `The node was low on resource: ephemeral-storage` 메시지
+
+**근본 원인**: Tailscale 로그 폭증 (`/var/log/tailscale.log.1`이 노드당 200GB+ 누적 가능)
+
+**진단**:
+```bash
+# 노드 DiskPressure 확인
+kubectl get nodes -o custom-columns='NAME:.metadata.name,DISK_PRESSURE:.status.conditions[?(@.type=="DiskPressure")].status'
+
+# 해당 노드 디스크 사용량 확인 (Tailscale IP로 SSH)
+ssh k8suser@<tailscale-ip> 'df -h /; sudo du -sh /var/log/tailscale*'
+```
+
+**즉시 해결**:
+```bash
+# Tailscale 로그 정리
+ssh k8suser@<tailscale-ip> 'sudo truncate -s 0 /var/log/tailscale.log.1 && sudo rm -f /var/log/tailscale.log.2.gz'
+```
+
+**재발 방지**: `/etc/default/tailscaled`에 `-verbose=0` 설정으로 근본 해결. Ansible role `tailscale`에 codify 완료.
+
+### Tailscale 로그 폭증 → 디스크 100% → API 서버 다운
+
+**증상:** `tailscale.log`가 100GB+ 폭증하여 노드 디스크 100% → kubelet DiskPressure → Pod Eviction → API 서버 불능
+
+**원인:** tailscaled 기본 verbose 레벨이 높아 대량의 로그를 `/var/log/tailscale.log`에 기록
+
+**해결:**
+```bash
+# 1. 긴급 로그 정리
+sudo truncate -s 0 /var/log/tailscale.log
+sudo rm -f /var/log/tailscale.log.1
+
+# 2. verbose=0 설정 (근본 해결)
+echo -e 'PORT=41641\nFLAGS="-verbose=0"' | sudo tee /etc/default/tailscaled
+sudo systemctl restart tailscaled
+```
+
+**주의사항:**
+- tailscaled는 Go 스타일 **single dash** 플래그 사용 (`-verbose`, ~~`--verbose`~~ 아님)
+- `/etc/default/tailscaled`에 `PORT=41641` 반드시 포함 (누락 시 `--port=` 빈 값으로 crash-loop)
+- Ansible role `tailscale`에 codify 완료 (`ansible/roles/tailscale/tasks/main.yml`)
+
+### Longhorn 볼륨 Faulted — MinIO I/O Error
+
+**증상**: MinIO `/data` 접근 시 `Input/output error`, Loki `failed to flush chunks`
+
+**근본 원인**: Longhorn 볼륨의 replica가 모두 failed 상태 → 볼륨 detached/faulted → MinIO I/O 불가 → Loki S3 쓰기 실패 (연쇄 장애)
+
+**진단**:
+```bash
+# Longhorn 볼륨 상태 확인
+kubectl get volumes.longhorn.io -n longhorn-system -o custom-columns='NAME:.metadata.name,STATE:.status.state,ROBUSTNESS:.status.robustness'
+
+# failed replica 확인
+kubectl get replicas.longhorn.io -n longhorn-system -l longhornvolume=<volume-name> -o custom-columns='NAME:.metadata.name,STATE:.status.currentState,FAILED:.spec.failedAt'
+```
+
+**해결**:
+```bash
+# replica의 failedAt 필드 클리어 → 볼륨 자동 재attach
+kubectl patch replicas.longhorn.io -n longhorn-system <replica-name> --type=json -p='[{"op":"replace","path":"/spec/failedAt","value":""}]'
+
+# MinIO Pod 재시작 (stale mount 해제)
+kubectl delete pod -n minio-storage <minio-pod>
+```
+
+### Loki Chunk Flush 실패 — `mkdir fake: read-only file system`
+
+**증상**: Loki 로그에 `store put chunk: mkdir fake: read-only file system` 반복
+
+**근본 원인**: `schema_config`에서 `object_store: filesystem` → `s3`로 전환할 때, `storage_config`에 `filesystem.directory` 경로 미설정. 기존 period의 chunk flush가 기본 경로(`fake` = tenant ID)에 쓰려다 실패.
+
+**해결**: `kubernetes/observability/loki.yaml`의 `loki.storage_config`에 filesystem 경로 추가:
+```yaml
+storage_config:
+  filesystem:
+    directory: /var/loki/chunks
+```
+
+---
 
 ## 문서
 
 - [원격 접속 가이드](docs/remote-access-guide.md)
 - [Kubernetes 접근 가이드](docs/k8s-access-guide.md)
-- [Hubble 설치 가이드](docs/hubble-install-guide.md)
-- [Vault 설치 가이드](security/vault/docs/vault-install.md)
-- [Dex README](kubernetes/helm-releases/dex/README.md)
+- [DR 복구 절차서](docs/dr-runbook.md)
+- [시크릿 주입 흐름 및 CI/CD 상세](docs/secret-and-cicd-flow.md)
 - [네트워크 정책 통신 매트릭스](kubernetes/network-policies/COMMUNICATION-MATRIX.md)
+- [Vault 설치 가이드](security/vault/docs/vault-install.md)
+- [Hubble 설치 가이드](docs/hubble-install-guide.md)
 
 ## 로드맵
 
-- [ ] Vault HA 배포
-- [ ] Backstage 한국어 UI 완성
-- [x] CI/CD 파이프라인 (ARC self-hosted runner + ArgoCD GitOps)
-- [x] GKE Burst 클러스터 Crossplane 자동 프로비저닝
-- [x] GKE Burst 자동 트리거 (KEDA 연동)
-- [x] AWS Crossplane Provider 연동 (EC2/S3/EKS/RDS)
-- [x] Azure Crossplane Provider 연동 (VM/Blob/AKS/PostgreSQL)
-- [x] 멀티 클라우드 Backstage 마법사 템플릿 (GCP/AWS/Azure)
-- [x] Backstage Scaffolder 템플릿 일관성 정비 (values.* prefix 통일, tags 추가)
-- [x] 플랫폼 서비스 HA 구성 (replicas:3 + PDB + Anti-Affinity)
+- [x] Vault + ESO 연동
+- [x] DR 구성 (EKS Active-Passive + Dead Man's Switch)
+- [x] CI/CD 파이프라인 (ARC self-hosted + ArgoCD GitOps)
+- [x] GKE Burst 자동 프로비저닝 + KEDA 트리거
+- [x] 멀티 클라우드 Crossplane (GCP/AWS/Azure) + Backstage 마법사
+- [x] 플랫폼 서비스 HA (replicas:3 + PDB + Anti-Affinity)
 - [x] MinIO Distributed Mode (4-node Erasure Coding)
-- [ ] Backstage HPA 활성화 (CPU/Memory 기반 자동 스케일링)
-
-## 팀원
-
-- **관리자**: Headscale 서버 관리, Pre-auth key 발급, Dex 사용자 관리
-
-## 라이선스
-
-Private Repository
+- [x] Ansible 기반 노드 프로비저닝 (Vault 암호화, 로그/스토리지/CP 리소스 제한)
+- [x] Falco + Falco Talon 런타임 보안 및 자동 대응
+- [x] 백업 파이프라인 보호 (Kyverno 인프라 NS 보호 + Longhorn CRD 관리 + Prometheus 알림)
+- [x] Velero ArgoCD Helm source 전환 (실제 배포 보장)
+- [x] Kyverno 정책 보강 (bind verb 차단, dev 사이징 전 리소스 커버, expires-at 형식 검증, ephemeralContainers 차단)
+- [x] Docker Hub rate limit 대응 (Kyverno generate/mutate 기반 클러스터 전역 imagePullSecrets 자동화)
+- [x] Crossplane FinOps 비용 추적 태그 (GCP labels / AWS tags / Azure tags 전 리소스 자동 패치)
+- [x] Loki 스토리지 S3(MinIO) 마이그레이션 (filesystem → S3 schema 전환)
+- [ ] Backstage 한국어 UI 완성
+- [ ] Backstage HPA 활성화

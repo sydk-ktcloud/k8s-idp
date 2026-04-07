@@ -1,3 +1,5 @@
+{% set repoOwner = values.repoOwner %}
+{% set repoName = values.repoName %}
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
@@ -7,11 +9,18 @@ metadata:
     - server
     - {{ values.cloudProvider }}
   annotations:
-    github.com/project-slug: sydk-ktcloud/k8s-idp
+    github.com/project-slug: {{ repoOwner }}/{{ repoName }}
+    backstage.io/source-location: url:https://github.com/{{ repoOwner }}/{{ repoName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
+    kubecost.com/service-label: {{ values.componentName }}
+    kubecost.com/namespace: {{ values.componentName }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
+
 spec:
   type: resource
-  lifecycle: experimental
-  owner: user:guest
+  lifecycle: {{ values.lifecycleTier }}
+  owner: {{ values.owner }}
   links:
     {% if values.cloudProvider === 'aws' %}
     - url: https://ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Instances

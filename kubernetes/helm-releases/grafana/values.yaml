@@ -9,14 +9,15 @@ podLabels:
 
 replicas: 1
 
+deploymentStrategy:
+  type: Recreate
+  
 service:
   type: NodePort
   port: 80
   nodePort: 30080
 
-adminUser: admin
-# adminPassword는 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
-# 초기 배포 시 grafana-oauth-secret에 admin-password 키로 저장 필요
+# admin credential은 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
 admin:
   existingSecret: grafana-oauth-secret
   userKey: admin-user
@@ -29,7 +30,7 @@ grafana.ini:
     name: Dex
     allow_sign_up: true
     client_id: grafana
-    client_secret: ${GRAFANA_OAUTH_CLIENT_SECRET}
+    client_secret: ${GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
     scopes: openid profile email groups
     auth_url: http://100.64.0.1:30556/auth
     token_url: http://dex.auth.svc.cluster.local:5556/token
@@ -40,6 +41,9 @@ grafana.ini:
 
   server:
     root_url: http://100.64.0.1:30080
+
+  panels:                         
+    disable_sanitize_html: true
 
 # OAuth client secret은 Vault에서 관리됩니다 (grafana-oauth-secret ExternalSecret)
 envValueFrom:
@@ -76,11 +80,13 @@ datasources:
     datasources:
       - name: Prometheus
         type: prometheus
+        uid: prometheus
         url: http://prometheus-kube-prometheus-prometheus.monitoring:9090
         isDefault: true
         access: proxy
       - name: Loki
         type: loki
+        uid: loki
         url: http://loki.monitoring:3100
         access: proxy
         jsonData:
@@ -95,19 +101,13 @@ datasources:
         access: proxy
         uid: tempo
 
-# 백업 & 스토리지 대시보드 프로바이더
-dashboardProviders:
-  dashboardproviders.yaml:
-    apiVersion: 1
-    providers:
-    - name: backup
-      orgId: 1
-      folder: 'Backup & Storage'
-      type: file
-      disableDeletion: false
-      editable: true
-      options:
-        path: /var/lib/grafana/dashboards/backup
-
-dashboardsConfigMaps:
-  backup: "grafana-backup-dashboard"
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    searchNamespace: ALL
+    folder: /var/lib/grafana/dashboards
+    provider:
+      allowUiUpdates: true
+      foldersFromFilesStructure: true

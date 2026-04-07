@@ -41,13 +41,14 @@ spec:
       ports:
         - protocol: TCP
           port: 30556
-    - to:
-        - namespaceSelector: {}
-      ports:
+    # K8s API server + 클러스터 내 서비스 (Cilium DNAT 호환)
+    - ports:
         - protocol: TCP
           port: 443
         - protocol: TCP
           port: 6443
+        - protocol: TCP
+          port: 9090
     - to:
         - namespaceSelector: {}
           podSelector:
@@ -57,33 +58,6 @@ spec:
         - protocol: UDP
           port: 53
 
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: backstage-postgresql-allow
-  namespace: backstage
-spec:
-  podSelector:
-    matchLabels:
-      app: backstage-postgresql
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app: backstage-backend
-      ports:
-        - protocol: TCP
-          port: 5432
-  egress:
-    - to:
-        - namespaceSelector: {}
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
+## backstage-postgresql NetworkPolicy 제거됨
+## Cilium이 PG pod에 NetworkPolicy 적용 시 stateful return 트래픽을 차단하는 이슈
+## backstage-backend egress rule로 PG 접근을 제한하는 것으로 대체

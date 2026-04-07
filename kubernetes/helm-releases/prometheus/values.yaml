@@ -26,9 +26,30 @@ prometheus:
 
     # Retention settings
     enableRemoteWriteReceiver: true
+    enableFeatures:
+      - native-histograms
     retention: 15d
     retentionSize: "45GiB"
-    
+
+    # Burst trigger를 위한 recording rules
+    # active: prefix — On-prem/EKS DR 모두 동일한 metric 이름 사용
+    # GKE KEDA가 prometheus-proxy를 통해 이 메트릭을 조회
+    additionalPrometheusRulesMap:
+      active-burst-recording:
+        groups:
+        - name: active.burst.recording
+          interval: 15s
+          rules:
+          - record: active:node_cpu_utilization:avg
+            expr: |
+              1 - avg(rate(node_cpu_seconds_total{mode="idle"}[2m]))
+          - record: active:node_memory_utilization:avg
+            expr: |
+              1 - (avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes))
+          - record: active:pending_pods:count
+            expr: |
+              count(kube_pod_status_phase{phase="Pending",namespace!~"kube-system|monitoring|gitops"}) or vector(0)
+
     # Storage - Longhorn PVC
     storageSpec:
       volumeClaimTemplate:
@@ -38,7 +59,7 @@ prometheus:
           resources:
             requests:
               storage: 50Gi
-    
+
     # Resource limits
     resources:
       limits:
@@ -47,10 +68,19 @@ prometheus:
       requests:
         cpu: 200m
         memory: 512Mi
-    
+
     # Scrape configuration
     scrapeInterval: 30s
     evaluationInterval: 30s
+
+    # Additional scrape configs (MinIO metrics)
+    additionalScrapeConfigs:
+      - job_name: 'minio'
+        bearer_token: 'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwcm9tZXRoZXVzIiwic3ViIjoiYWRtaW4iLCJleHAiOjQ5MjkwODg4NzB9.UsM9nBORUZl-5dpTIVhnCwSNxzcOLihVq9zMj20imhYTE4a4TCXVxp7Wnlgri9tKLrsaIUwExs1sXe6vU0_bgQ'
+        static_configs:
+          - targets: ['minio.minio-storage:9000']
+        metrics_path: /minio/v2/metrics/cluster
+        scheme: http
 
 # Alertmanager Configuration
 alertmanager:
@@ -83,10 +113,19 @@ alertmanager:
 nodeExporter:
   enabled: true
 
+prometheus-node-exporter:
+  podLabels:
+    team: platform
+    owner: team-sre
+    cost-center: internal-platform
+    env: prod
+    system: observability
+    service: node-exporter
+
 kube-state-metrics:
   releaseLabel: true
   prometheusScrape: false
-  customLabels:
+  podLabels:
     team: platform
     owner: team-sre
     cost-center: internal-platform
@@ -98,18 +137,15 @@ kube-state-metrics:
       enabled: true
       http:
         honorLabels: true
-# 추가 스크레이프 설정 (MinIO 메트릭)
-prometheus:
-  prometheusSpec:
-    additionalScrapeConfigs:
-    - job_name: 'minio'
-      static_configs:
-      - targets: ['minio.minio-storage:9000']
-      metrics_path: /minio/v2/metrics/cluster
-      scheme: http
 
-# Prometheus Operator
 prometheusOperator:
+  podLabels:
+    team: platform
+    owner: team-sre
+    cost-center: internal-platform
+    env: prod
+    system: observability
+    service: prometheus-operator
   resources:
     limits:
       cpu: 200m
