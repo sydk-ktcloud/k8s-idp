@@ -155,7 +155,7 @@ redis-ha:
       requests:
         cpu: 50m
         memory: 32Mi
-  affinity:
+  affinity: |
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         - labelSelector:
