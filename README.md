@@ -396,7 +396,7 @@ git push main → GitHub Actions (self-hosted) → Docker build/push → ArgoCD 
 ./infrastructure/libvirt/vm-setup.sh
 
 # 2. 노드 OS 설정 (로그 관리, multipath, CP 리소스 제한)
-cd ansible && ansible-playbook site.yml
+cd infrastructure/ansible && ansible-playbook site.yml
 
 # 3. Kubernetes 설치
 ./scripts/setup-k8s.sh
@@ -418,7 +418,7 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 | `tailscale` | 전체 노드 | Tailscale 설치 및 Headscale 등록 |
 | `headscale` | KVM 호스트 | Headscale 컨테이너 + DERP 설정 |
 
-> 시크릿은 Ansible Vault로 암호화 (`ansible/inventory/group_vars/all/vault.yml`)
+> 시크릿은 Ansible Vault로 암호화 (`infrastructure/ansible/inventory/group_vars/all/vault.yml`)
 
 ---
 
@@ -426,7 +426,14 @@ kubectl apply -f kubernetes/argocd-apps/k8s-idp.yaml
 
 ```
 k8s-idp/
-├── infrastructure/          # VM, K8s 초기 설정, VPN, AWS DR 인프라
+├── infrastructure/          # 인프라 초기 설정 (VM, K8s, VPN, AWS DR, Ansible)
+│   ├── ansible/             # 노드 OS 설정 (Vault 암호화, 로그/스토리지/CP 리소스 제한)
+│   ├── kubernetes/          # kubeadm, Cilium 초기 설정
+│   ├── headscale/           # 온프렘 Headscale VPN
+│   ├── headscale-cloud/     # GCP Headscale (HA)
+│   ├── headplane/           # Headscale UI
+│   ├── aws-dr/              # AWS DR 인프라 (CloudFormation, EKS)
+│   └── libvirt/             # KVM VM 세팅
 ├── security/                # Vault + ESO 구성
 ├── kubernetes/
 │   ├── namespaces/          # Namespace 정의
@@ -437,13 +444,13 @@ k8s-idp/
 │   ├── network-policies/    # Zero Trust 네트워크 정책
 │   ├── observability/       # LGTM 스택 (Loki, Grafana, Tempo, Alloy)
 │   └── storage/             # Longhorn, MinIO, 백업 설정
-├── ansible/                 # 노드 OS 설정 Ansible (Vault 암호화, 로그/스토리지/CP 리소스 제한)
 ├── apps/                    # Backstage Scaffolder 생성 리소스 + GKE Burst Claim
 ├── backstage-app/           # Backstage 개발자 포털 (React + Node.js)
 │   └── templates/           # Scaffolder 템플릿 9종 (GCP/AWS/Azure 마법사 + 직접 구성)
+├── cloud-credit-monitor/    # 클라우드 크레딧·비용 Discord 알림 CronJob
 ├── lifecycle-scanner/       # 만료 리소스 자동 정리 CronJob
 ├── chatops-app/             # Discord ChatOps 봇 (운영 + 수명주기 커맨드)
-├── scripts/                 # 설치, DR 활성화/복귀, 모니터링 스크립트
+├── scripts/                 # 설치, DR 활성화/복귀, 운영 스크립트
 ├── kubeconfig/              # 팀별 Kubeconfig
 └── docs/                    # 운영 가이드 문서
 ```
@@ -495,7 +502,7 @@ sudo systemctl restart tailscaled
 **주의사항:**
 - tailscaled는 Go 스타일 **single dash** 플래그 사용 (`-verbose`, ~~`--verbose`~~ 아님)
 - `/etc/default/tailscaled`에 `PORT=41641` 반드시 포함 (누락 시 `--port=` 빈 값으로 crash-loop)
-- Ansible role `tailscale`에 codify 완료 (`ansible/roles/tailscale/tasks/main.yml`)
+- Ansible role `tailscale`에 codify 완료 (`infrastructure/ansible/roles/tailscale/tasks/main.yml`)
 
 ### Longhorn 볼륨 Faulted — MinIO I/O Error
 
