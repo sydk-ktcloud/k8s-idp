@@ -27,15 +27,22 @@ jobs:
         run: |
           echo "Syncing ArgoCD Application: ${APP_NAME}"
 
-          # 네트워크 안정화 대기 (pod 시작 직후 NetworkPolicy 적용 지연 대응)
-          for attempt in 1 2 3 4 5; do
-            if curl -s --connect-timeout 3 --max-time 5 -o /dev/null "${ARGOCD_SERVER}" 2>/dev/null; then
+          # 네트워크 안정화 대기 (Tailscale VPN 연결 + NetworkPolicy 적용 지연 대응)
+          CONNECTED=false
+          for attempt in $(seq 1 10); do
+            if curl -s --connect-timeout 5 --max-time 10 -o /dev/null "${ARGOCD_SERVER}" 2>/dev/null; then
               echo "ArgoCD reachable (attempt ${attempt})"
+              CONNECTED=true
               break
             fi
-            echo "Waiting for ArgoCD connectivity... (attempt ${attempt})"
-            sleep 3
+            echo "Waiting for ArgoCD connectivity... (attempt ${attempt}/10)"
+            sleep 5
           done
+
+          if [ "$CONNECTED" = "false" ]; then
+            echo "❌ ArgoCD 연결 실패 — Tailscale VPN 또는 NodePort 확인 필요"
+            exit 1
+          fi
 
           LOGIN_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -X POST "${ARGOCD_SERVER}/api/v1/session" \
             -H "Content-Type: application/json" \
