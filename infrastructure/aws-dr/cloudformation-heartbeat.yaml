@@ -120,20 +120,34 @@ Resources:
                   last_mod = resp['LastModified']
                   age = (now - last_mod).total_seconds() / 60
 
+                  was_alert = state.get('status') == 'ALERT'
+                  last_alert_time = state.get('last_alert', '')
+                  last_summary = state.get('last_summary', '')
+
                   if age > threshold:
+                      # 이미 ALERT 상태면 summary_interval 간격으로만 반복 알림
+                      if was_alert and last_alert_time:
+                          try:
+                              mins_since_alert = (now - datetime.fromisoformat(last_alert_time)).total_seconds() / 60
+                          except: mins_since_alert = float('inf')
+                          if mins_since_alert < summary_interval:
+                              return {'status': 'ALERT', 'age_minutes': int(age), 'suppressed': True}
+
                       msg = (
                           ":rotating_light: **온프레미스 클러스터 장애 감지**\n"
                           f"Heartbeat가 **{int(age)}분** 동안 갱신되지 않았습니다.\n"
                           f"마지막 수신: {last_mod.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
                           f"임계값: {threshold}분\n\n"
-                          "**DR 복구 절차를 확인하세요:** `docs/dr-runbook.md`"
+                          "**확인 사항:**\n"
+                          "1. CronJob 상태: `kubectl get cronjob cluster-heartbeat -n minio-storage`\n"
+                          "2. 최근 Job: `kubectl get jobs -n minio-storage --sort-by=.metadata.creationTimestamp`\n"
+                          "3. DR 절차: `docs/dr-runbook.md`"
                       )
                       send_discord(webhook, msg)
                       save_state(bucket, state_key, {'last_alert': now.isoformat(), 'status': 'ALERT'})
                       return {'status': 'ALERT', 'age_minutes': int(age)}
 
-                  was_alert = state.get('status') == 'ALERT'
-                  last_summary = state.get('last_summary', '')
+                  # Heartbeat 정상 — 복구 또는 정기 요약
                   mins_since = float('inf')
                   if last_summary:
                       try:
