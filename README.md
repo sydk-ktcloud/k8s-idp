@@ -207,8 +207,57 @@ dockerhub-creds (kyverno NS) ──▶ Kyverno Generate ──▶ 모든 NS에 S
 
 ### 런타임 보안
 
-- **Falco + Falco Talon**: 런타임 이상 탐지 및 자동 대응 (NetworkPolicy 격리 등)
-- **Kyverno 인프라 보호**: Falco Talon이 핵심 인프라 네임스페이스(longhorn-system, velero, minio-storage 등)를 격리하지 못하도록 차단하여 백업 파이프라인 보호
+#### Falco (eBPF 런타임 탐지)
+
+커널 레벨 eBPF 드라이버로 컨테이너 런타임 이상 행위를 실시간 탐지합니다.
+
+**커스텀 룰 12종:**
+
+| 카테고리 | 룰 | 설명 |
+|----------|-----|------|
+| **FIM** | Write Below /etc | /etc 하위 파일 변조 탐지 |
+| **FIM** | Write Below /bin | 바이너리 디렉토리 변조 탐지 |
+| **HIDS** | Reverse Shell | 리버스 셸 연결 시도 탐지 |
+| **HIDS** | Unexpected Outbound Connection | 비정상 아웃바운드 네트워크 연결 |
+| **HIDS** | Container Drift Detected | 컨테이너 이미지 외 바이너리 실행 |
+| **HIDS** | Unexpected Spawned Process | 비정상 프로세스 생성 |
+| **자격증명** | Read Sensitive File | /etc/shadow 등 민감 파일 읽기 |
+| **자격증명** | K8s ServiceAccount Token Access | SA 토큰 무단 접근 |
+| **자격증명** | AWS Credential File Read | AWS 자격증명 파일 접근 |
+| **데이터** | Bulk Data Removal | 대량 데이터 삭제 시도 |
+| **데이터** | Symlink Escape | 심볼릭 링크를 통한 컨테이너 탈출 |
+| **데이터** | DB Program Spawned Process | DB 프로세스에서 비정상 자식 프로세스 |
+
+**알림 흐름:**
+
+```
+Falco (eBPF) → Falcosidekick → Discord #보안-알림 (WARNING 이상)
+                             → Falco Talon (자동 대응)
+```
+
+- Falcosidekick이 Falco 이벤트를 수신하여 Discord 웹훅(`falcosidekick-secrets` Secret)과 Falco Talon으로 동시 전달
+- Discord에는 WARNING 이상 심각도만 전송하여 노이즈 최소화
+
+#### Falco Talon (자동 대응 엔진)
+
+탐지된 위협에 대해 자동으로 대응 조치를 실행합니다.
+
+| 대응 액션 | 트리거 룰 | 조치 |
+|-----------|-----------|------|
+| **NetworkPolicy 격리** | Unexpected Outbound Connection | 해당 Pod의 네트워크를 즉시 차단 |
+| **NetworkPolicy 격리** | Reverse Shell | 리버스 셸 시도 Pod 네트워크 차단 |
+| **Pod 종료** | Container Drift Detected | 변조된 컨테이너 즉시 종료 |
+| **Pod 종료** | Write Below /bin | 바이너리 변조 컨테이너 종료 |
+| **Pod 종료** | Bulk Data Removal | 대량 삭제 시도 컨테이너 종료 |
+| **Pod 종료** | Symlink Escape | 탈출 시도 컨테이너 종료 |
+
+#### Kyverno 인프라 보호
+
+- **`block-falco-talon-critical-ns`** 정책: Falco Talon이 핵심 인프라 네임스페이스(longhorn-system, velero, minio-storage, monitoring, gitops, crossplane-system)에 NetworkPolicy를 자동 생성하지 못하도록 차단
+- 공격자가 의도적으로 Falco 룰을 트리거하여 백업/모니터링 파이프라인을 격리시키는 역이용 공격 방지
+
+#### Trivy Operator
+
 - **Trivy Operator**: 컨테이너 CVE, RBAC 과다 권한, ConfigAudit 지속 스캔
 
 ---
