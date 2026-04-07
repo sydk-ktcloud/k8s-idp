@@ -407,7 +407,7 @@ export const ProvisioningDashboard = () => {
     return tab?.cloud
       ? RESOURCE_TYPES.filter(rt => rt.cloud === tab.cloud)
       : [...RESOURCE_TYPES];
-  }, [activeTab]);
+  }, [activeTab, CLOUD_TABS]);
 
   // 탭별 캐시: refreshKey 변경 시 전체 무효화
   const cacheRef = useRef<{ key: number; data: Map<number, CrossplaneResource[]> }>({ key: -1, data: new Map() });
