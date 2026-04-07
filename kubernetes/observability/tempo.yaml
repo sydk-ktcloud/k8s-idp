@@ -25,7 +25,8 @@ spec:
           service: tempo
         tempo:
           extraArgs:
-            config.expand-env: "true"
+            - "-config.expand-env=true"
+            - "-reporting.enabled=false"
           extraEnv:
             - name: S3_ACCESS_KEY
               valueFrom:

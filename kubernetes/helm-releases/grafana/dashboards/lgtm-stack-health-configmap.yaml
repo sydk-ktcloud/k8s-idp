@@ -779,7 +779,7 @@ data:
                   "options": {
                     "mode": "exclude",
                     "names": [
-                      "{namespace=\"actions-runner-system\"}"
+                      "{namespace=\"external-secrets\"}"
                     ],
                     "prefix": "All except:",
                     "readOnly": true
@@ -2621,5 +2621,5 @@ data:
       "timezone": "Asia/Seoul",
       "title": "LGTM 스택 헬스",
       "uid": "lgtm-stack-health-v1",
-      "version": 1
+      "version": 4
     }
