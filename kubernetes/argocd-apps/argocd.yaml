@@ -7,13 +7,16 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: helm-releases/argocd
-    targetRevision: HEAD
-    helm:
-      valueFiles:
-        - values.yaml
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 7.8.7
+      helm:
+        valueFiles:
+          - $values/kubernetes/helm-releases/argocd/values.yaml
+    - repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+      targetRevision: HEAD
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: gitops

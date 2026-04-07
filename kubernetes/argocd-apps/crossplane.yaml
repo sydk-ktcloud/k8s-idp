@@ -10,13 +10,16 @@ metadata:
     app.kubernetes.io/component: platform
 spec:
   project: default
-  source:
-    repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
-    path: kubernetes/helm-releases/crossplane
-    targetRevision: HEAD
-    helm:
-      valueFiles:
-        - values.yaml
+  sources:
+    - repoURL: https://charts.crossplane.io/stable
+      chart: crossplane
+      targetRevision: 1.18.0
+      helm:
+        valueFiles:
+          - $values/kubernetes/helm-releases/crossplane/values.yaml
+    - repoURL: https://github.com/sydk-ktcloud/k8s-idp.git
+      targetRevision: HEAD
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: crossplane-system
