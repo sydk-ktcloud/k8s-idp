@@ -4,6 +4,7 @@ import com.team1.goorm.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,7 +29,27 @@ public class GlobalExceptionHandler {
                         null
                 ));
     }
+    // GlobalExceptionHandler.java에 추가 제안
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    protected ResponseEntity<ApiResponse<Void>> handle404(Exception e) {
+    // 404는 Stack Trace 없이 한 줄만 로그를 남겨 Loki 부하를 줄입니다.
+        log.error("404 Not Found: {}", e.getMessage()); 
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse.error(404, "NOT_FOUND", "페이지를 찾을 수 없습니다.", null));
+    }
 
+    @ExceptionHandler(DownstreamServiceException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleDownstreamServiceException(DownstreamServiceException e) {
+        HttpStatusCode statusCode = e.getStatusCode();
+        log.error("DownstreamServiceException [{}]: {}", statusCode.value(), e.getMessage());
+        return ResponseEntity.status(statusCode)
+                .body(ApiResponse.error(
+                        statusCode.value(),
+                        "DOWNSTREAM_ERROR",
+                        e.getMessage(),
+                        null
+                ));
+    }
     /**
      * 그 외 예상치 못한 모든 예외 처리 (500 에러)
      */
@@ -53,4 +74,5 @@ public class GlobalExceptionHandler {
                         null
                 ));
     }
+
 }

@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: trip-payment-api-service
+  namespace: trip-app
+spec:
+  type: ClusterIP
+  selector:
+    app: trip-payment-api
+  ports:
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trip-payment-api
+  namespace: trip-app
+  labels:
+    team: platform
+    owner: team-appdev
+    cost-center: internal-platform
+    env: prod
+    system: trip-app
+    service: trip-payment-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trip-payment-api
+  template:
+    metadata:
+      labels:
+        app: trip-payment-api
+        owner: team-appdev
+        cost-center: internal-platform
+        env: prod
+        system: trip-app
+        service: trip-payment-api
+    spec:
+      imagePullSecrets:
+      - name: dockerhub-secret
+      containers:
+      - name: trip-payment-api
+        image: kylekim1223/trip-payment-api:trip2-v2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8082
+        env:
+        - name: SERVER_PORT
+          value: "8082"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://alloy.monitoring.svc.cluster.local:4317"
+        - name: OTEL_SERVICE_NAME
+          value: "trip-payment-api-service"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: "grpc"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        - name: OTEL_LOGS_EXPORTER
+          value: "none"
+        - name: OTEL_TRACES_EXPORTER
+          value: "otlp"
+        - name: OTEL_TRACES_SAMPLER
+          value: "always_on"

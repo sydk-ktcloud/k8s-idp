@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/v1/products")
+@RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
     private final ProductService productService;
@@ -46,7 +46,7 @@ public class ProductController {
     }
 
     // 카테고리별 조회
-    @GetMapping("category/{category}")
+    @GetMapping("/category/{category}")
     @Operation(summary = "카테고리별 조회")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "성공"),

@@ -30,6 +30,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     private final ProductRepository productRepository;
+    private final DownstreamTripService downstreamTripService;
 
     @Transactional
     public OrderPreviewResponseDto createOrder(OrderPreviewRequestDto requestDto, User user) {
@@ -81,13 +82,16 @@ public class OrderService {
     }
 
     @Transactional
-    public PaymentResponseDto createPayment(PaymentRequestDto requestDto, User user) {
+    public PaymentResponseDto createPayment(PaymentRequestDto requestDto, User user, String demoFailure) {
         // 요청이 들어온 주문의 존재 여부 확인
         Order order = orderRepository.findByOrderNumber(requestDto.getOrderId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST));
 
         // 금액 및 상태 검증
         validateOrderForPayment(order, requestDto.getTotalAmount(), user.getId());
+
+        downstreamTripService.reserveOrder(order, user, demoFailure);
+        downstreamTripService.processPayment(order, requestDto, user, demoFailure);
 
         // 결제 엔티티 생성
         Payment payment = Payment.builder()

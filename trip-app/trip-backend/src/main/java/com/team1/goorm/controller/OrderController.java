@@ -59,12 +59,13 @@ public class OrderController {
     })
     public ResponseEntity<ApiResponse<PaymentResponseDto>> createPayment(
             @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Demo-Failure", required = false) String demoFailure,
             @RequestBody PaymentRequestDto requestDto
     ) throws AccessDeniedException {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        PaymentResponseDto response = orderService.createPayment(requestDto, user);
+        PaymentResponseDto response = orderService.createPayment(requestDto, user, demoFailure);
         return ResponseEntity.status(HttpStatus.OK).body(
                 ApiResponse.success(
                         "PAYMENT_SUCCESS",

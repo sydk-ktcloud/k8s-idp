@@ -43,9 +43,10 @@ public class CartController {
     })
     public ResponseEntity<ApiResponse<CartResponseDto>> addCart(
             @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Demo-Failure", required = false) String demoFailure,
             @RequestBody CartRequestDto request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                ApiResponse.create("CART_ADD_SUCCESS", "장바구니에 상품이 추가되었습니다.", cartService.addCart(userId, request))
+                ApiResponse.create("CART_ADD_SUCCESS", "장바구니에 상품이 추가되었습니다.", cartService.addCart(userId, request, demoFailure))
         );
     }
 

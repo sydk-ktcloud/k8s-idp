@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class CartService {
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
+    private final DownstreamTripService downstreamTripService;
 
     // 장바구니의 목록을 조회
     @Transactional(readOnly = true)
@@ -33,13 +34,15 @@ public class CartService {
 
     // 장바구니의 목록을 추가, 요청을 받아 데이터를 정리하여 장바구니에 추가
     @Transactional
-    public CartResponseDto addCart(Long userId, CartRequestDto request) {
+    public CartResponseDto addCart(Long userId, CartRequestDto request, String demoFailure) {
         if (request.getQuantity() < 1) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        downstreamTripService.syncCart(userId, request, product, demoFailure);
 
         Optional<Cart> existingCart = cartRepository.findByUserIdAndProduct_ProductId(userId, request.getProductId());
 

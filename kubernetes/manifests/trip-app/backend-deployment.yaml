@@ -12,13 +12,20 @@ spec:
     - protocol: TCP
       port: 8080
       targetPort: 8080
-      nodePort: 30088 
+      nodePort: 30088
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: trip-backend
   namespace: trip-app
+  labels:
+    team: platform
+    owner: team-appdev
+    cost-center: internal-platform
+    env: prod
+    system: trip-app
+    service: trip-backend
 spec:
   replicas: 1
   selector:
@@ -28,10 +35,18 @@ spec:
     metadata:
       labels:
         app: trip-backend
+        owner: team-appdev
+        cost-center: internal-platform
+        env: prod
+        system: trip-app
+        service: trip-backend
     spec:
+      imagePullSecrets:
+      - name: dockerhub-secret
       containers:
       - name: trip-backend
-        image: kylekim1223/trip-backend:2026-04-02
+        image: kylekim1223/trip-backend:trip2-v2
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
@@ -43,6 +58,12 @@ spec:
           value: "1771" # DB 설정과 일치시킨 비밀번호입니다.
         - name: SPRING_JPA_HIBERNATE_DDL_AUTO
           value: "none"
+        - name: TRIP_CHAIN_ENABLED
+          value: "true"
+        - name: TRIP_CART_API_BASE_URL
+          value: "http://trip-cart-api-service:8081"
+        - name: TRIP_PAYMENT_API_BASE_URL
+          value: "http://trip-payment-api-service:8082"
         # --- 모니터링을 위한 OTel 설정 추가 ---
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: "http://alloy.monitoring.svc.cluster.local:4317" 
@@ -53,4 +74,8 @@ spec:
         - name: OTEL_METRICS_EXPORTER
           value: "none" # 메트릭 전송 끄기
         - name: OTEL_LOGS_EXPORTER
-          value: "otlp" # 로그 전송 설정
+          value: "none" # 로그 전송 설정
+        - name: OTEL_TRACES_EXPORTER
+          value: "otlp"
+        - name: OTEL_TRACES_SAMPLER
+          value: "always_on"
