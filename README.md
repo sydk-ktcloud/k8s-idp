@@ -247,10 +247,11 @@ CronJob / Lambda → Discord Webhook 직접 전송 (전용 채널)
 | GKEBurstPodsRunningLong | info | Burst Pod 1시간 이상 실행 (과금 중) |
 | GKEBurstPodCountHigh | warning | Burst Pod 4개 이상 30분 |
 
-**`#클러스터-알림`** — Alertmanager 기본 알림 (노드·서비스 장애 등)
+**`#클러스터-알림`** — Alertmanager 기본 알림 (노드·서비스·인프라 장애)
 
 | 알림 | 심각도 | 조건 |
 |------|--------|------|
+| CrossplaneProviderCrashLoop | critical | Crossplane provider CrashLoopBackOff 5분 이상 (CRD conversion webhook 장애 → ArgoCD hang 유발) |
 | KubernetesAPIServerUnreachable | critical | API server 2분 이상 무응답 |
 | NodeNotReady | critical | 노드 NotReady 3분 이상 |
 | KubeletDown | warning | Kubelet 3분 이상 무응답 |
@@ -280,7 +281,7 @@ CronJob / Lambda → Discord Webhook 직접 전송 (전용 채널)
 | 서비스 | Replicas | PDB (minAvailable) | Anti-Affinity |
 |--------|----------|--------------------|---------------|
 | ArgoCD (Server/Controller/RepoServer) | 3 | 1 | preferred |
-| ArgoCD Redis-HA | 3 | - | **required** |
+| ArgoCD Redis | 1 (standalone) | - | - |
 | Dex (SSO) | 3 | 1 | preferred |
 | Backstage Backend | 3 + HPA | 1 | preferred |
 | MinIO Distributed | 4 (StatefulSet) | 2 | required |
@@ -519,6 +520,38 @@ kubectl patch replicas.longhorn.io -n longhorn-system <replica-name> --type=json
 # MinIO Pod 재시작 (stale mount 해제)
 kubectl delete pod -n minio-storage <minio-pod>
 ```
+
+### Crossplane CRD Conversion Webhook 교착 → ArgoCD 전체 Unknown
+
+**증상:** ArgoCD 전체 앱이 `Unknown` sync 상태, application-controller가 CPU 1코어+ 사용하면서 로그 없음
+
+**근본 원인:** Crossplane provider pod CrashLoopBackOff → CRD conversion webhook endpoint 소멸 → API 서버의 해당 CRD LIST 요청이 30초씩 timeout → ArgoCD controller 클러스터 캐시 sync 불가 (470개 CRD × 30초 = 수 시간 hang)
+
+**순환 교착:** Provider 시작 → 자기 CRD LIST → webhook timeout → crash → endpoint 소멸 → 반복
+
+**진단:**
+```bash
+# Crossplane provider 상태 확인
+kubectl get pods -n crossplane-system | grep CrashLoopBackOff
+
+# endpoint 없는 conversion webhook 서비스 찾기
+kubectl get crds -o jsonpath='{range .items[?(@.spec.conversion.strategy=="Webhook")]}{.spec.conversion.webhook.clientConfig.service.name}{" "}{.spec.conversion.webhook.clientConfig.service.namespace}{"\n"}{end}' | sort -u | while read name ns; do
+  ep=$(kubectl get endpoints "$name" -n "$ns" 2>/dev/null | tail -1 | awk '{print $2}')
+  [ "$ep" = "<none>" ] || [ -z "$ep" ] && echo "BROKEN: $name/$ns"
+done
+```
+
+**해결:**
+```bash
+# 교착 해소: 문제 CRD의 conversion webhook 임시 제거
+kubectl get crds -o jsonpath='{range .items[?(@.spec.conversion.strategy=="Webhook")]}{.metadata.name}{" "}{.spec.conversion.webhook.clientConfig.service.name}{"\n"}{end}' \
+  | grep "<broken-service>" | awk '{print $1}' \
+  | xargs -I{} kubectl patch crd {} --type=json -p='[{"op":"replace","path":"/spec/conversion/strategy","value":"None"},{"op":"remove","path":"/spec/conversion/webhook"}]'
+
+# Provider가 정상 기동되면 conversion webhook을 자동으로 재등록함
+```
+
+**예방:** ArgoCD `resource.exclusions`에 Crossplane CRD 제외 설정 완료 (`argocd/values.yaml`), `CrossplaneProviderCrashLoop` alert rule 추가 (`prometheus/values.yaml`)
 
 ### Loki Chunk Flush 실패 — `mkdir fake: read-only file system`
 
