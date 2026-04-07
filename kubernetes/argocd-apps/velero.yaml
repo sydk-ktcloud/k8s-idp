@@ -17,6 +17,7 @@ spec:
     helm:
       valueFiles: []
       values: |
+        upgradeCRDs: false
         configuration:
           backupStorageLocation:
           - name: default
@@ -84,4 +85,3 @@ spec:
     syncOptions:
     - CreateNamespace=true
     - ServerSideApply=true
-    - Replace=true

@@ -139,6 +139,8 @@ kube-state-metrics:
         honorLabels: true
 
 prometheusOperator:
+  crds:
+    enabled: false
   podLabels:
     team: platform
     owner: team-sre
