@@ -382,6 +382,13 @@ const ResourceTable = ({
   );
 };
 
+const CLOUD_TABS: { label: string; cloud?: CloudProvider }[] = [
+  { label: '전체' },
+  { label: 'GCP',   cloud: 'GCP' },
+  { label: 'AWS',   cloud: 'AWS' },
+  { label: 'Azure', cloud: 'Azure' },
+];
+
 export const ProvisioningDashboard = () => {
   const classes = useStyles();
   const kubernetesApi = useApi(kubernetesApiRef);
@@ -394,20 +401,13 @@ export const ProvisioningDashboard = () => {
     cloud: 'GCP',
   });
 
-  const CLOUD_TABS: { label: string; cloud?: CloudProvider }[] = [
-    { label: '전체' },
-    { label: 'GCP',   cloud: 'GCP' },
-    { label: 'AWS',   cloud: 'AWS' },
-    { label: 'Azure', cloud: 'Azure' },
-  ];
-
   // 탭별 lazy loading: 활성 탭의 리소스만 fetch
   const typesToFetch = useMemo(() => {
     const tab = CLOUD_TABS[activeTab];
     return tab?.cloud
       ? RESOURCE_TYPES.filter(rt => rt.cloud === tab.cloud)
       : [...RESOURCE_TYPES];
-  }, [activeTab, CLOUD_TABS]);
+  }, [activeTab]);
 
   // 탭별 캐시: refreshKey 변경 시 전체 무효화
   const cacheRef = useRef<{ key: number; data: Map<number, CrossplaneResource[]> }>({ key: -1, data: new Map() });
