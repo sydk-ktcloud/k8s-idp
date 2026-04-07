@@ -540,3 +540,29 @@ storage_config:
 - [x] Loki 스토리지 S3(MinIO) 마이그레이션 (filesystem → S3 schema 전환)
 - [ ] Backstage 한국어 UI 완성
 - [ ] Backstage HPA 활성화
+
+---
+
+## Troubleshooting
+
+### Tailscale 로그 폭증 → 디스크 100% → API 서버 다운
+
+**증상:** `tailscale.log`가 100GB+ 폭증하여 노드 디스크 100% → kubelet DiskPressure → Pod Eviction → API 서버 불능
+
+**원인:** tailscaled 기본 verbose 레벨이 높아 대량의 로그를 `/var/log/tailscale.log`에 기록
+
+**해결:**
+```bash
+# 1. 긴급 로그 정리
+sudo truncate -s 0 /var/log/tailscale.log
+sudo rm -f /var/log/tailscale.log.1
+
+# 2. verbose=0 설정 (근본 해결)
+echo -e 'PORT=41641\nFLAGS="-verbose=0"' | sudo tee /etc/default/tailscaled
+sudo systemctl restart tailscaled
+```
+
+**주의사항:**
+- tailscaled는 Go 스타일 **single dash** 플래그 사용 (`-verbose`, ~~`--verbose`~~ 아님)
+- `/etc/default/tailscaled`에 `PORT=41641` 반드시 포함 (누락 시 `--port=` 빈 값으로 crash-loop)
+- Ansible role `tailscale`에 codify 완료 (`ansible/roles/tailscale/tasks/main.yml`)
