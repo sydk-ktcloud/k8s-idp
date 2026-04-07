@@ -57,5 +57,5 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     uses: ./.github/workflows/argocd-sync.yaml
     with:
-      application: k8s-idp
+      application: trip-app
     secrets: inherit
