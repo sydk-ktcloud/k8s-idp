@@ -55,6 +55,33 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # kube-apiserver 접근 (CSI attacher, longhorn-manager 등 필수)
+    # ClusterIP(10.96.0.1) + 실제 엔드포인트(192.168.122.109) 모두 허용
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              component: kube-apiserver
+        - ipBlock:
+            cidr: 10.96.0.0/12
+        - ipBlock:
+            cidr: 192.168.122.109/32
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    # kubelet 접근 (볼륨 attach/detach 등)
+    - to:
+        - ipBlock:
+            cidr: 192.168.122.0/24
+      ports:
+        - protocol: TCP
+          port: 10250
+        - protocol: TCP
+          port: 6443
     # MinIO S3 백업 타겟 접근
     - to:
         - namespaceSelector:

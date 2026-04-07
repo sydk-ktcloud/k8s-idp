@@ -38,52 +38,10 @@ spec:
     - Egress
 
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-all
-  namespace: backstage
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
-
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-all
-  namespace: kubecost
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
-
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-all
-  namespace: longhorn-system
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
-
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-all
-  namespace: crossplane-system
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
+# backstage: deny-all 제거 — allow 정책에 apiserver egress 추가 후 재적용
+# longhorn-system: deny-all 제거 — CSI attacher가 apiserver 접근 필수
+# kubecost: deny-all 제거 — apiserver 접근 필요
+# crossplane-system: deny-all 제거 — apiserver 접근 필수
 
 ---
 apiVersion: networking.k8s.io/v1
