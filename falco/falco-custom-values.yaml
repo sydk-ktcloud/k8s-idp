@@ -40,7 +40,9 @@ falcosidekick:
         requests:
           memory: "128Mi"
           cpu: "100m"
-    
+      extraEnvVars:
+        - name: REDIS_ARGS
+          value: "--maxmemory 150mb --maxmemory-policy allkeys-lru --save '' --appendonly no"
 
     # 2. UI 화면 자체 리소스 (프론트엔드)
     resources:
@@ -303,7 +305,7 @@ customRules:
         - /etc/istio/
         - /etc/ssh/sshd_config
         - /root/.ssh/
-        - /home/
+        - /home/*/.ssh/
         - /usr/bin/
         - /usr/sbin/
         - /bin/
@@ -402,6 +404,14 @@ customRules:
         - tini
         - dumb-init
         - systemd
+
+    # ptrace 예외 프로세스 (Rule 9에서 인라인 → list로 분리)
+    - list: allowed_ptrace_procs
+      items:
+        - gdb
+        - lldb
+        - strace
+        - ltrace
 
     # [수정] 네트워크/디버그 도구 목록 (Rule 7에서 인라인 → list로 분리)
     - list: network_debug_tools
@@ -646,6 +656,16 @@ customRules:
       condition: >
         fd.rnet in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "::1/128")
 
+    # 외부 연결이 정상인 운영 파드
+    - macro: is_ops_outbound_pod
+      condition: >
+        k8s.ns.name = "argocd" or
+        k8s.ns.name = "monitoring" or
+        k8s.ns.name = "velero" or
+        k8s.ns.name = "backstage" or
+        k8s.ns.name = "cert-manager" or
+        proc.name = tailscaled
+
     # 네트워크 인프라 파드 (외부 연결 허용 대상)
     - macro: is_infra_pod
       condition: >
@@ -654,7 +674,8 @@ customRules:
         is_hubble_pod or
         is_kube_apiserver_pod or
         is_prometheus_node_exporter_pod or
-        is_kube_proxy_pod 
+        is_kube_proxy_pod or
+        is_ops_outbound_pod
 
 
     # ============================================================================
@@ -936,7 +957,7 @@ customRules:
         예외처리된 시스템 파드에서도 ptrace는 비정상.
       condition: >
         is_ptrace_syscall and
-        not proc.name in (gdb, lldb, strace, ltrace)
+        not proc.name in (allowed_ptrace_procs)
       output: >
         [CRITICAL][HIDS-ptrace] ptrace syscall detected - possible privilege escalation or memory dump
         (user=%user.name user_uid=%user.uid
