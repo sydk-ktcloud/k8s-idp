@@ -49,6 +49,19 @@ prometheus:
           - record: active:pending_pods:count
             expr: |
               count(kube_pod_status_phase{phase="Pending",namespace!~"kube-system|monitoring|gitops"}) or vector(0)
+      crossplane-provider-alerts:
+        groups:
+        - name: crossplane.provider.health
+          rules:
+          - alert: CrossplaneProviderCrashLoop
+            expr: |
+              kube_pod_container_status_waiting_reason{namespace="crossplane-system", reason="CrashLoopBackOff"} > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Crossplane provider {{ $labels.pod }} CrashLoopBackOff"
+              description: "CRD conversion webhook 장애로 ArgoCD 클러스터 캐시 및 API 서버 LIST 요청에 영향 가능"
 
     # Storage - Longhorn PVC
     storageSpec:
@@ -84,6 +97,27 @@ prometheus:
 
 # Alertmanager Configuration
 alertmanager:
+  config:
+    route:
+      receiver: "null"
+      routes:
+        - receiver: discord-cluster
+          matchers:
+            - alertname =~ "CrossplaneProviderCrashLoop|KubeNodeNotReady|KubeNodeUnreachable|KubeControllerManagerDown|KubeSchedulerDown|KubeAPIDown"
+          continue: false
+    receivers:
+      - name: "null"
+      - name: discord-cluster
+        slack_configs:
+          - api_url: "https://discord.com/api/webhooks/1489086014009118852/2SSBW95dXiDWh0asdSV623Ox-i6G75O48R_tijZv7PH5aDBiglfetScHWQaSd3N6USms/slack"
+            channel: "클러스터-알림"
+            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+            text: |-
+              {{ range .Alerts }}
+              *{{ .Annotations.summary }}*
+              {{ .Annotations.description }}
+              {{ end }}
+            send_resolved: true
   alertmanagerSpec:
     podMetadata:
       labels:

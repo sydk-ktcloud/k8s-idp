@@ -13,6 +13,15 @@ configs:
   cm:
     url: http://100.64.0.1:30081
     accounts.ci: login
+    # Crossplane CRD conversion webhook 장애 시 ArgoCD 클러스터 캐시 hang 방지
+    resource.exclusions: |
+      - apiGroups:
+        - "*.upbound.io"
+        - "*.crossplane.io"
+        kinds:
+        - "*"
+        clusters:
+        - "*"
     oidc.config: |
       name: Dex
       issuer: http://100.64.0.1:30556
@@ -133,32 +142,14 @@ dex:
   enabled: false
 
 redis:
-  enabled: false
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
 redis-ha:
-  enabled: true
-  replicas: 3
-  redis:
-    resources:
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 50m
-        memory: 64Mi
-  haproxy:
-    replicas: 3
-    resources:
-      limits:
-        cpu: 100m
-        memory: 64Mi
-      requests:
-        cpu: 50m
-        memory: 32Mi
-  affinity: |
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: argocd-redis-ha
-          topologyKey: kubernetes.io/hostname
+  enabled: false
