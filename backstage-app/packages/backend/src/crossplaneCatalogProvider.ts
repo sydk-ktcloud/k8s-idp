@@ -9,6 +9,7 @@ import {
 } from '@backstage/plugin-catalog-node';
 import { Entity } from '@backstage/catalog-model';
 import * as https from 'https';
+import * as http from 'http';
 import { readFileSync, existsSync } from 'fs';
 
 // ─── Crossplane Claim 타입 정의 ────────────────────────────────
@@ -182,6 +183,80 @@ function buildConsoleLink(
   }
 }
 
+// ─── Discord 프로비저닝 완료 알림 ─────────────────────────────────
+const DISCORD_WEBHOOK_URL =
+  process.env.DISCORD_LIFECYCLE_WEBHOOK ||
+  'https://discord.com/api/webhooks/1489274245438636132/00afuXc2i94ITdc3Bt1rKU1VdxzL2xhYd7alXlpRMYFrsDfzjXtwkLdwk1N0Cks3FzqT';
+
+function sendDiscordNotification(
+  name: string,
+  cloud: CloudProvider,
+  kind: string,
+  category: ResourceCategory,
+  owner: string,
+  endpoint: string,
+  consoleLink: ConsoleLink | null,
+): Promise<void> {
+  const cloudEmoji: Record<CloudProvider, string> = {
+    GCP: '🟢',
+    AWS: '🟠',
+    Azure: '🔵',
+  };
+
+  const fields: Array<{ name: string; value: string; inline: boolean }> = [
+    { name: '클라우드', value: `${cloudEmoji[cloud]} ${cloud}`, inline: true },
+    { name: '리소스 종류', value: `${kind} (${category})`, inline: true },
+    { name: '소유자', value: owner, inline: true },
+  ];
+
+  if (endpoint) {
+    fields.push({ name: '접속 정보', value: `\`${endpoint}\``, inline: false });
+  }
+
+  if (consoleLink) {
+    fields.push({ name: '클라우드 콘솔', value: `[${consoleLink.title}](${consoleLink.url})`, inline: false });
+  }
+
+  fields.push({
+    name: '카탈로그',
+    value: `[Backstage에서 보기](http://100.64.0.1:30070/catalog/default/resource/${name})`,
+    inline: false,
+  });
+
+  const payload = JSON.stringify({
+    embeds: [{
+      title: `✅ 프로비저닝 완료 — ${name}`,
+      description: `**${name}** 리소스가 성공적으로 프로비저닝되었습니다.`,
+      color: 0x00c853,
+      fields,
+      timestamp: new Date().toISOString(),
+      footer: { text: 'K8S-IDP 프로비저닝 알림' },
+    }],
+  });
+
+  const url = new URL(DISCORD_WEBHOOK_URL);
+
+  return new Promise((resolve) => {
+    const mod = url.protocol === 'https:' ? https : http;
+    const req = mod.request(
+      {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname + url.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+      },
+      () => resolve(),
+    );
+    req.on('error', () => resolve());
+    req.write(payload);
+    req.end();
+  });
+}
+
 // ─── K8s In-Cluster API 호출 ───────────────────────────────────
 const SA_TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token';
 const SA_CA_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt';
@@ -226,6 +301,7 @@ function k8sFetch(path: string): Promise<any> {
 class CrossplaneEntityProvider implements EntityProvider {
   private connection?: EntityProviderConnection;
   private readonly logger: { info: (msg: string) => void; warn: (msg: string) => void };
+  private readonly notifiedResources = new Set<string>();
 
   constructor(logger: { info: (msg: string) => void; warn: (msg: string) => void }) {
     this.logger = logger;
@@ -302,6 +378,18 @@ class CrossplaneEntityProvider implements EntityProvider {
 
           const links: Array<{ url: string; title: string; icon: string }> = [];
           if (consoleLink) links.push(consoleLink);
+
+          // Discord 알림: Ready로 전환된 리소스에 대해 1회 발송
+          const resourceKey = `${ct.plural}/${item.metadata.name}`;
+          if (isReady && !this.notifiedResources.has(resourceKey)) {
+            this.notifiedResources.add(resourceKey);
+            sendDiscordNotification(
+              item.metadata.name, ct.cloud, ct.kind, ct.category,
+              owner, endpoint, consoleLink,
+            ).then(() => {
+              this.logger.info(`Discord 알림 발송: ${resourceKey}`);
+            });
+          }
 
           entities.push({
             apiVersion: 'backstage.io/v1alpha1',
