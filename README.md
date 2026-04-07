@@ -457,6 +457,66 @@ k8s-idp/
 
 ---
 
+## 시연 시나리오
+
+### 시나리오 A: 셀프서비스 클라우드 프로비저닝 (개발자 경험)
+
+개발자가 Backstage에서 클라우드 리소스를 요청하면 **코드 한 줄 없이** 실제 인프라가 프로비저닝되는 전체 흐름을 시연합니다.
+
+```
+Backstage Scaffolder → GitHub PR 자동 생성 → ArgoCD 감지·동기화 → Crossplane Composition → 클라우드 리소스 생성
+```
+
+**시연 흐름:**
+
+| 단계 | 동작 | 확인 포인트 |
+|------|------|-------------|
+| 1. 리소스 요청 | Backstage 마법사에서 3문항 입력 (클라우드/리소스 타입/스펙) | 수명주기 필드 필수 입력 (tier, expires-at, cost-center) |
+| 2. PR 생성 | Scaffolder가 Crossplane Claim YAML을 포함한 PR 자동 생성 | GitHub에서 PR 확인, prod 티어는 플랫폼팀 승인 필요 |
+| 3. GitOps 동기화 | PR 머지 → ArgoCD가 변경 감지 → 자동 sync | ArgoCD UI에서 Claim 리소스 상태 확인 |
+| 4. 리소스 프로비저닝 | Crossplane이 Claim → Composition → 클라우드 API 호출 | 클라우드 콘솔에서 실제 리소스 생성 확인 |
+| 5. ChatOps 연동 | Discord 봇으로 생성된 리소스 조회·관리 | `/resources`, `/expiring`, `/extend` 커맨드 시연 |
+
+**핵심 메시지:** 개발자는 클라우드 CLI/콘솔을 몰라도 Backstage UI만으로 리소스 프로비저닝이 가능하며, 수명주기 정책(Kyverno)이 자동 적용되고, ChatOps로 운영까지 셀프서비스로 수행할 수 있습니다.
+
+### 시나리오 B: 관찰가능성 및 장애 원인 분석 (운영 역량)
+
+LGTM 스택 기반 모니터링 대시보드와 Locust 부하 테스트를 통해 **장애 감지부터 근본 원인 파악까지 3분 이내** 가능함을 시연합니다.
+
+#### B-1. K8s 클러스터 통합 대시보드
+
+`k8s-cluster-monitoring-configmap.yaml` — 클러스터 전체 상태를 한눈에 파악하는 올인원 대시보드:
+
+| 섹션 | 주요 패널 |
+|------|-----------|
+| **클러스터 요약** | 컨트롤 플레인 가동률, 노드 현황, 네임스페이스 수, PVC 수, API 서버 응답 속도 (P99) |
+| **워크로드 현황** | 네임스페이스/노드별 파드 분포, 파드 상태 종합 (Running/Pending/Failed), DaemonSet, LoadBalancer |
+| **노드 리소스** | 노드별 CPU 사용률, 메모리 사용량, 네트워크 트래픽, API 서버 호출 빈도 |
+| **파드 상세** | 개별 노드/파드의 CPU/메모리 할당·제한, PVC 정보, 재시작 횟수, 스레드 수 |
+
+#### B-2. trip-app 장애 시나리오 대시보드
+
+`trip-app-scenario-configmap.yaml` — 에러 감지 → 로그 → 트레이스 → 병목 확인까지 4단계로 구성된 장애 분석 대시보드:
+
+| 단계 | 패널 | 분석 목적 |
+|------|------|-----------|
+| **STEP 1: 이상 감지** | 에러율 (5xx), P99 응답시간, RPS, 힙 메모리/CPU/메모리 사용률 | 서비스 이상 징후 포착 |
+| **STEP 2: 에러 로그 확인** | 로그 레벨별 추이, 서비스별 에러 수, 에러 로그 상세 (trace_id 클릭 → Tempo 이동) | Loki에서 에러 로그 확인 및 Trace ID 추출 |
+| **STEP 3: 트레이스 분석** | 트레이스 검색, 스팬 P95/P99, 서비스별 에러율 | Tempo에서 느린 span/에러 span으로 병목 구간 파악 |
+| **STEP 4: 원인 확정** | JVM 힙 메모리, GC 횟수/소요시간, 스레드 수, Pod CPU/메모리/재시작 | JVM·인프라 메트릭 상관관계로 근본 원인 확정 |
+
+**시연 흐름:**
+
+```
+Locust 부하 생성 (trip-app) → Grafana STEP 1에서 5xx 에러율 스파이크 감지
+→ STEP 2에서 에러 로그의 trace_id 클릭 → STEP 3 Tempo에서 병목 span 확인
+→ STEP 4에서 JVM GC/메모리와 응답 지연 상관관계로 원인 확정
+```
+
+**핵심 메시지:** Metrics(Prometheus) → Logs(Loki) → Traces(Tempo) 간 seamless 연동으로, 장애 발생 시 대시보드 하나에서 감지부터 근본 원인까지 추적할 수 있습니다.
+
+---
+
 ## Troubleshooting
 
 ### Pod Eviction — DiskPressure (ephemeral-storage)
