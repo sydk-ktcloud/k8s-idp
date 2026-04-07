@@ -30,13 +30,7 @@ spec:
                 "serviceKeySecret": "{{ .aws_secret_access_key }}"
               }
             ],
-            "gcp": [
-              {
-                "projectID": "sydk-ktcloud",
-                "billingDataDataset": "billing_export.gcp_billing_export_v1_01B26E_30705E_19E209",
-                "key": {{ .gcp_service_account_key }}
-              }
-            ],
+            "gcp": [],
             "azure": []
           }
   data:
