@@ -36,6 +36,14 @@ spec:
                 "billingDataDataset": "billing_export.gcp_billing_export_v1_01B26E_30705E_19E209",
                 "key": {{ .gcp_service_account_key }}
               }
+            ],
+            "azure": [
+              {
+                "subscriptionID": "167a7398-202a-4522-bb2e-fc2c1bf7d467",
+                "azuretenantID": "ea65378a-b4c2-4945-836e-204480904282",
+                "azureClientID": "{{ .azure_client_id }}",
+                "azureClientSecret": "{{ .azure_client_secret }}"
+              }
             ]
           }
   data:
@@ -51,3 +59,11 @@ spec:
       remoteRef:
         key: k8s/kubecost/cloud-integration
         property: gcp_service_account_key
+    - secretKey: azure_client_id
+      remoteRef:
+        key: k8s/kubecost/cloud-integration
+        property: azure_client_id
+    - secretKey: azure_client_secret
+      remoteRef:
+        key: k8s/kubecost/cloud-integration
+        property: azure_client_secret
