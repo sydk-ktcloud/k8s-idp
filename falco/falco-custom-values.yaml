@@ -1,0 +1,1112 @@
+
+# Falco 드라이버 설정
+# Modern eBPF 프로브 사용 — 커널 모듈 의존성 제거 및 성능 향상
+# ----------------------------------------------------------------------------
+driver:
+  kind: modern_ebpf
+
+# ----------------------------------------------------------------------------
+# Falcosidekick UI Redis 설정
+# Redis RDB 스냅샷 비활성화 — UI 캐시 용도로 persistence 불필요
+
+# Talon 연동 — Falco 이벤트 자동 대응
+# ----------------------------------------------------------------------------
+falcosidekick:
+  enabled: true
+  # 1. 사이드킥 자체 리소스 (백엔드)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+  config:
+    discord:
+      webhookurlsecret: "falcosidekick-secrets"
+      minimumpriority: "warning"
+
+    talon:
+      address: http://falco-talon:2803
+
+  webui:
+    enabled: true
+    redis:
+      resources:
+        limits:
+          memory: "256Mi"
+          cpu: "200m"
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+    
+
+    # 2. UI 화면 자체 리소스 (프론트엔드)
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+# ----------------------------------------------------------------------------
+# Falco Talon 대응 룰 설정
+# Falco 탐지 이벤트별 자동 대응 정의
+# ----------------------------------------------------------------------------
+
+responseActions:
+  enabled: true
+
+falco-talon:
+  config:
+    rulesOverride: |
+      - rule: Unexpected Process Execution Response
+        match:
+          rules:
+            - HIDS - Unexpected Process Execution in Container
+        actions:
+          - action: Network Block
+            actionner: kubernetes:networkpolicy
+            parameters:
+              allow_namespaces:
+                - kube-system
+                - falco
+
+      - rule: Reverse Shell Response
+        match:
+          rules:
+            - Runtime - Reverse Shell Detected
+        actions:
+          - action: Terminate Pod
+            actionner: kubernetes:terminate
+            parameters:
+              ignore_daemonsets: true
+              ignore_statefulsets: true
+              grace_period_seconds: 5
+
+      - rule: Bind Shell Response
+        match:
+          rules:
+            - Runtime - Bind Shell Detected
+          output_fields:
+            - k8s.ns.name!=longhorn-system
+            - k8s.ns.name!=kube-system
+        actions:
+          - action: Terminate Pod
+            actionner: kubernetes:terminate
+            parameters:
+              ignore_daemonsets: true
+              ignore_statefulsets: true
+              grace_period_seconds: 5
+
+      - rule: Sensitive File Write Response
+        match:
+          rules:
+            - FIM - Sensitive File Write Detected
+        actions:
+          - action: Network Block
+            actionner: kubernetes:networkpolicy
+            parameters:
+              allow_namespaces:
+                - kube-system
+                - falco
+
+      - rule: Kernel Module Load Response
+        match:
+          rules:
+            - HIDS - Kernel Module Load Detected
+        actions:
+          - action: Terminate Pod
+            actionner: kubernetes:terminate
+            parameters:
+              ignore_daemonsets: true
+              ignore_statefulsets: true
+              grace_period_seconds: 5
+
+      - rule: Unexpected Outbound Connection Response
+        match:
+          rules:
+            - Runtime - Unexpected Outbound Connection to External IP
+          output_fields:
+            - k8s.ns.name!=kube-system
+        actions:
+          - action: Network Block
+            actionner: kubernetes:networkpolicy
+            parameters:
+              allow_namespaces:
+                - kube-system
+                - falco
+
+falco:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+
+  rules_files:
+    - /etc/falco/falco_rules.yaml
+    - /etc/falco/falco_rules.local.yaml
+    - /etc/falco/rules.d/falco_custom_rules.yaml
+
+customRules:
+  falco_custom_rules.yaml: |-
+    ##############################################################################
+    # falco_custom_rules.yaml
+    # Custom Falco Rules: FIM + HIDS + Runtime Detection
+    # Generated for K8s cluster security hardening
+    # Sections: Lists → Macros → Rules
+    #
+    # [수정 이력]
+    # - startswith (list) → pmatch 으로 교체 (fd.name 경로 매칭) [falco.org Condition Syntax]
+    # - Rule 8 Reverse Shell: evt.type = execve 중복 제거 [코드 내부 논리 모순]
+    # - Rule 9 ptrace: 인라인 문자열 따옴표 추가 + allowed_ptrace_procs 리스트 분리 [falco.org Condition Syntax]
+    # - k8s.pod.name startswith (list): 원본 유지
+    ##############################################################################
+
+    # ============================================================================
+    # SECTION 1: LISTS
+    # ============================================================================
+
+    # ----------------------------------------------------------------------------
+    # 1-1. 예외처리 파드 목록 (그룹별)
+    # ----------------------------------------------------------------------------
+
+    # [보안/네트워크] Falco, Cilium, kube-proxy
+    - list: falco_pods
+      items:
+        - falco
+
+    - list: cilium_pods
+      items:
+        - cilium
+        - cilium-envoy
+        - cilium-operator
+
+    - list: kube_proxy_pods
+      items:
+        - kube-proxy
+
+    # [스토리지] Longhorn, CSI
+    - list: longhorn_pods
+      items:
+        - longhorn-manager
+        - longhorn-driver-deployer
+        - longhorn-ui
+        - engine-image
+        - instance-manager
+
+    - list: csi_pods
+      items:
+        - csi-attacher
+        - csi-provisioner
+        - csi-resizer
+        - csi-snapshotter
+        - longhorn-csi-plugin
+
+    # [모니터링] Prometheus Node Exporter, Trivy node-collector
+    - list: prometheus_node_exporter_pods
+      items:
+        - prometheus-prometheus-node-exporter
+
+    - list: trivy_node_collector_pods
+      items:
+        - node-collector
+
+    # [인프라 핵심] etcd, kube-apiserver, kube-scheduler, kube-controller-manager, coredns, hubble
+    - list: etcd_pods
+      items:
+        - etcd
+
+    - list: kube_apiserver_pods
+      items:
+        - kube-apiserver
+
+    - list: kube_control_plane_pods
+      items:
+        - kube-scheduler
+        - kube-controller-manager
+
+    - list: coredns_pods
+      items:
+        - coredns
+
+    - list: hubble_pods
+      items:
+        - hubble-relay
+        - hubble-ui
+
+    # [서비스 메시] Istio
+    - list: istio_control_plane_pods
+      items:
+        - istiod
+
+    - list: istio_cni_pods
+      items:
+        - istio-cni-node
+
+    - list: ztunnel_pods
+      items:
+        - ztunnel
+
+    # ----------------------------------------------------------------------------
+    # 1-2. 네임스페이스 목록
+    # ----------------------------------------------------------------------------
+
+    - list: falco_namespaces
+      items:
+        - falco
+
+    - list: kube_system_namespaces
+      items:
+        - kube-system
+
+    - list: longhorn_namespaces
+      items:
+        - longhorn-system
+
+    - list: monitoring_namespaces
+      items:
+        - monitoring
+
+    - list: trivy_namespaces
+      items:
+        - trivy-system
+
+    - list: istio_namespaces
+      items:
+        - istio-system
+
+    # ----------------------------------------------------------------------------
+    # 1-3. FIM 감시 경로 목록
+    # ----------------------------------------------------------------------------
+
+    # [pmatch 최적화] 모든 민감 경로 통합 리스트
+    - list: all_sensitive_paths
+      items:
+        - /etc/kubernetes/pki/
+        - /etc/falco/falco_rules.yaml
+        - /etc/falco/falco.yaml
+        - /etc/falco/
+        - /etc/cni/net.d/
+        - /opt/cni/bin/
+        - /etc/shadow
+        - /etc/passwd
+        - /etc/gshadow
+        - /etc/group
+        - /var/run/secrets/kubernetes.io/serviceaccount/
+        - /var/run/secrets/
+        - /etc/certs/
+        - /etc/istio/
+        - /etc/ssh/sshd_config
+        - /root/.ssh/
+        - /home/
+        - /usr/bin/
+        - /usr/sbin/
+        - /bin/
+        - /sbin/
+        - /etc/kubernetes/
+        - /etc/kubernetes/manifests/
+        - /var/lib/etcd/
+        - /var/lib/kubelet/plugins/
+        - /var/run/cilium/hubble.sock
+        - /etc/longhorn/
+        - /var/lib/kube-proxy/
+        - /etc/coredns/
+
+
+    # ----------------------------------------------------------------------------
+    # 1-4. FIM 허용 프로세스 화이트리스트 (민감 파일 정상 접근 프로세스)
+    # ----------------------------------------------------------------------------
+
+    # PKI 인증서 정상 접근 프로세스
+    - list: allowed_k8s_pki_procs
+      items:
+        - kube-apiserver
+        - etcd
+        - kube-controller-manager
+        - kube-scheduler
+        - kubelet
+
+    # Falco 설정 정상 접근 프로세스
+    - list: allowed_falco_config_procs
+      items:
+        - falco
+        - falcoctl
+
+    # CNI 정상 접근 프로세스
+    - list: allowed_cni_procs
+      items:
+        - kubelet
+        - cilium-agent
+        - istiod
+        - istio-cni
+        - cni-installer
+
+    # 인증 파일 정상 읽기 프로세스
+    - list: allowed_auth_read_procs
+      items:
+        - node_exporter
+        - sshd
+        - login
+        - passwd
+        - sudo
+        - su
+
+    # 서비스 어카운트 토큰 정상 접근 프로세스
+    - list: allowed_serviceaccount_procs
+      items:
+        - kubelet
+        - kube-apiserver
+
+    # etcd 데이터 정상 접근 프로세스
+    - list: allowed_etcd_data_procs
+      items:
+        - etcd
+
+    # 시스템 바이너리 설치/업데이트 허용 프로세스
+    - list: allowed_binary_write_procs
+      items:
+        - dpkg
+        - apt
+        - apt-get
+        - rpm
+        - yum
+        - dnf
+        - snap
+        - pip
+        - npm
+
+    # 쉘 프로세스 목록 (비정상 쉘 탐지용)
+    - list: shell_binaries
+      items:
+        - bash
+        - sh
+        - dash
+        - zsh
+        - fish
+        - ksh
+        - tcsh
+        - csh
+        - ash
+
+    # 컨테이너 진입점 허용 쉘 (init/entrypoint 용도)
+    - list: allowed_shell_parent_procs
+      items:
+        - containerd-shim
+        - containerd-shim-runc-v2
+        - runc
+        - tini
+        - dumb-init
+        - systemd
+
+    # [수정] 네트워크/디버그 도구 목록 (Rule 7에서 인라인 → list로 분리)
+    - list: network_debug_tools
+      items:
+        - nc
+        - ncat
+        - nmap
+        - tcpdump
+        - wireshark
+        - tshark
+        - strace
+        - ltrace
+        - socat
+        - netcat
+        - masscan
+        - zmap
+        - arpspoof
+        - ettercap
+
+
+    # ============================================================================
+    # SECTION 2: MACROS
+    # ============================================================================
+
+    # ----------------------------------------------------------------------------
+    # 2-1. 그룹별 예외처리 Macro
+    # ----------------------------------------------------------------------------
+
+    # [보안/네트워크] Falco 파드
+    - macro: is_falco_pod
+      condition: >
+        k8s.ns.name in (falco_namespaces) and
+        (k8s.pod.name startswith "falco-")
+
+    # [보안/네트워크] Cilium 파드
+    - macro: is_cilium_pod
+      condition: >
+        k8s.ns.name in (kube_system_namespaces) and
+        (k8s.pod.name startswith "cilium-" or
+         k8s.pod.name startswith "cilium-envoy-" or
+         k8s.pod.name startswith "cilium-operator-")
+
+    # [보안/네트워크] kube-proxy 파드
+    - macro: is_kube_proxy_pod
+      condition: >
+        k8s.ns.name in (kube_system_namespaces) and
+        k8s.pod.name startswith "kube-proxy-"
+
+    # [스토리지] Longhorn 파드
+    - macro: is_longhorn_pod
+      condition: >
+        k8s.ns.name in (longhorn_namespaces) and
+        (k8s.pod.name startswith "longhorn-" or
+         k8s.pod.name startswith "engine-image-" or
+         k8s.pod.name startswith "instance-manager-")
+
+    # [스토리지] CSI 파드
+    - macro: is_csi_pod
+      condition: >
+        k8s.ns.name in (longhorn_namespaces) and
+        k8s.pod.name startswith "csi-"
+
+    # [모니터링] Prometheus Node Exporter
+    - macro: is_prometheus_node_exporter_pod
+      condition: >
+        k8s.ns.name in (monitoring_namespaces) and
+        k8s.pod.name startswith "prometheus-prometheus-node-exporter-"
+
+    # [모니터링] Trivy node-collector
+    - macro: is_trivy_node_collector_pod
+      condition: >
+        k8s.ns.name in (trivy_namespaces) and
+        k8s.pod.name startswith "node-collector-"
+
+    # [인프라 핵심] etcd
+    - macro: is_etcd_pod
+      condition: >
+        k8s.ns.name in (kube_system_namespaces) and
+        k8s.pod.name startswith "etcd-"
+
+    # [인프라 핵심] kube-apiserver
+    - macro: is_kube_apiserver_pod
+      condition: >
+        k8s.ns.name in (kube_system_namespaces) and
+        k8s.pod.name startswith "kube-apiserver-"
+
+    # [인프라 핵심] kube-scheduler / kube-controller-manager
+    - macro: is_kube_control_plane_pod
+      condition: >
+        k8s.ns.name in (kube_system_namespaces) and
+        (k8s.pod.name startswith "kube-scheduler-" or
+         k8s.pod.name startswith "kube-controller-manager-")
+
+    # [인프라 핵심] CoreDNS
+    - macro: is_coredns_pod
+      condition: >
+        k8s.ns.name in (kube_system_namespaces) and
+        k8s.pod.name startswith "coredns-"
+
+    # [인프라 핵심] Hubble
+    - macro: is_hubble_pod
+      condition: >
+        k8s.ns.name in (kube_system_namespaces) and
+        (k8s.pod.name startswith "hubble-relay-" or
+         k8s.pod.name startswith "hubble-ui-")
+
+    # [서비스 메시] istiod
+    - macro: is_istiod_pod
+      condition: >
+        k8s.ns.name in (istio_namespaces) and
+        k8s.pod.name startswith "istiod-"
+
+    # [서비스 메시] istio-cni-node
+    - macro: is_istio_cni_pod
+      condition: >
+        k8s.ns.name in (istio_namespaces) and
+        k8s.pod.name startswith "istio-cni-node-"
+
+    # [서비스 메시] ztunnel
+    - macro: is_ztunnel_pod
+      condition: >
+        k8s.ns.name in (istio_namespaces) and
+        k8s.pod.name startswith "ztunnel-"
+
+    # 통합: 모든 예외처리 파드
+    - macro: is_whitelisted_pod
+      condition: >
+        is_falco_pod or
+        is_cilium_pod or
+        is_kube_proxy_pod or
+        is_longhorn_pod or
+        is_csi_pod or
+        is_prometheus_node_exporter_pod or
+        is_trivy_node_collector_pod or
+        is_etcd_pod or
+        is_kube_apiserver_pod or
+        is_kube_control_plane_pod or
+        is_coredns_pod or
+        is_hubble_pod or
+        is_istiod_pod or
+        is_istio_cni_pod or
+        is_ztunnel_pod
+
+    # ----------------------------------------------------------------------------
+    # 2-2. 경로별 FIM 감시 Macro
+    # ----------------------------------------------------------------------------
+
+    # 통합: 모든 민감 경로
+    # [pmatch] 통합 민감 경로 매크로
+    - macro: is_sensitive_file
+      condition: fd.name pmatch (all_sensitive_paths)
+
+    # 개별 경로 매크로 (Rule에서 직접 쓰는 것만 유지)
+    - macro: is_k8s_pki_path
+      condition: fd.name pmatch (/etc/kubernetes/pki/)
+
+    - macro: is_falco_config_path
+      condition: fd.name pmatch (/etc/falco/)
+
+    - macro: is_cni_path
+      condition: fd.name pmatch (/etc/cni/net.d/, /opt/cni/bin/)
+
+    - macro: is_auth_path
+      condition: fd.name in (/etc/shadow, /etc/passwd, /etc/gshadow, /etc/group)
+
+    - macro: is_serviceaccount_token_path
+      condition: fd.name pmatch (/var/run/secrets/)
+
+    - macro: is_istio_cert_path
+      condition: fd.name pmatch (/etc/certs/, /etc/istio/)
+
+    - macro: is_system_binary_path
+      condition: fd.name pmatch (/usr/bin/, /usr/sbin/, /bin/, /sbin/, /opt/cni/bin/)
+
+    # ----------------------------------------------------------------------------
+    # 2-3. syscall 판별 Macro
+    # [수정] syscall.type → evt.type 전체 변경
+    # ----------------------------------------------------------------------------
+
+    - macro: is_write_syscall
+      condition: >
+        evt.type in (write, pwrite64, writev, pwritev, open, openat, openat2, creat) and
+        (evt.arg.flags contains O_WRONLY or
+         evt.arg.flags contains O_RDWR or
+         evt.arg.flags contains O_CREAT or
+         evt.arg.flags contains O_TRUNC or
+         evt.arg.flags contains O_APPEND)
+
+    - macro: is_delete_syscall
+      condition: >
+        evt.type in (unlink, unlinkat, rename, renameat, renameat2, rmdir)
+
+    - macro: is_exec_syscall
+      condition: >
+        evt.type in (execve, execveat)
+
+    - macro: is_ptrace_syscall
+      condition: >
+        evt.type = ptrace
+
+    - macro: is_kmod_syscall
+      condition: >
+        evt.type in (init_module, finit_module, delete_module)
+
+    - macro: is_network_syscall
+      condition: >
+        evt.type in (socket, connect, bind, listen, accept, accept4, sendto, recvfrom, sendmsg, recvmsg)
+
+    # 쓰기 이벤트 열기 (open/openat with write flags)
+    - macro: open_write
+      condition: >
+        (evt.type in (open, openat, openat2, creat)) and
+        (evt.arg.flags contains O_WRONLY or
+         evt.arg.flags contains O_RDWR or
+         evt.arg.flags contains O_CREAT or
+         evt.arg.flags contains O_TRUNC)
+
+    # 읽기 전용 열기
+    - macro: open_read
+      condition: >
+        (evt.type in (open, openat, openat2)) and
+        not (evt.arg.flags contains O_WRONLY or
+             evt.arg.flags contains O_RDWR or
+             evt.arg.flags contains O_CREAT or
+             evt.arg.flags contains O_TRUNC or
+             evt.arg.flags contains O_APPEND)
+
+    # 컨테이너 내부 여부
+    - macro: in_container
+      condition: container.id != host
+
+    # 특권 컨테이너
+    - macro: is_privileged_container
+      condition: container.privileged = true
+
+    # ----------------------------------------------------------------------------
+    # 2-4. 네트워크 판별 Macro (Rule 12용)
+    # [수정] fd.rip CIDR 필터 → startswith 방식으로 변경 (버전 호환성)
+    # ----------------------------------------------------------------------------
+
+    - macro: is_private_net
+      condition: >
+        fd.rnet in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "::1/128")
+
+    # 네트워크 인프라 파드 (외부 연결 허용 대상)
+    - macro: is_infra_pod
+      condition: >
+        is_cilium_pod or
+        is_coredns_pod or
+        is_hubble_pod or
+        is_kube_apiserver_pod or
+        is_prometheus_node_exporter_pod or
+        is_kube_proxy_pod 
+
+
+    # ============================================================================
+    # SECTION 3: RULES
+    # ============================================================================
+
+    # ----------------------------------------------------------------------------
+    # Rule 1: FIM-Write - 민감 파일 쓰기 탐지 (CRITICAL)
+    # ----------------------------------------------------------------------------
+    - rule: FIM - Sensitive File Write Detected
+      desc: >
+        민감 경로(K8s PKI, CNI, etcd, Falco 설정 등)에 대한 쓰기 접근 탐지.
+        예외처리된 시스템 파드라도 해당 파일 쓰기는 항상 알림.
+      condition: >
+        open_write and
+        is_sensitive_file and
+        not proc.name in (allowed_k8s_pki_procs) and
+        not proc.name in (allowed_cni_procs) and
+        not proc.name in (allowed_etcd_data_procs) and
+        not proc.name in (allowed_binary_write_procs)
+      output: >
+        [CRITICAL][FIM-Write] Sensitive file written
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [fim, write, sensitive_file, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 2: FIM-Delete - 민감 파일 삭제/이름변경 탐지 (CRITICAL)
+    # ----------------------------------------------------------------------------
+    - rule: FIM - Sensitive File Delete or Rename Detected
+      desc: >
+        민감 경로의 파일이 삭제되거나 이름이 변경된 경우 탐지.
+        인증서, 설정 파일, CNI 바이너리 교체 공격 등 탐지.
+      condition: >
+        is_delete_syscall and
+        is_sensitive_file
+      output: >
+        [CRITICAL][FIM-Delete] Sensitive file deleted or renamed
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [fim, delete, rename, sensitive_file, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 3: FIM-Falco - Falco 설정 파일 접근 탐지 (WARNING)
+    # ----------------------------------------------------------------------------
+    - rule: FIM - Falco Config File Accessed
+      desc: >
+        Falco 자신 또는 falcoctl 이외의 프로세스가 Falco 설정 파일에 접근 시 탐지.
+        Falco 설정 변조는 탐지 우회로 직결.
+      condition: >
+        (open_write or open_read) and
+        is_falco_config_path and
+        not proc.name in (allowed_falco_config_procs)
+      output: >
+        [WARNING][FIM-Falco] Falco config file accessed by unexpected process
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [fim, falco, config, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 4: FIM-PKI ? K8s 인증서 경로 접근 탐지 (CRITICAL)
+    # ----------------------------------------------------------------------------
+    - rule: FIM - K8s PKI Certificate File Accessed
+      desc: >
+        /etc/kubernetes/pki/ 경로에 비인가 프로세스가 접근하는 경우 탐지.
+        인증서 탈취 시 클러스터 전체 장악 가능.
+      condition: >
+        (open_write or open_read) and
+        is_k8s_pki_path and
+        not proc.name in (allowed_k8s_pki_procs)
+      output: >
+        [CRITICAL][FIM-PKI] K8s PKI certificate accessed by unexpected process
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [fim, pki, certificate, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 5: FIM-Auth ? /etc/shadow 등 인증 파일 쓰기 탐지 (CRITICAL)
+    # ----------------------------------------------------------------------------
+    - rule: FIM - System Auth File Written
+      desc: >
+        /etc/shadow, /etc/passwd 등 시스템 인증 파일에 대한 쓰기 접근 탐지.
+        읽기는 허용된 프로세스에 한해 허용하되 쓰기는 항상 알림.
+      condition: >
+        open_write and
+        is_auth_path
+      output: >
+        [CRITICAL][FIM-Auth] System auth file written
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [fim, auth, shadow, passwd, k8s]
+
+    # 인증 파일 비인가 읽기도 WARNING으로 탐지
+    - rule: FIM - System Auth File Read by Unexpected Process
+      desc: >
+        허용되지 않은 프로세스가 /etc/shadow, /etc/passwd 등을 읽는 경우 탐지.
+        node-collector 등 스캔 도구에서 발생 가능하나 최소화 필요.
+      condition: >
+        open_read and
+        is_auth_path and
+        not proc.name in (allowed_auth_read_procs) and
+        not (is_longhorn_pod and fd.name = "/etc/passwd" and proc.cmdline contains "longhorn version")
+
+      output: >
+        [WARNING][FIM-Auth] System auth file read by unexpected process
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [fim, auth, shadow, passwd, read, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 6: FIM-Binary ? 시스템 바이너리 변조 탐지 (CRITICAL)
+    # ----------------------------------------------------------------------------
+    - rule: FIM - System Binary Modification Detected
+      desc: >
+        /usr/bin, /bin, /sbin, /opt/cni/bin 등 시스템 바이너리 경로에 대한 쓰기/삭제 탐지.
+        CNI 바이너리 교체 공격, 루트킷 설치, 트로이목마 삽입 등 탐지.
+      condition: >
+        (open_write or is_delete_syscall) and
+        is_system_binary_path and
+        not proc.name in (allowed_binary_write_procs) and
+        not proc.name in (allowed_cni_procs)
+      output: >
+        [CRITICAL][FIM-Binary] System binary modification attempted
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [fim, binary, tampering, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 7: HIDS-Exec ? 컨테이너 내 비정상 프로세스 실행 탐지 (WARNING)
+    # ----------------------------------------------------------------------------
+    - rule: HIDS - Unexpected Process Execution in Container
+      desc: >
+        컨테이너 내에서 비정상적인 프로세스(쉘, 디버그 도구, 네트워크 유틸 등)가 실행되는 경우 탐지.
+        예외처리된 시스템 파드에서도 일부 도구 실행은 비정상.
+      condition: >
+        is_exec_syscall and
+        in_container and
+        proc.name in (shell_binaries) and
+        not proc.pname in (allowed_shell_parent_procs) and
+        not is_falco_pod and
+        not is_cilium_pod and
+        not is_longhorn_pod and
+        not is_csi_pod
+      output: >
+        [WARNING][HIDS-Exec] Unexpected shell execution in container
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline
+         args=%proc.args)
+      priority: WARNING
+      tags: [hids, exec, shell, container, k8s]
+
+    # [수정] 네트워크/디버그 도구 실행 탐지 ? 인라인 값 → list 참조로 변경
+    - rule: HIDS - Network/Debug Tool Execution in Container
+      desc: >
+        컨테이너 내에서 nc, nmap, tcpdump, wget, curl 등 네트워크/디버그 도구가 실행되는 경우 탐지.
+      condition: >
+        is_exec_syscall and
+        in_container and
+        proc.name in (network_debug_tools)
+      output: >
+        [WARNING][HIDS-Exec] Network or debug tool executed in container
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [hids, exec, network_tool, debug_tool, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 8: Runtime-Shell  Reverse Shell / Bind Shell 탐지 (WARNING)
+    # [수정] 탭/스페이스 혼용 → 스페이스 통일
+    # [수정] Bind Shell: syscall.type → evt.type
+    # ----------------------------------------------------------------------------
+    - rule: Runtime - Reverse Shell Detected
+      desc: >
+        stdin/stdout이 소켓으로 리다이렉트된 쉘 프로세스 탐지 (Reverse Shell 패턴).
+        공격자가 원격에서 컨테이너 내 쉘을 획득하는 전형적인 공격 기법.
+      condition: >
+        is_exec_syscall
+        and proc.name in (shell_binaries)
+        and (fd.num in (0, 1, 2) and fd.type in (ipv4, ipv6))
+      output: >
+        [WARNING][Runtime-Shell] Possible reverse shell detected
+        (user=%user.name user_uid=%user.uid proc=%proc.name pid=%proc.pid
+         parent=%proc.pname fd_num=%fd.num fd_type=%fd.type fd_name=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [runtime, reverse_shell, shell, network, k8s]
+
+    # [수정] syscall.type = bind → evt.type = bind
+    - rule: Runtime - Bind Shell Detected
+      desc: >
+        쉘 프로세스가 네트워크 소켓을 바인드하는 경우 탐지 (Bind Shell 패턴).
+      condition: >
+        evt.type = bind and
+        proc.name in (shell_binaries) and
+        not is_longhorn_pod and
+        not is_csi_pod and
+        not is_kube_proxy_pod
+      output: >
+        [WARNING][Runtime-Shell] Possible bind shell detected
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [runtime, bind_shell, shell, network, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 9: HIDS-ptrace - 권한 상승 / 메모리 덤프 탐지 (CRITICAL)
+    # ----------------------------------------------------------------------------
+    - rule: HIDS - ptrace Syscall Detected
+      desc: >
+        ptrace syscall은 프로세스 메모리 접근, 권한 상승, 디버거 주입에 활용됨.
+        정상 컨테이너 워크로드에서 ptrace는 불필요하며 탐지 필요.
+        예외처리된 시스템 파드에서도 ptrace는 비정상.
+      condition: >
+        is_ptrace_syscall and
+        not proc.name in (gdb, lldb, strace, ltrace)
+      output: >
+        [CRITICAL][HIDS-ptrace] ptrace syscall detected - possible privilege escalation or memory dump
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         evt_type=%evt.type
+         ptrace_request=%evt.arg.request
+         target_pid=%evt.arg.pid
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [hids, ptrace, privilege_escalation, memory_dump, k8s]
+
+    # /proc/*/mem 직접 접근 탐지 (node-exporter 등 포함)
+    - rule: HIDS - Direct Process Memory Access via proc
+      desc: >
+        /proc/[pid]/mem 직접 접근은 비정상 메모리 덤프 시도.
+        node-exporter 등에서도 이 경로 접근은 허용 불가.
+      condition: >
+        open_read and
+        fd.name glob "/proc/*/mem"
+      output: >
+        [CRITICAL][HIDS-ptrace] Direct /proc/pid/mem access detected
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [hids, proc_mem, memory_access, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 10: HIDS-Kmod ? 커널 모듈 로드 탐지 (루트킷) (CRITICAL)
+    # ----------------------------------------------------------------------------
+    - rule: HIDS - Kernel Module Load Detected
+      desc: >
+        init_module / finit_module syscall 탐지. 커널 모듈 로드는 루트킷 설치의 핵심 단계.
+        Falco 자체(eBPF 드라이버) 및 Cilium(eBPF)을 제외한 모든 커널 모듈 로드는 비정상.
+      condition: >
+        is_kmod_syscall and
+        not is_falco_pod and
+        not is_cilium_pod
+      output: >
+        [CRITICAL][HIDS-Kmod] Kernel module load detected - possible rootkit installation
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         evt_type=%evt.type
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [hids, kmod, rootkit, kernel_module, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 11: FIM-Token ? 서비스 어카운트 토큰 탈취 탐지 (WARNING)
+    # ----------------------------------------------------------------------------
+    - rule: FIM - Service Account Token Accessed by Unexpected Process
+      desc: >
+        /var/run/secrets/ 경로의 서비스 어카운트 토큰을 비인가 프로세스가 읽는 경우 탐지.
+        istiod, ztunnel 등 서비스 메시 파드에서 이 경로 접근은 정상이나,
+        쉘이나 네트워크 도구가 접근하면 비정상.
+      condition: >
+        open_read and
+        is_serviceaccount_token_path and
+        not proc.name in (allowed_serviceaccount_procs) and
+        proc.name in (shell_binaries, curl, wget, nc, ncat, python, python3, ruby, perl, php, node)
+      output: >
+        [WARNING][FIM-Token] Service account token accessed by suspicious process
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [fim, token, serviceaccount, credential_theft, k8s]
+
+    # 서비스 어카운트 토큰 쓰기는 항상 CRITICAL
+    - rule: FIM - Service Account Token Written
+      desc: >
+        /var/run/secrets/ 경로에 대한 쓰기 접근은 토큰 위조 시도일 수 있음.
+        어떤 파드에서든 이 경로 쓰기는 비정상.
+      condition: >
+        open_write and
+        is_serviceaccount_token_path
+      output: >
+        [CRITICAL][FIM-Token] Service account token file written
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         file=%fd.name
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: CRITICAL
+      tags: [fim, token, serviceaccount, write, k8s]
+
+    # ----------------------------------------------------------------------------
+    # Rule 12: Runtime-Exfil 대용량 데이터 유출 탐지 (WARNING)
+    # [수정] evt.arg.size → evt.arg.count
+    # ----------------------------------------------------------------------------
+    - rule: Runtime - Large Data Exfiltration Detected
+      desc: >
+        단일 sendto syscall에서 비정상적으로 큰 데이터(10MB 이상)가 외부로 전송되는 경우 탐지.
+        etcd 데이터 덤프, PV 데이터 대량 유출 등 공격 패턴 탐지.
+        Longhorn, etcd 등 정상적으로 대용량 I/O를 하는 파드는 네트워크 외부 전송만 탐지.
+      condition: >
+        evt.type = sendto and
+        evt.arg.res > 10485760 and
+        fd.type in (ipv4, ipv6) and
+        not is_longhorn_pod and
+        not is_csi_pod and
+        not is_etcd_pod and
+        not is_falco_pod and                            
+        not k8s.ns.name = "kubecost" and                 
+        not proc.name = tailscaled                   
+
+      output: >
+        [WARNING][Runtime-Exfil] Large data sent over network - possible data exfiltration
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         fd_name=%fd.name fd_type=%fd.type
+         remote_ip=%fd.rip remote_port=%fd.rport
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [runtime, exfil, data_exfiltration, network, k8s]
+
+    # [수정] is_private_net 매크로가 startswith 방식으로 변경되었으므로 조건 동일하게 유지
+    - rule: Runtime - Unexpected Outbound Connection to External IP
+      desc: >
+        내부 클러스터 네트워크(RFC1918) 외부로 컨테이너가 직접 연결을 시도하는 경우 탐지.
+        is_private_net 매크로로 사설 대역 전체를 커버하며,
+        is_infra_pod 매크로로 네트워크 인프라 파드를 제외.
+      condition: >
+        evt.type = connect and
+        fd.type in (ipv4, ipv6) and
+        not is_private_net and
+        not is_infra_pod
+      output: >
+        [WARNING][Runtime-Exfil] Unexpected outbound connection to external IP
+        (user=%user.name user_uid=%user.uid
+         proc=%proc.name pid=%proc.pid
+         parent=%proc.pname
+         remote_ip=%fd.rip remote_port=%fd.rport
+         container=%container.name container_id=%container.id
+         pod=%k8s.pod.name ns=%k8s.ns.name
+         image=%container.image.repository:%container.image.tag
+         cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [runtime, exfil, network, outbound, k8s]
+
+
+
+
+    ##############################################################################
+    # END OF falco_custom_rules.yaml
+    ##############################################################################
+
+
