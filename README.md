@@ -232,8 +232,9 @@ CronJob / Lambda → Discord Webhook 직접 전송 (전용 채널)
 
 | 알림 | 심각도 | 조건 |
 |------|--------|------|
-| Dead Man's Switch (AWS Lambda) | critical | On-prem heartbeat 15분 미갱신 시 장애 알림 |
+| Dead Man's Switch (AWS Lambda) | critical | On-prem heartbeat 15분 미갱신 시 장애 알림 (60분 간격 반복, 중복 억제) |
 | Heartbeat 정상 복귀 | info | 장애 후 heartbeat 수신 재개 시 알림 |
+| 클러스터 정상 운영 요약 | info | 정상 상태 60분 간격 정기 보고 |
 
 **`#버스트-알림`** — GKE Burst 오토스케일링 발동·비용 관련
 
@@ -321,8 +322,9 @@ Primary 클러스터(On-prem 또는 EKS DR) 부하 초과 시 trip-app을 GKE로
 | RTO | 30분 (노드 scale-up + Velero restore) |
 
 **장애 감지 (Dead Man's Switch):**
-- On-prem CronJob이 5분마다 S3에 heartbeat 업로드
-- AWS Lambda가 15분 미갱신 시 Discord 장애 알림
+- On-prem CronJob이 5분마다 S3에 heartbeat 업로드 (`concurrencyPolicy: Replace`, stuck Job 자동 교체)
+- AWS Lambda가 15분 미갱신 시 Discord 장애 알림 (60분 간격 반복, 중복 억제)
+- 알림에 CronJob/Job 상태 확인 명령어 포함 (false positive 빠른 판별)
 
 **DR 흐름:**
 1. `./scripts/dr-activate.sh` → EKS 노드 scale-up → Velero 복구
