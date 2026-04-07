@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Sync ArgoCD Application
         env:
-          ARGOCD_SERVER: http://argocd-server.gitops.svc.cluster.local
+          ARGOCD_SERVER: http://100.64.0.1:30081
           ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
           ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
           APP_NAME: ${{ inputs.application }}
@@ -27,13 +27,13 @@ jobs:
         run: |
           echo "Syncing ArgoCD Application: ${APP_NAME}"
 
-          # DNS/네트워크 안정화 대기 (pod 시작 직후 NetworkPolicy 적용 지연 대응)
+          # 네트워크 안정화 대기 (pod 시작 직후 NetworkPolicy 적용 지연 대응)
           for attempt in 1 2 3 4 5; do
-            if getent hosts argocd-server.gitops.svc.cluster.local >/dev/null 2>&1; then
-              echo "DNS resolved (attempt ${attempt})"
+            if curl -s --connect-timeout 3 --max-time 5 -o /dev/null "${ARGOCD_SERVER}" 2>/dev/null; then
+              echo "ArgoCD reachable (attempt ${attempt})"
               break
             fi
-            echo "Waiting for DNS... (attempt ${attempt})"
+            echo "Waiting for ArgoCD connectivity... (attempt ${attempt})"
             sleep 3
           done
 
