@@ -46,9 +46,11 @@ aggregator:
     storageClass: "longhorn"
     storageRequest: 128Gi
 
-# Cloud cost configs
+# Multi-cloud cost integration (AWS Athena + GCP BigQuery)
+# Secret "kubecost-cloud-integration" must contain key "cloud-integration.json"
 cloudCost:
   enabled: true
+  cloudIntegrationSecret: "kubecost-cloud-integration"
   persistentConfigsStorage:
     enabled: true
     storageClass: "longhorn"
@@ -83,3 +85,4 @@ notifications:
         aggregation: label:lifecycle-tier
         filter: "label[lifecycle-tier]=dev"
         webhook: "http://chatops-bot.chatops.svc.cluster.local:3000/kubecost-alert"
+
