@@ -232,19 +232,13 @@ spec:
 
     - id: publish
       name: Pull Request 생성
-      action: publish:github
+      action: publish:github:pull-request
       input:
+        title: "Azure 인프라 프로비저닝: ${{ parameters.componentName }} (${{ parameters.serviceType }})"
         description: "Azure 인프라: ${{ parameters.componentName }} (${{ parameters.serviceType }})"
         repoUrl: ${{ parameters.repoUrl }}
-        defaultBranch: 'main'
+        branchName: provision/${{ parameters.componentName }}
         targetPath: apps/${{ parameters.componentName }}
-
-    - id: register
-      name: 카탈로그 등록
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
 
   output:
     text:
@@ -268,4 +262,4 @@ spec:
         url: ${{ steps['publish'].output.remoteUrl }}
       - title: 카탈로그에서 열기
         icon: catalog
-        entityRef: ${{ steps['register'].output.entityRef }}
+        entityRef: component:default/${{ parameters.componentName }}
