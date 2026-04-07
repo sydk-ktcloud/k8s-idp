@@ -33,14 +33,14 @@ public class InternalPaymentController {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
-        return ResponseEntity.status(ex.getStatusCode())
-                .body(Map.of("message", ex.getReason()));
+    return ResponseEntity.status(ex.getStatusCode())
+            .body(Map.of("message", ex.getReason() == null ? "trip-payment-api error" : ex.getReason()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleException(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("message", ex.getMessage()));
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("message", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
     }
 
     private void maybeFail(String demoFailure) {
