@@ -1,0 +1,25 @@
+# EKS DR 클러스터 Crossplane Claim
+# 평시에는 존재하지 않음 (Active-Passive On-Demand)
+# DR 활성화 시 dr-activate.sh가 kubectl apply로 생성
+# Failback 시 dr-failback.sh가 kubectl delete로 완전 삭제
+#
+# 비용: 평시 $0, DR 시에만 EKS 비용 발생
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EKSCluster
+metadata:
+  name: eks-dr
+  namespace: default
+  labels:
+    cost-center: dr-cluster
+    owner: team-platform
+    lifecycle-tier: on-demand
+    backstage.io/kubernetes-id: eks-dr
+    app.kubernetes.io/name: eks-dr
+spec:
+  name: eks-dr
+  region: us-west-2
+  nodeCount: 3
+  instanceType: t3.large
+  writeConnectionSecretToRef:
+    name: eks-dr-kubeconfig
+    namespace: crossplane-system

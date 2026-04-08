@@ -1,18 +1,28 @@
 # Heartbeat 모니터링 인프라 (Lambda + EventBridge + IAM + S3)
+# Active-Passive On-Demand DR: 장애 감지 시 GitHub Actions를 통해 EKS 자동 프로비저닝
+#
 # 적용: aws cloudformation deploy --template-file infrastructure/aws-dr/cloudformation-heartbeat.yaml \
 #         --stack-name k8s-idp-heartbeat --capabilities CAPABILITY_NAMED_IAM \
 #         --region us-west-2 \
-#         --parameter-overrides DiscordWebhookUrl=<WEBHOOK_URL>
+#         --parameter-overrides DiscordWebhookUrl=<WEBHOOK_URL> GitHubToken=<PAT_TOKEN>
 # 삭제: aws cloudformation delete-stack --stack-name k8s-idp-heartbeat --region us-west-2
 ---
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "k8s-idp On-Prem Heartbeat Monitor - Dead Man's Switch"
+Description: "k8s-idp On-Prem Heartbeat Monitor - Active-Passive On-Demand DR"
 
 Parameters:
   DiscordWebhookUrl:
     Type: String
     NoEcho: true
     Description: Discord Webhook URL for alerts
+  GitHubToken:
+    Type: String
+    NoEcho: true
+    Description: GitHub PAT with workflow dispatch permission (repo scope)
+  GitHubRepo:
+    Type: String
+    Default: sydk-ktcloud/k8s-idp
+    Description: GitHub repository (owner/repo)
   S3Bucket:
     Type: String
     Default: sydk-velero-dr-usw2
@@ -95,6 +105,8 @@ Resources:
           THRESHOLD_MINUTES: !Ref ThresholdMinutes
           SUMMARY_INTERVAL_MINUTES: !Ref SummaryIntervalMinutes
           DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
+          GITHUB_TOKEN: !Ref GitHubToken
+          GITHUB_REPO: !Ref GitHubRepo
       Code:
         ZipFile: |
           import json
@@ -112,6 +124,8 @@ Resources:
               threshold = int(os.environ.get('THRESHOLD_MINUTES', '15'))
               summary_interval = int(os.environ.get('SUMMARY_INTERVAL_MINUTES', '60'))
               webhook = os.environ.get('DISCORD_WEBHOOK_URL', '')
+              github_token = os.environ.get('GITHUB_TOKEN', '')
+              github_repo = os.environ.get('GITHUB_REPO', '')
               now = datetime.now(timezone.utc)
               state = load_state(bucket, state_key)
 
@@ -121,33 +135,71 @@ Resources:
                   age = (now - last_mod).total_seconds() / 60
 
                   was_alert = state.get('status') == 'ALERT'
+                  dr_triggered = state.get('dr_triggered', False)
                   last_alert_time = state.get('last_alert', '')
                   last_summary = state.get('last_summary', '')
 
                   if age > threshold:
-                      # 이미 ALERT 상태면 summary_interval 간격으로만 반복 알림
-                      if was_alert and last_alert_time:
+                      # ── 장애 감지: ALERT 상태 ──
+
+                      # 첫 번째 장애 감지 → DR 자동 트리거
+                      if not was_alert:
+                          msg = (
+                              ":rotating_light: **온프레미스 클러스터 장애 감지**\n"
+                              f"Heartbeat가 **{int(age)}분** 동안 갱신되지 않았습니다.\n"
+                              f"마지막 수신: {last_mod.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+                              f"임계값: {threshold}분\n\n"
+                          )
+
+                          # DR 자동 프로비저닝 트리거
+                          dr_success = trigger_dr_workflow(github_token, github_repo, int(age))
+                          if dr_success:
+                              msg += (
+                                  ":gear: **DR 자동 활성화 트리거됨**\n"
+                                  "GitHub Actions `dr-activate` 워크플로우가 시작되었습니다.\n"
+                                  "EKS DR 클러스터가 자동으로 프로비저닝됩니다."
+                              )
+                          else:
+                              msg += (
+                                  ":warning: **DR 자동 트리거 실패**\n"
+                                  "수동으로 DR을 활성화하세요:\n"
+                                  "`./scripts/dr-activate.sh`"
+                              )
+
+                          send_discord(webhook, msg)
+                          save_state(bucket, state_key, {
+                              'last_alert': now.isoformat(),
+                              'status': 'ALERT',
+                              'dr_triggered': dr_success,
+                              'dr_triggered_at': now.isoformat() if dr_success else ''
+                          })
+                          return {'status': 'ALERT', 'age_minutes': int(age), 'dr_triggered': dr_success}
+
+                      # 반복 알림 (60분 간격)
+                      if last_alert_time:
                           try:
                               mins_since_alert = (now - datetime.fromisoformat(last_alert_time)).total_seconds() / 60
                           except: mins_since_alert = float('inf')
                           if mins_since_alert < summary_interval:
                               return {'status': 'ALERT', 'age_minutes': int(age), 'suppressed': True}
 
+                      dr_status = "DR 프로비저닝 진행 중" if dr_triggered else "DR 수동 활성화 필요"
                       msg = (
-                          ":rotating_light: **온프레미스 클러스터 장애 감지**\n"
-                          f"Heartbeat가 **{int(age)}분** 동안 갱신되지 않았습니다.\n"
-                          f"마지막 수신: {last_mod.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
-                          f"임계값: {threshold}분\n\n"
-                          "**확인 사항:**\n"
-                          "1. CronJob 상태: `kubectl get cronjob cluster-heartbeat -n minio-storage`\n"
-                          "2. 최근 Job: `kubectl get jobs -n minio-storage --sort-by=.metadata.creationTimestamp`\n"
-                          "3. DR 절차: `docs/dr-runbook.md`"
+                          ":rotating_light: **장애 지속 중**\n"
+                          f"Heartbeat **{int(age)}분** 미갱신\n"
+                          f"DR 상태: {dr_status}\n"
+                          f"시각: {now.strftime('%Y-%m-%d %H:%M UTC')}"
                       )
                       send_discord(webhook, msg)
-                      save_state(bucket, state_key, {'last_alert': now.isoformat(), 'status': 'ALERT'})
+                      save_state(bucket, state_key, {
+                          'last_alert': now.isoformat(),
+                          'status': 'ALERT',
+                          'dr_triggered': dr_triggered,
+                          'dr_triggered_at': state.get('dr_triggered_at', '')
+                      })
                       return {'status': 'ALERT', 'age_minutes': int(age)}
 
-                  # Heartbeat 정상 — 복구 또는 정기 요약
+                  # ── Heartbeat 정상 ──
                   mins_since = float('inf')
                   if last_summary:
                       try:
@@ -155,21 +207,36 @@ Resources:
                       except: pass
 
                   if was_alert:
+                      # ALERT → OK 전환: 복구 알림
+                      dr_note = ""
+                      if dr_triggered:
+                          dr_note = "\n:warning: DR 클러스터가 활성화되었을 수 있습니다. Failback을 실행하세요:\n`./scripts/dr-failback.sh`"
+
                       msg = (
                           ":white_check_mark: **온프레미스 클러스터 복구 확인**\n"
                           f"Heartbeat 정상 수신 재개 ({int(age)}분 전 갱신)\n"
                           f"시각: {now.strftime('%Y-%m-%d %H:%M UTC')}"
+                          f"{dr_note}"
                       )
                       send_discord(webhook, msg)
-                      save_state(bucket, state_key, {'last_summary': now.isoformat(), 'status': 'OK'})
+                      save_state(bucket, state_key, {
+                          'last_summary': now.isoformat(),
+                          'status': 'OK',
+                          'dr_triggered': False
+                      })
                   elif mins_since >= summary_interval:
+                      # 정기 OK 요약
                       msg = (
                           ":green_circle: **클러스터 정상 운영 중**\n"
                           f"마지막 Heartbeat: {int(age)}분 전\n"
                           f"시각: {now.strftime('%Y-%m-%d %H:%M UTC')}"
                       )
                       send_discord(webhook, msg)
-                      save_state(bucket, state_key, {'last_summary': now.isoformat(), 'status': 'OK'})
+                      save_state(bucket, state_key, {
+                          'last_summary': now.isoformat(),
+                          'status': 'OK',
+                          'dr_triggered': False
+                      })
 
                   return {'status': 'OK', 'age_minutes': int(age)}
 
@@ -180,6 +247,31 @@ Resources:
                   raise
               except Exception as e:
                   return {'status': 'ERROR', 'error': str(e)}
+
+          def trigger_dr_workflow(token, repo, age_minutes):
+              """GitHub Actions workflow_dispatch로 DR 활성화 트리거"""
+              if not token or not repo:
+                  return False
+              try:
+                  url = f"https://api.github.com/repos/{repo}/actions/workflows/dr-activate.yaml/dispatches"
+                  data = json.dumps({
+                      'ref': 'main',
+                      'inputs': {
+                          'trigger_source': 'lambda-auto',
+                          'heartbeat_age_minutes': str(age_minutes)
+                      }
+                  }).encode()
+                  req = urllib.request.Request(url, data=data, headers={
+                      'Authorization': f'Bearer {token}',
+                      'Accept': 'application/vnd.github.v3+json',
+                      'Content-Type': 'application/json',
+                      'User-Agent': 'k8s-idp-heartbeat/2.0'
+                  })
+                  urllib.request.urlopen(req)
+                  return True
+              except Exception as e:
+                  print(f"DR workflow trigger failed: {e}")
+                  return False
 
           def load_state(bucket, key):
               try:
@@ -193,7 +285,7 @@ Resources:
           def send_discord(url, message):
               if not url: return
               req = urllib.request.Request(url, data=json.dumps({'content': message}).encode(),
-                  headers={'Content-Type': 'application/json', 'User-Agent': 'k8s-idp-heartbeat/1.0'})
+                  headers={'Content-Type': 'application/json', 'User-Agent': 'k8s-idp-heartbeat/2.0'})
               urllib.request.urlopen(req)
 
       Tags:

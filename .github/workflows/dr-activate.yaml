@@ -1,0 +1,73 @@
+# DR 자동 활성화 워크플로우
+# Lambda heartbeat-monitor가 장애 감지 시 workflow_dispatch로 자동 트리거
+# 수동 실행도 가능: Actions 탭 → Run workflow
+name: DR Activate
+
+on:
+  workflow_dispatch:
+    inputs:
+      trigger_source:
+        description: '트리거 소스 (lambda-auto / manual)'
+        required: false
+        default: 'manual'
+      heartbeat_age_minutes:
+        description: 'Heartbeat 미갱신 시간 (분)'
+        required: false
+        default: '0'
+
+jobs:
+  dr-activate:
+    name: DR 클러스터 활성화
+    runs-on: self-hosted
+    timeout-minutes: 30
+    env:
+      DISCORD_CLUSTER_WEBHOOK: ${{ secrets.DISCORD_CLUSTER_WEBHOOK }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: DR 활성화 정보
+        run: |
+          echo "============================================"
+          echo "  DR 자동 활성화 트리거"
+          echo "============================================"
+          echo "트리거 소스: ${{ github.event.inputs.trigger_source }}"
+          echo "Heartbeat 미갱신: ${{ github.event.inputs.heartbeat_age_minutes }}분"
+          echo "시각: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+      - name: On-prem 클러스터 상태 확인
+        run: |
+          # On-prem이 정말 장애인지 한 번 더 확인
+          NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | grep -c "Ready" || echo "0")
+          echo "On-prem Ready 노드: ${NODE_COUNT}개"
+
+          if [ "$NODE_COUNT" -ge 3 ]; then
+            echo "⚠️ On-prem 노드가 정상입니다. False positive일 수 있습니다."
+            echo "Lambda 트리거였다면 Heartbeat CronJob 상태를 확인하세요."
+            # 자동 트리거인 경우에도 계속 진행 (Heartbeat 실패는 네트워크 이슈일 수 있음)
+          fi
+
+      - name: EKS DR 존재 여부 확인
+        id: check-eks
+        run: |
+          if kubectl get ekscluster eks-dr -n default &>/dev/null; then
+            STATUS=$(kubectl get ekscluster eks-dr -n default -o jsonpath='{.status.clusterStatus}' 2>/dev/null || echo "Unknown")
+            echo "eks_exists=true" >> "$GITHUB_OUTPUT"
+            echo "eks_status=$STATUS" >> "$GITHUB_OUTPUT"
+            echo "EKS DR claim 이미 존재 (상태: $STATUS)"
+          else
+            echo "eks_exists=false" >> "$GITHUB_OUTPUT"
+            echo "EKS DR claim 없음 — 신규 프로비저닝 필요"
+          fi
+
+      - name: DR 활성화 실행
+        if: steps.check-eks.outputs.eks_exists != 'true' || steps.check-eks.outputs.eks_status != 'ACTIVE'
+        run: |
+          chmod +x scripts/dr-activate.sh
+          ./scripts/dr-activate.sh
+
+      - name: DR 이미 활성 상태
+        if: steps.check-eks.outputs.eks_exists == 'true' && steps.check-eks.outputs.eks_status == 'ACTIVE'
+        run: |
+          echo "EKS DR이 이미 ACTIVE 상태입니다. 추가 작업이 필요하지 않습니다."
