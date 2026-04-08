@@ -17,7 +17,7 @@ configuration:
   - name: aws-ebs
     provider: aws
     config:
-      region: ap-northeast-2
+      region: us-west-2
 
 initContainers:
 - name: velero-plugin-for-aws
