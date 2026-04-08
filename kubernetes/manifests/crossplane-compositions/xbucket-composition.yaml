@@ -21,10 +21,9 @@ spec:
               resource-type: bucket
             location: US
             storageClass: STANDARD
-            uniformBucketLevelAccess:
-              enabled: true
+            uniformBucketLevelAccess: true
             versioning:
-              enabled: false
+              - enabled: false
           providerConfigRef:
             name: default
       patches:
@@ -33,9 +32,9 @@ spec:
         - fromFieldPath: spec.storageClass
           toFieldPath: spec.forProvider.storageClass
         - fromFieldPath: spec.versioning
-          toFieldPath: spec.forProvider.versioning.enabled
+          toFieldPath: spec.forProvider.versioning[0].enabled
         - fromFieldPath: spec.uniformBucketLevelAccess
-          toFieldPath: spec.forProvider.uniformBucketLevelAccess.enabled
+          toFieldPath: spec.forProvider.uniformBucketLevelAccess
 
         # ── FinOps 라벨 (GCP는 tags가 아닌 labels) ───────────────
         - fromFieldPath: spec.name

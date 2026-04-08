@@ -10,13 +10,6 @@ spec:
     apiVersion: k8s-idp.example.org/v1alpha1
     kind: XAzureBlobStorage
 
-  # ── EnvironmentConfig: Azure 플랫폼 기본값 ───────────────────
-  environment:
-    environmentConfigs:
-      - type: Reference
-        ref:
-          name: azure-platform
-
   resources:
     - name: storage-account
       base:
@@ -34,18 +27,16 @@ spec:
           providerConfigRef:
             name: default
       patches:
-        # location: EnvironmentConfig 기본값 → spec 값으로 override 가능
-        - type: FromEnvironmentFieldPath
-          fromFieldPath: defaultLocation
-          toFieldPath: spec.forProvider.location
+        # Storage Account 이름: spec.name을 외부 이름으로 사용
+        # Azure 제한: 3-24자, 소문자+숫자만, 하이픈 불가
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+          policy:
+            fromFieldPath: Required
         - fromFieldPath: spec.location
           toFieldPath: spec.forProvider.location
           policy:
             fromFieldPath: Optional
-        # resourceGroupName: EnvironmentConfig 기본값 → spec 값으로 override 가능
-        - type: FromEnvironmentFieldPath
-          fromFieldPath: defaultResourceGroup
-          toFieldPath: spec.forProvider.resourceGroupName
         - fromFieldPath: spec.resourceGroupName
           toFieldPath: spec.forProvider.resourceGroupName
           policy:
