@@ -29,8 +29,7 @@ spec:
                     size: 100
             networkInterface:
               - accessConfig:
-                  - natIp: ""
-                    networkTier: STANDARD
+                  - networkTier: PREMIUM
                 network: projects/sydk-ktcloud/global/networks/default
           providerConfigRef:
             name: default
