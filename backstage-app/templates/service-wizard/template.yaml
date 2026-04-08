@@ -212,6 +212,7 @@ spec:
       action: fetch:template
       input:
         url: ./content
+        templateFileExtension: '.tmpl'
         values:
           componentName: ${{ parameters.componentName }}
           description: ${{ parameters.description or parameters.componentName }}
