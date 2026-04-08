@@ -27,11 +27,8 @@ COPY --chown=node:node examples ./examples
 COPY --chown=node:node templates ./templates
 COPY --chown=node:node app-config*.yaml ./
 
-# Copy pre-built dist files directly (avoids tar extraction issues)
-COPY --chown=node:node packages/backend/dist/*.cjs.js packages/backend/dist/
-COPY --chown=node:node packages/backend/dist/*.cjs.js.map packages/backend/dist/
-
-# Copy app frontend dist for healthcheck endpoint
-COPY --chown=node:node packages/app/dist packages/app/dist
+# Extract bundle.tar.gz which contains built backend + app dist files
+COPY --chown=node:node packages/backend/dist/bundle.tar.gz ./
+RUN tar xzf bundle.tar.gz && rm bundle.tar.gz
 
 CMD ["node", "packages/backend", "--config", "app-config.yaml", "--config", "app-config.production.yaml"]
