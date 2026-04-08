@@ -52,8 +52,8 @@ jobs:
     name: Build & Push Docker Image
     runs-on: self-hosted
     needs: ci
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
     defaults:
       run:
         working-directory: backstage-app
@@ -115,7 +115,7 @@ jobs:
   deploy:
     name: 총 횟수
     needs: build-image
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     uses: ./.github/workflows/argocd-sync.yaml
     with:
       application: backstage
