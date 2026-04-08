@@ -99,39 +99,56 @@ prometheus:
 alertmanager:
   config:
     route:
-      receiver: "null"
+      receiver: discord-cluster
+      group_by:
+        - alertname
+        - cluster
+        - service
+      group_interval: 5m
+      group_wait: 30s
+      repeat_interval: 12h
       routes:
-        - receiver: discord-cluster
-          matchers:
-            - alertname =~ "CrossplaneProviderCrashLoop|KubeNodeNotReady|KubeNodeUnreachable|KubeControllerManagerDown|KubeSchedulerDown|KubeAPIDown"
-          continue: false
-        - receiver: discord-security
-          matchers:
+        - matchers:
+            - alertname = "Watchdog"
+          receiver: "null"
+        - matchers:
+            - trigger = "gke-burst"
+          receiver: discord-burst
+        - matchers:
+            - cost_center = "gke-burst"
+          receiver: discord-burst-cost
+        - matchers:
+            - category = "backup-storage"
+          receiver: discord-backup-storage
+        - matchers:
             - category = "security"
-          continue: false
+          receiver: discord-security
     receivers:
       - name: "null"
+      - name: discord-burst
+        discord_configs:
+          - webhook_url: "https://discord.com/api/webhooks/1489058994118201354/OX2sssKEcPDuGspw7lBtBYIrxifeqcXUScBapyEFo2MUTC8qE5N4G89q3A9BCxH435wQ"
+            title: '🚀 GKE Burst 트리거'
+            send_resolved: true
+      - name: discord-burst-cost
+        discord_configs:
+          - webhook_url: "https://discord.com/api/webhooks/1489058994118201354/OX2sssKEcPDuGspw7lBtBYIrxifeqcXUScBapyEFo2MUTC8qE5N4G89q3A9BCxH435wQ"
+            title: '💰 GKE 비용 경고'
+            send_resolved: true
+      - name: discord-backup-storage
+        discord_configs:
+          - webhook_url: "https://discord.com/api/webhooks/1489085371097813253/F8hH2XyjuXDGF3uSylEn0wx6WS2jQWG6AbUYRVeQs6FmKDtYuIKHAXNJ6WK8TBUB3SAI"
+            title: '💾 백업/스토리지 알림'
+            send_resolved: true
       - name: discord-cluster
-        slack_configs:
-          - api_url: "https://discord.com/api/webhooks/1489086014009118852/2SSBW95dXiDWh0asdSV623Ox-i6G75O48R_tijZv7PH5aDBiglfetScHWQaSd3N6USms/slack"
-            channel: "클러스터-알림"
-            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
-            text: |-
-              {{ range .Alerts }}
-              *{{ .Annotations.summary }}*
-              {{ .Annotations.description }}
-              {{ end }}
+        discord_configs:
+          - webhook_url: "https://discord.com/api/webhooks/1489086014009118852/2SSBW95dXiDWh0asdSV623Ox-i6G75O48R_tijZv7PH5aDBiglfetScHWQaSd3N6USms"
+            title: '⚙️ 클러스터 알림'
             send_resolved: true
       - name: discord-security
-        slack_configs:
-          - api_url: "https://discord.com/api/webhooks/1491420009468137574/T7VWX4KdRfIAEtHR-mJe3kxwklHv1OsQm2tkGir5gMu2swCPNltzrAeVe0pptLkqs1DD/slack"
-            channel: "보안-알림"
-            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
-            text: |-
-              {{ range .Alerts }}
-              *{{ .Annotations.summary }}*
-              {{ .Annotations.description }}
-              {{ end }}
+        discord_configs:
+          - webhook_url: "https://discord.com/api/webhooks/1491420009468137574/T7VWX4KdRfIAEtHR-mJe3kxwklHv1OsQm2tkGir5gMu2swCPNltzrAeVe0pptLkqs1DD"
+            title: '🔒 보안 알림'
             send_resolved: true
   alertmanagerSpec:
     podMetadata:
