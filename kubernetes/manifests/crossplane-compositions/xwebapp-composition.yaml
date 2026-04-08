@@ -89,6 +89,9 @@ spec:
                 standard: "50"
                 large: "100"
                 xlarge: "200"
+            - type: convert
+              convert:
+                toType: int64
           policy:
             fromFieldPath: Required
 
@@ -203,6 +206,9 @@ spec:
                 standard: "50"
                 large: "100"
                 xlarge: "200"
+            - type: convert
+              convert:
+                toType: int64
           policy:
             fromFieldPath: Required
 

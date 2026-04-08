@@ -29,7 +29,7 @@ spec:
             storageType: gp2
             storageEncrypted: true
             autoMinorVersionUpgrade: true
-            backupRetentionPeriod: 7
+            backupRetentionPeriod: 1
             tags:
               managed-by: crossplane
               resource-type: rds-instance
