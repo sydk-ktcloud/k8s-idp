@@ -1,0 +1,36 @@
+
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ values.componentName }}
+  description: "{{ values.description }}"
+  annotations:
+    github.com/project-slug: {{ repoOwner }}/{{ repoName }}
+    backstage.io/source-location: url:https://github.com/{{ repoOwner }}/{{ repoName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
+    kubecost.com/service-label: {{ values.componentName }}
+    kubecost.com/namespace: {{ values.namespace }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - {{ values.serviceType }}
+    - {{ values.userCount }}
+    - aws
+  links:
+    - url: https://console.aws.amazon.com
+      title: AWS Console
+      icon: cloud
+    
+    - url: https://{{ values.region }}.console.aws.amazon.com/ec2/home?region={{ values.region }}#Instances
+      title: EC2 인스턴스 확인
+      icon: compute
+    - url: https://{{ values.region }}.console.aws.amazon.com/rds/home?region={{ values.region }}#databases
+      title: RDS DB 확인
+      icon: database
+    
+spec:
+  type: {{ values.serviceType }}
+  lifecycle: {{ values.lifecycleTier }}
+  owner: {{ values.owner }}
