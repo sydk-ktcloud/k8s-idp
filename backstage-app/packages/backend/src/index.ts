@@ -7,6 +7,7 @@ backend.add(import('@backstage/plugin-proxy-backend'));
 
 backend.add(import('@backstage/plugin-scaffolder-backend'));
 backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
+backend.add(import('./kubernetesApplyAction'));
 
 // techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));
