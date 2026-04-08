@@ -11,12 +11,6 @@ spec:
 
   writeConnectionSecretsToNamespace: crossplane-system
 
-  environment:
-    environmentConfigs:
-      - type: Reference
-        ref:
-          name: gcp-platform
-
   resources:
     # ── VM 서버 ──────────────────────────────────────────────
     - name: vm-instance
@@ -27,7 +21,7 @@ spec:
           providerConfigRef:
             name: default
           forProvider:
-            project: ""
+            project: sydk-ktcloud
             labels:
               managed-by: crossplane       
               resource-type: webapp-vm
@@ -42,14 +36,6 @@ spec:
               - https-server
 
       patches:
-        - type: FromEnvironmentFieldPath
-          fromFieldPath: projectId
-          toFieldPath: spec.forProvider.project
-
-        - type: FromEnvironmentFieldPath
-          fromFieldPath: defaultNetworkUrl
-          toFieldPath: spec.forProvider.networkInterface[0].network
-
         - fromFieldPath: spec.name
           toFieldPath: metadata.annotations[crossplane.io/external-name]
           transforms:
