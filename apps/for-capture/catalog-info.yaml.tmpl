@@ -1,0 +1,36 @@
+
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ values.componentName }}
+  description: "{{ values.description }}"
+  annotations:
+    github.com/project-slug: {{ repoOwner }}/{{ repoName }}
+    backstage.io/source-location: url:https://github.com/{{ repoOwner }}/{{ repoName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
+    kubecost.com/service-label: {{ values.componentName }}
+    kubecost.com/namespace: {{ values.componentName }}
+    kubecost.com/owner: {{ values.owner }}
+    kubecost.com/cost-center: {{ values.costCenter }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - {{ values.serviceType }}
+    - {{ values.userCount }}
+    - gcp
+  links:
+    - url: https://console.cloud.google.com
+      title: Google Cloud Console
+      icon: cloud
+    
+    - url: https://console.cloud.google.com/compute/instances
+      title: VM 인스턴스 확인
+      icon: compute
+    - url: https://console.cloud.google.com/sql/instances
+      title: Cloud SQL DB 확인
+      icon: database
+    
+spec:
+  type: {{ values.serviceType }}
+  lifecycle: {{ values.lifecycleTier }}
+  owner: {{ values.owner }}
