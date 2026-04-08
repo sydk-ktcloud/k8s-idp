@@ -336,7 +336,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
       - name: backstage
-        image: kylekim1223/backstage-backend:main
+        image: kylekim1223/backstage-backend:v20260407-fix
         imagePullPolicy: Always
         envFrom:
         - secretRef:
