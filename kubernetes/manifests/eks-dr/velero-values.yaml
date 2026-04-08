@@ -1,17 +1,17 @@
 # EKS DR - Velero Configuration
-# GCS offsite 백업에서 복구 + failback 시 EKS → GCS 백업 생성
+# AWS S3 DR 버킷에서 복구 (On-Prem MinIO → S3 미러링 데이터 사용)
 #
-# DR 활성화: velero restore create dr-restore --from-backup <latest>
+# DR 활성화: velero restore create dr-restore --from-backup <latest> --storage-location s3-dr
 # Failback:  velero backup create failback-$(date +%Y%m%d) --include-namespaces trip-app,backstage
 
 configuration:
   backupStorageLocation:
-  - name: gcs-offsite
-    provider: gcp
-    bucket: sydk-velero-offsite
-    credential:
-      name: velero-gcs-credentials
-      key: gcp
+  - name: s3-dr
+    provider: aws
+    bucket: sydk-velero-dr-usw2
+    default: true
+    config:
+      region: us-west-2
 
   volumeSnapshotLocation:
   - name: aws-ebs
@@ -20,11 +20,6 @@ configuration:
       region: ap-northeast-2
 
 initContainers:
-- name: velero-plugin-for-gcp
-  image: velero/velero-plugin-for-gcp:v1.9.0
-  volumeMounts:
-  - name: plugins
-    mountPath: /target
 - name: velero-plugin-for-aws
   image: velero/velero-plugin-for-aws:v1.9.0
   volumeMounts:
@@ -49,4 +44,4 @@ schedules:
       - trip-app
       - backstage
       ttl: 72h                  # 3일 보관
-      storageLocation: gcs-offsite
+      storageLocation: s3-dr
