@@ -1,0 +1,52 @@
+
+
+
+# ── 웹 API 서버: EC2 + RDS ──────────────────────────────────
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: EC2Instance
+metadata:
+  name: {{ values.componentName }}-vm
+  namespace: {{ values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ values.componentName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
+spec:
+  name: {{ values.componentName }}-vm
+  region: {{ values.region }}
+  instanceType: t3.small
+  diskSize: 30
+---
+apiVersion: k8s-idp.example.org/v1alpha1
+kind: RDSDatabase
+metadata:
+  name: {{ values.componentName }}-db
+  namespace: {{ values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ values.componentName }}
+    backstage.io/kubernetes-id: {{ values.componentName }}
+    owner: {{ values.owner }}
+    cost-center: {{ values.costCenter }}
+    lifecycle-tier: {{ values.lifecycleTier }}
+    expires-at: "{{ values.expiresAt }}"
+  annotations:
+    k8s-idp.example.org/service-type: "{{ values.serviceType }}"
+    k8s-idp.example.org/user-count: "{{ values.userCount }}"
+    k8s-idp.example.org/traffic-pattern: "{{ values.trafficPattern }}"
+    k8s-idp.example.org/availability: "{{ values.availability }}"
+spec:
+  name: {{ values.componentName }}-db
+  engine: postgres
+  region: {{ values.region }}
+  instanceClass: db.t3.small
+  diskSize: 20
+
+
