@@ -209,7 +209,7 @@ function getStatus(conditions?: K8sCondition[]): {
   if (ready.status === 'True') {
     return { label: '완료', cls: 'chipReady', emoji: '✅', isError: false };
   }
-  const pendingReasons = ['Creating', 'Reconciling', 'ReconcileSuccess', 'WaitingForExternalResource'];
+  const pendingReasons = ['Creating', 'Reconciling', 'ReconcileSuccess', 'WaitingForExternalResource', 'Waiting'];
   if (ready.reason && pendingReasons.includes(ready.reason)) {
     return { label: '프로비저닝 중', cls: 'chipPending', emoji: '⏳', isError: false };
   }
