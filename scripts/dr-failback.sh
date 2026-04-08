@@ -59,7 +59,7 @@ else
   kubectl --kubeconfig="$EKS_KUBECONFIG" exec -n velero deploy/velero -- \
     velero backup create "$BACKUP_NAME" \
     --include-namespaces trip-app,backstage \
-    --storage-location gcs-offsite \
+    --storage-location s3-dr \
     --wait
   echo "  백업 완료: $BACKUP_NAME"
 fi

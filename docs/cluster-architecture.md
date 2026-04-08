@@ -112,7 +112,7 @@ graph TB
 
     %% ─── Shared Cloud Services ──────────────────────────────
     subgraph CLOUD["☁️ 공유 클라우드 서비스"]
-        GCS["GCS Bucket<br/>sydk-velero-offsite<br/>sydk-longhorn-offsite"]
+        S3_DR["AWS S3 Bucket<br/>sydk-velero-dr-usw2<br/>sydk-longhorn-dr-usw2"]
         CLOUD_SQL["Cloud SQL<br/>(계획)"]
     end
 
@@ -156,12 +156,12 @@ graph TB
 
     %% Storage & Backup
     LONGHORN -->|"Daily Backup"| MINIO
-    MINIO -->|"S3 Replication"| GCS
-    VELERO -->|"Backup"| GCS
+    MINIO -->|"S3 Replication"| S3_DR
+    VELERO -->|"Backup"| S3_DR
     VELERO -.->|"DR Restore"| EKS_RESTORE
 
     %% DR flow
-    EKS_RESTORE -->|"Restore from GCS"| GCS
+    EKS_RESTORE -->|"Restore from S3_DR"| S3_DR
 
     %% Service Mesh
     ISTIO -->|"mTLS"| TRIP
@@ -181,7 +181,7 @@ graph TB
     class ARGOCD,BACKSTAGE secondary
     class AZURE_P,KYVERNO warning
     class GKE_INFO,EKS_INFO cloud
-    class LONGHORN,MINIO,GCS storage
+    class LONGHORN,MINIO,S3_DR storage
     class FALCO,TALON,TRIVY security
     class EKS_STATUS,EKS_RESTORE dormant
 ```
@@ -196,7 +196,7 @@ graph TB
 | **Crossplane** | ⚠️ 부분 이슈 | Azure Network 프로바이더 CrashLoop |
 | **관측성** | ✅ 정상 | Prometheus + Loki + Tempo + Grafana |
 | **보안** | ⚠️ 부분 이슈 | Kyverno CrashLoop, Falco 정상 |
-| **백업** | ✅ 정상 | Velero + Longhorn → GCS |
+| **백업** | ✅ 정상 | Velero + Longhorn → AWS S3 |
 
 ## DR/Burst 전환 흐름
 

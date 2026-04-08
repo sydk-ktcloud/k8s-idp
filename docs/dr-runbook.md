@@ -46,7 +46,7 @@ DR시:  EKS DR → [Prometheus] → GKE KEDA → Burst
 
 - GCP 프로젝트 `sydk-ktcloud` 접근 권한
 - `gcloud`, `kubectl`, `velero` CLI 설치
-- GCS 버킷 `sydk-velero-offsite`, `sydk-longhorn-offsite` 존재
+- AWS S3 버킷 `sydk-velero-dr-usw2`, `sydk-longhorn-dr-usw2` 존재 (MinIO 미러링 대상)
 - Cloud Headscale 가동 중 (`infrastructure/headscale-cloud/setup.sh`)
 - AWS Secrets Manager에 DR 시크릿 미러링 완료
 - EKS Crossplane claim 배포 완료 (nodeCount: 0, dormant)
@@ -156,7 +156,7 @@ kubectl get pods -n monitoring  # Prometheus 정상 확인
 kubectl --kubeconfig=kubeconfig/eks-dr exec -n velero deploy/velero -- \
   velero backup create failback-$(date +%Y%m%d) \
   --include-namespaces trip-app,backstage \
-  --storage-location gcs-offsite \
+  --storage-location s3-dr \
   --wait
 ```
 
@@ -205,7 +205,7 @@ curl http://localhost:8080/health
 kubectl --kubeconfig=kubeconfig/gke-burst get scaledobject -n burst-workloads
 
 # Heartbeat CronJob 동작 확인
-gsutil cat gs://sydk-velero-offsite/heartbeat.json
+aws s3 cp s3://sydk-velero-dr-usw2/heartbeat/heartbeat.json - 2>/dev/null | cat
 
 # EKS dormant 상태 확인
 kubectl get ekscluster eks-dr -n default
@@ -240,18 +240,18 @@ gcloud compute ssh headscale-cloud --zone=asia-northeast3-a --project=sydk-ktclo
 
 ---
 
-## GCS 백업 사전 확인 (월 1회)
+## S3 DR 백업 사전 확인 (월 1회)
 
 ```bash
 # 백업 존재 확인
-gsutil ls gs://sydk-velero-offsite/ | tail -5
-gsutil ls gs://sydk-longhorn-offsite/ | tail -5
+aws s3 ls s3://sydk-velero-dr-usw2/ --region us-west-2 | tail -5
+aws s3 ls s3://sydk-longhorn-dr-usw2/ --region us-west-2 | tail -5
 
 # 최신 백업 날짜 확인
-gsutil ls -l gs://sydk-velero-offsite/ | sort -k2 | tail -1
+aws s3 ls s3://sydk-velero-dr-usw2/ --region us-west-2 --recursive | sort -k1,2 | tail -1
 
 # Heartbeat 확인
-gsutil cat gs://sydk-velero-offsite/heartbeat.json
+aws s3 cp s3://sydk-velero-dr-usw2/heartbeat/heartbeat.json - 2>/dev/null | cat
 ```
 
 ---
