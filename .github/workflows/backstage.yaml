@@ -73,6 +73,9 @@ jobs:
         env:
           YARN_ENABLE_HARDENED_MODE: 0
 
+      - name: Generate type declarations
+        run: node .yarn/releases/yarn-4.4.1.cjs tsc
+
       - name: Build app and backend
         run: node .yarn/releases/yarn-4.4.1.cjs build:all
 
