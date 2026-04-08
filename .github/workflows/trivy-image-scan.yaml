@@ -1,0 +1,45 @@
+name: Trivy Image Scan
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  scan-images:
+    name: Scan Container Images
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - kylekim1223/backstage-backend
+          - kylekim1223/trip-backend
+          - kylekim1223/trip-front
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'docker.io/${{ matrix.image }}:latest'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Run Trivy (SARIF output)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'docker.io/${{ matrix.image }}:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: '${{ matrix.image }}'
