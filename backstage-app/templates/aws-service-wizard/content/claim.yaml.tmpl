@@ -78,7 +78,7 @@ spec:
   engine: postgres
   region: {{ values.region }}
   {%- if scale === 'dev' %}
-  instanceClass: db.t3.small
+  instanceClass: db.t3.micro
   diskSize: 20
   {%- elif scale === 'standard' %}
   instanceClass: db.t3.medium

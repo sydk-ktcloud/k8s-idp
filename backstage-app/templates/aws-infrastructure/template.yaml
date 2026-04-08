@@ -52,14 +52,16 @@ spec:
         ec2InstanceType:
           title: 서버 크기
           type: string
-          default: t3.medium
+          default: t3.micro
           enum:
+            - t3.micro
             - t3.small
             - t3.medium
             - t3.xlarge
           enumNames:
+            - "최소 (2 vCPU · 1 GB RAM – Free Tier)  ← 권장"
             - "소형 (2 vCPU · 2 GB RAM – 개발/테스트용)"
-            - "중형 (2 vCPU · 4 GB RAM – 일반 서비스용)  ← 권장"
+            - "중형 (2 vCPU · 4 GB RAM – 일반 서비스용)"
             - "대형 (4 vCPU · 16 GB RAM – 고성능용)"
           description: 서버 규모를 선택하세요.
         ec2Region:
@@ -203,14 +205,16 @@ spec:
         rdsInstanceClass:
           title: DB 서버 크기
           type: string
-          default: db.t3.medium
+          default: db.t3.micro
           enum:
+            - db.t3.micro
             - db.t3.small
             - db.t3.medium
             - db.t3.large
           enumNames:
+            - "최소 (db.t3.micro – Free Tier)  ← 권장"
             - "소형 (db.t3.small – 개발/테스트용)"
-            - "중형 (db.t3.medium – 일반 서비스용)  ← 권장"
+            - "중형 (db.t3.medium – 일반 서비스용)"
             - "대형 (db.t3.large – 고성능 서비스용)"
           description: 데이터베이스 서버의 사양입니다.
         rdsRegion:
