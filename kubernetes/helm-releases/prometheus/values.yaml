@@ -105,12 +105,27 @@ alertmanager:
           matchers:
             - alertname =~ "CrossplaneProviderCrashLoop|KubeNodeNotReady|KubeNodeUnreachable|KubeControllerManagerDown|KubeSchedulerDown|KubeAPIDown"
           continue: false
+        - receiver: discord-security
+          matchers:
+            - category = "security"
+          continue: false
     receivers:
       - name: "null"
       - name: discord-cluster
         slack_configs:
           - api_url: "https://discord.com/api/webhooks/1489086014009118852/2SSBW95dXiDWh0asdSV623Ox-i6G75O48R_tijZv7PH5aDBiglfetScHWQaSd3N6USms/slack"
             channel: "클러스터-알림"
+            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+            text: |-
+              {{ range .Alerts }}
+              *{{ .Annotations.summary }}*
+              {{ .Annotations.description }}
+              {{ end }}
+            send_resolved: true
+      - name: discord-security
+        slack_configs:
+          - api_url: "https://discord.com/api/webhooks/1491420009468137574/T7VWX4KdRfIAEtHR-mJe3kxwklHv1OsQm2tkGir5gMu2swCPNltzrAeVe0pptLkqs1DD/slack"
+            channel: "보안-알림"
             title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
             text: |-
               {{ range .Alerts }}
