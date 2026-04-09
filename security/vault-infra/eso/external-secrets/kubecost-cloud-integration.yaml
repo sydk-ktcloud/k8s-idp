@@ -61,3 +61,7 @@ spec:
       remoteRef:
         key: k8s/kubecost/cloud-integration
         property: gcp_service_account_key
+    - secretKey: azure_storage_access_key
+      remoteRef:
+        key: k8s/kubecost/cloud-integration
+        property: azure_storage_access_key
