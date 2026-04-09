@@ -37,7 +37,16 @@ spec:
                 "key": {{ .gcp_service_account_key }}
               }
             ],
-            "azure": []
+            "azure": [
+              {
+                "azureSubscriptionID": "167a7398-202a-4522-bb2e-fc2c1bf7d467",
+                "azureStorageAccount": "kubecostdata",
+                "azureStorageAccessKey": "{{ .azure_storage_access_key }}",
+                "azureStorageContainer": "costexport",
+                "azureContainerPath": "export",
+                "azureCloud": "public"
+              }
+            ]
           }
   data:
     - secretKey: aws_access_key_id
