@@ -1,6 +1,13 @@
-# EKS DR 클러스터 설정
-# 적용: eksctl create cluster -f infrastructure/aws-dr/eksctl-cluster.yaml
+# EKS DR 클러스터 (eksctl 선언)
+# ───────────────────────────────────────────────────────────────
+# 이 파일이 DR 클러스터의 단일 소스(Source of Truth)다.
+# 완전장애 시 GitHub-hosted runner가 OIDC로 AWS에 붙어 eksctl로 직접 생성하므로
+# on-prem Crossplane/kubectl이 죽어 있어도 프로비저닝이 가능하다.
+#
+# 생성: eksctl create cluster -f infrastructure/aws-dr/eksctl-cluster.yaml
 # 삭제: eksctl delete cluster -f infrastructure/aws-dr/eksctl-cluster.yaml
+#
+# 비용: 평시 클러스터 미존재 → $0. DR 활성화 시에만 생성되어 비용 발생.
 ---
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
@@ -9,17 +16,40 @@ metadata:
   name: k8s-idp-dr
   region: us-west-2
   version: "1.32"
+  tags:
+    system: dr
+    team: platform
+    cost-center: dr-cluster
+    lifecycle-tier: on-demand
+
+# IRSA(IAM Roles for Service Accounts) 활성화 → Velero/ESO가 static key 없이
+# OIDC 기반으로 AWS에 접근. dr-activate.sh가 velero용 iamserviceaccount를 생성한다.
+iam:
+  withOIDC: true
 
 managedNodeGroups:
   - name: dr-spot
-    instanceType: t3.small
+    # DR 활성화 시 바로 실서비스 용량으로 기동 (평시엔 클러스터 자체가 없음)
+    instanceTypes:
+      - t3.large
+      - t3a.large
     spot: true
-    minSize: 0
-    maxSize: 2
-    desiredCapacity: 0  # 평시 0대, DR 시 스케일업
+    minSize: 2
+    maxSize: 5
+    desiredCapacity: 3
+    volumeSize: 50
     labels:
       role: dr
       team: platform
     tags:
       system: dr
       team: platform
+
+# Velero가 --restore-volumes로 PVC를 복구하려면 EBS CSI 드라이버가 필요.
+addons:
+  - name: aws-ebs-csi-driver
+    wellKnownPolicies:
+      ebsCSIController: true
+  - name: vpc-cni
+  - name: coredns
+  - name: kube-proxy

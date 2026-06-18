@@ -1,6 +1,18 @@
-# DR 자동 활성화 워크플로우
-# Lambda heartbeat-monitor가 장애 감지 시 workflow_dispatch로 자동 트리거
-# 수동 실행도 가능: Actions 탭 → Run workflow
+# DR 자동 활성화 워크플로우 (완전장애 대응)
+# ───────────────────────────────────────────────────────────────
+# 핵심: runs-on을 self-hosted(on-prem)가 아닌 GitHub-hosted(ubuntu-latest)로 둔다.
+#       AWS 접근은 OIDC로 AssumeRole → eksctl로 EKS를 직접 생성.
+#       => on-prem이 100% 죽어도 이 워크플로우는 GitHub 인프라에서 돌고,
+#          프로비저닝도 AWS에서 직접 일어나므로 순환 의존성이 없다.
+#
+# 트리거: Lambda heartbeat-monitor가 장애 감지 시 workflow_dispatch로 자동 실행
+#         수동 실행도 가능: Actions 탭 → Run workflow
+#
+# 사전 준비(1회):
+#   1) infrastructure/aws-dr/cloudformation-oidc-role.yaml 배포
+#   2) 출력된 DRProvisionRoleArn → repo secret  AWS_DR_ROLE_ARN
+#   3) GKE burst kubeconfig(base64) → repo secret  GKE_KUBECONFIG_B64  (선택: GKE 메트릭 전환용)
+#   4) Discord webhook → repo secret  DISCORD_CLUSTER_WEBHOOK
 name: DR Activate
 
 on:
@@ -15,13 +27,28 @@ on:
         required: false
         default: '0'
 
+# OIDC 토큰 발급에 필요
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  CLUSTER_NAME: k8s-idp-dr
+  HEARTBEAT_BUCKET: sydk-velero-dr-usw2
+  HEARTBEAT_KEY: heartbeat/heartbeat.json
+
 jobs:
   dr-activate:
-    name: DR 클러스터 활성화
-    runs-on: self-hosted
-    timeout-minutes: 30
+    name: DR 클러스터 활성화 (GitHub-hosted)
+    runs-on: ubuntu-latest        # ← on-prem과 무관하게 GitHub 인프라에서 실행
+    timeout-minutes: 45
     env:
       DISCORD_CLUSTER_WEBHOOK: ${{ secrets.DISCORD_CLUSTER_WEBHOOK }}
+      GKE_KUBECONFIG_B64: ${{ secrets.GKE_KUBECONFIG_B64 }}
+      # Route53 페일오버 SECONDARY 자동 등록용 (비밀 아님 → repo variables)
+      ROUTE53_ZONE_ID: ${{ vars.ROUTE53_ZONE_ID }}
+      DR_DOMAIN: ${{ vars.DR_DOMAIN }}
 
     steps:
       - name: Checkout
@@ -30,44 +57,57 @@ jobs:
       - name: DR 활성화 정보
         run: |
           echo "============================================"
-          echo "  DR 자동 활성화 트리거"
+          echo "  DR 자동 활성화 트리거 (완전장애 대응)"
           echo "============================================"
           echo "트리거 소스: ${{ github.event.inputs.trigger_source }}"
           echo "Heartbeat 미갱신: ${{ github.event.inputs.heartbeat_age_minutes }}분"
           echo "시각: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-      - name: On-prem 클러스터 상태 확인
-        run: |
-          # On-prem이 정말 장애인지 한 번 더 확인
-          NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | grep -c "Ready" || echo "0")
-          echo "On-prem Ready 노드: ${NODE_COUNT}개"
+      - name: AWS 자격증명 (OIDC AssumeRole)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DR_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: dr-activate-${{ github.run_id }}
 
-          if [ "$NODE_COUNT" -ge 3 ]; then
-            echo "⚠️ On-prem 노드가 정상입니다. False positive일 수 있습니다."
-            echo "Lambda 트리거였다면 Heartbeat CronJob 상태를 확인하세요."
-            # 자동 트리거인 경우에도 계속 진행 (Heartbeat 실패는 네트워크 이슈일 수 있음)
-          fi
-
-      - name: EKS DR 존재 여부 확인
-        id: check-eks
+      - name: 장애 재확인 (S3 heartbeat 나이)
         run: |
-          if kubectl get ekscluster eks-dr -n default &>/dev/null; then
-            STATUS=$(kubectl get ekscluster eks-dr -n default -o jsonpath='{.status.clusterStatus}' 2>/dev/null || echo "Unknown")
-            echo "eks_exists=true" >> "$GITHUB_OUTPUT"
-            echo "eks_status=$STATUS" >> "$GITHUB_OUTPUT"
-            echo "EKS DR claim 이미 존재 (상태: $STATUS)"
+          # on-prem에 kubectl로 접근하지 않는다(죽어 있을 수 있으므로).
+          # 대신 on-prem이 S3에 올리던 heartbeat의 LastModified 나이로 판단한다.
+          set -e
+          LAST_MOD=$(aws s3api head-object \
+            --bucket "$HEARTBEAT_BUCKET" --key "$HEARTBEAT_KEY" \
+            --query LastModified --output text 2>/dev/null || echo "")
+
+          if [ -z "$LAST_MOD" ]; then
+            echo "⚠️  heartbeat 객체를 찾을 수 없음 → on-prem 장애로 간주하고 진행."
           else
-            echo "eks_exists=false" >> "$GITHUB_OUTPUT"
-            echo "EKS DR claim 없음 — 신규 프로비저닝 필요"
+            AGE_MIN=$(( ( $(date -u +%s) - $(date -u -d "$LAST_MOD" +%s) ) / 60 ))
+            echo "마지막 heartbeat: $LAST_MOD (${AGE_MIN}분 전)"
+            if [ "$AGE_MIN" -lt 15 ]; then
+              echo "⚠️  heartbeat가 15분 이내에 갱신됨 → false positive 가능."
+              echo "    수동 트리거가 아니라면 on-prem 상태를 확인하세요. (계속 진행)"
+            fi
           fi
+
+      - name: 툴 설치 (eksctl / kubectl / helm / velero)
+        run: |
+          set -e
+          # eksctl
+          curl -sSL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz" \
+            | tar xz -C /tmp && sudo mv /tmp/eksctl /usr/local/bin/
+          # kubectl
+          curl -sSLO "https://dl.k8s.io/release/v1.32.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          # helm
+          curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          # velero CLI
+          VELERO_VER=v1.14.0
+          curl -sSL "https://github.com/vmware-tanzu/velero/releases/download/${VELERO_VER}/velero-${VELERO_VER}-linux-amd64.tar.gz" \
+            | tar xz -C /tmp && sudo mv /tmp/velero-${VELERO_VER}-linux-amd64/velero /usr/local/bin/
+          eksctl version && kubectl version --client && helm version && velero version --client-only
 
       - name: DR 활성화 실행
-        if: steps.check-eks.outputs.eks_exists != 'true' || steps.check-eks.outputs.eks_status != 'ACTIVE'
         run: |
           chmod +x scripts/dr-activate.sh
           ./scripts/dr-activate.sh
-
-      - name: DR 이미 활성 상태
-        if: steps.check-eks.outputs.eks_exists == 'true' && steps.check-eks.outputs.eks_status == 'ACTIVE'
-        run: |
-          echo "EKS DR이 이미 ACTIVE 상태입니다. 추가 작업이 필요하지 않습니다."

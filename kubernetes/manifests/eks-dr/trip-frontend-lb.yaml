@@ -1,0 +1,30 @@
+# EKS DR - trip-frontend 외부 노출 (NLB)
+# ───────────────────────────────────────────────────────────────
+# on-prem은 trip-frontend-main을 NodePort(30249)로 노출하지만,
+# EKS DR에서는 Route53 SECONDARY가 가리킬 안정적인 LB 엔드포인트가 필요하다.
+# dr-activate.sh가 Velero restore 후 이 Service를 apply하여 AWS NLB를 띄우고,
+# 그 NLB DNS를 Route53 SECONDARY 레코드로 등록한다.
+#
+# 전제: AWS Load Balancer Controller 또는 in-tree NLB(annotation) 사용.
+#       (eksctl 클러스터는 in-tree LoadBalancer로 NLB 자동 생성 가능)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trip-frontend-dr-lb
+  namespace: trip-app
+  labels:
+    app: trip-main
+    burst: "dr"
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+spec:
+  type: LoadBalancer
+  selector:
+    app: trip-main               # on-prem trip-main Deployment과 동일 셀렉터 (복구본에 연결)
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80               # 컨테이너가 80으로 listen (on-prem service: 3000→80)
+    protocol: TCP

@@ -1,0 +1,94 @@
+# trip-db 논리 백업 (pg_dump) → S3 오프사이트
+# ───────────────────────────────────────────────────────────────
+# 왜 논리 백업인가:
+#   on-prem trip-db는 Longhorn(블록) 볼륨에 저장되고 Longhorn 포맷으로 백업된다.
+#   EKS(EBS)에서는 Longhorn 백업을 읽을 수 없다. pg_dump는 SQL(논리) 포맷이라
+#   스토리지에 무관 → EKS의 EBS postgres로 그대로 복구(pg_restore) 가능하다.
+#   덤으로 RPO가 Longhorn 일일백업(24h) → 1시간으로 단축된다.
+#
+# 배치 위치: minio-storage 네임스페이스
+#   - 이미 minio-credentials / aws-replicator-credentials 가 존재
+#   - trip-db는 cross-namespace DNS(trip-db.trip-app)로 접근
+#
+# 사전 조건(네트워크 정책):
+#   minio-storage → trip-app:5432 ingress 허용 필요.
+#   kubernetes/network-policies/09-trip-app.yaml 에 minio-storage 출처 허용 규칙 추가.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trip-db-logical-backup
+  namespace: minio-storage
+  labels:
+    app: trip-db-logical-backup
+    team: platform
+    system: backup
+spec:
+  schedule: "17 * * * *"        # 매시간 17분 (정시 백업들과 겹치지 않게)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: trip-db-logical-backup
+        spec:
+          restartPolicy: OnFailure
+          # ① pg_dump으로 덤프 생성 (postgres 이미지)
+          initContainers:
+          - name: pg-dump
+            image: postgres:15-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "=== trip_db pg_dump 시작 ==="
+              pg_dump -Fc -h trip-db.trip-app.svc.cluster.local -p 5432 \
+                -U postgres -d trip_db -f /dump/trip_db-latest.dump
+              echo "덤프 크기: $(du -h /dump/trip_db-latest.dump)"
+            env:
+            - name: PGPASSWORD
+              value: "1771"        # 주변 trip-db 매니페스트와 동일 (하드코딩 유지)
+            volumeMounts:
+            - name: dump
+              mountPath: /dump
+          # ② mc로 S3에 업로드 (latest + 타임스탬프본)
+          containers:
+          - name: upload-s3
+            image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              mc alias set s3 https://s3.us-west-2.amazonaws.com \
+                "$AWS_ACCESS_KEY" "$AWS_SECRET_KEY"
+              TS=$(date -u +%Y%m%d-%H%M)
+              mc cp /dump/trip_db-latest.dump s3/sydk-velero-dr-usw2/db-dumps/trip_db-latest.dump
+              mc cp /dump/trip_db-latest.dump s3/sydk-velero-dr-usw2/db-dumps/trip_db-${TS}.dump
+              echo "=== S3 업로드 완료: db-dumps/trip_db-latest.dump (+ ${TS}) ==="
+            env:
+            - name: AWS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-replicator-credentials
+                  key: aws-access-key
+            - name: AWS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-replicator-credentials
+                  key: aws-secret-key
+            volumeMounts:
+            - name: dump
+              mountPath: /dump
+            resources:
+              requests: { cpu: 50m, memory: 64Mi }
+              limits: { cpu: 200m, memory: 256Mi }
+          volumes:
+          - name: dump
+            emptyDir: {}

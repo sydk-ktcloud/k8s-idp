@@ -1,0 +1,202 @@
+# GitHub Actions OIDC + DR 프로비저닝 IAM Role
+# ───────────────────────────────────────────────────────────────
+# 목적: 완전장애(on-prem 100% 다운) 상황에서도 DR을 띄울 수 있도록
+#       프로비저닝 권한을 on-prem이 아닌 "GitHub-hosted runner + OIDC"에 둠.
+#
+#   기존 문제: dr-activate가 self-hosted runner(on-prem) + Crossplane(on-prem)에
+#             의존 → on-prem이 죽으면 DR을 띄울 손발이 같이 죽는 순환 의존성.
+#   해결:     GitHub-hosted runner가 이 Role을 OIDC로 AssumeRole → eksctl로
+#             EKS를 AWS에 직접 생성. on-prem 의존 0.
+#
+# 적용:
+#   aws cloudformation deploy \
+#     --template-file infrastructure/aws-dr/cloudformation-oidc-role.yaml \
+#     --stack-name k8s-idp-dr-oidc \
+#     --capabilities CAPABILITY_NAMED_IAM \
+#     --region us-west-2 \
+#     --parameter-overrides GitHubRepo=sydk-ktcloud/k8s-idp
+#
+# 배포 후 출력된 DRProvisionRoleArn 을 GitHub repo secret `AWS_DR_ROLE_ARN` 으로 등록.
+# 삭제: aws cloudformation delete-stack --stack-name k8s-idp-dr-oidc --region us-west-2
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "k8s-idp DR - GitHub OIDC provider + eksctl provisioning role + Velero IRSA policy"
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Default: sydk-ktcloud/k8s-idp
+    Description: "owner/repo (OIDC trust subject 제한용)"
+  GitHubRef:
+    Type: String
+    Default: refs/heads/main
+    Description: "AssumeRole을 허용할 git ref (dr-activate 워크플로우가 도는 브랜치)"
+  CreateOIDCProvider:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: "계정에 GitHub OIDC provider가 이미 있으면 false로 설정"
+  ExistingOIDCProviderArn:
+    Type: String
+    Default: ""
+    Description: "CreateOIDCProvider=false 일 때 기존 provider ARN"
+  VeleroDRBucket:
+    Type: String
+    Default: sydk-velero-dr-usw2
+    Description: "Velero DR 백업 S3 버킷"
+
+Conditions:
+  ShouldCreateOIDC: !Equals [!Ref CreateOIDCProvider, "true"]
+
+Resources:
+  # ── GitHub Actions OIDC Identity Provider ──
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateOIDC
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      # GitHub OIDC thumbprint (AWS는 token.actions 도메인에 대해 검증을 자체 처리하나
+      # CFN 스키마상 필수 필드라 알려진 값을 넣어둠)
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+
+  # ── DR 프로비저닝 Role (GitHub-hosted runner가 AssumeRole) ──
+  DRProvisionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: github-actions-dr-provision-role
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateOIDC
+                - !Ref GitHubOIDCProvider
+                - !Ref ExistingOIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              # 지정한 repo + ref 에서 실행된 워크플로우만 이 Role을 쓸 수 있음
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:ref:${GitHubRef}"
+      Policies:
+        - PolicyName: eksctl-provision
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # eksctl은 내부적으로 CloudFormation 스택으로 EKS/VPC/NodeGroup을 만든다.
+              - Sid: EKSAndProvisioning
+                Effect: Allow
+                Action:
+                  - eks:*
+                  - cloudformation:*
+                  - ec2:*
+                  - autoscaling:*
+                  - elasticloadbalancing:*
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - kms:DescribeKey
+                  - kms:CreateGrant
+                Resource: "*"
+              # eksctl이 클러스터/노드/IRSA용 IAM Role을 생성·관리
+              - Sid: IAMForEksctl
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:CreateInstanceProfile
+                  - iam:DeleteInstanceProfile
+                  - iam:GetInstanceProfile
+                  - iam:AddRoleToInstanceProfile
+                  - iam:RemoveRoleFromInstanceProfile
+                  - iam:CreateServiceLinkedRole
+                  - iam:CreateOpenIDConnectProvider
+                  - iam:DeleteOpenIDConnectProvider
+                  - iam:GetOpenIDConnectProvider
+                  - iam:TagRole
+                  - iam:TagOpenIDConnectProvider
+                  - iam:PassRole
+                  - iam:CreatePolicy
+                  - iam:GetPolicy
+                  - iam:ListPolicyVersions
+                Resource: "*"
+              # DR 백업 버킷 읽기 (heartbeat 나이 확인 + Velero/pg_dump restore 소스)
+              - Sid: DRBucketRead
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:HeadObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${VeleroDRBucket}"
+                  - !Sub "arn:aws:s3:::${VeleroDRBucket}/*"
+              # Route53 페일오버: DR 시 SECONDARY(EKS LB) 레코드 동적 등록
+              - Sid: DNSFailover
+                Effect: Allow
+                Action:
+                  - route53:ChangeResourceRecordSets
+                  - route53:ListResourceRecordSets
+                  - route53:GetHostedZone
+                  - route53:GetHealthCheck
+                  - route53:GetChange
+                Resource: "*"
+
+  # ── Velero IRSA 정책 (EKS 안의 Velero ServiceAccount가 사용) ──
+  # dr-activate.sh가 eksctl create iamserviceaccount로 이 정책을 velero SA에 바인딩.
+  VeleroDRPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: velero-dr-policy
+      Description: "Velero가 EBS 스냅샷/볼륨 및 DR S3 버킷에 접근"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: VeleroEBS
+            Effect: Allow
+            Action:
+              - ec2:DescribeVolumes
+              - ec2:DescribeSnapshots
+              - ec2:CreateTags
+              - ec2:CreateVolume
+              - ec2:CreateSnapshot
+              - ec2:DeleteSnapshot
+            Resource: "*"
+          - Sid: VeleroS3Object
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:DeleteObject
+              - s3:PutObject
+              - s3:AbortMultipartUpload
+              - s3:ListMultipartUploadParts
+            Resource: !Sub "arn:aws:s3:::${VeleroDRBucket}/*"
+          - Sid: VeleroS3Bucket
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !Sub "arn:aws:s3:::${VeleroDRBucket}"
+
+Outputs:
+  DRProvisionRoleArn:
+    Description: "GitHub repo secret AWS_DR_ROLE_ARN 으로 등록할 값"
+    Value: !GetAtt DRProvisionRole.Arn
+  VeleroPolicyArn:
+    Description: "Velero IRSA 정책 ARN (dr-activate.sh가 참조)"
+    Value: !Ref VeleroDRPolicy
+  OIDCProviderArn:
+    Condition: ShouldCreateOIDC
+    Value: !Ref GitHubOIDCProvider

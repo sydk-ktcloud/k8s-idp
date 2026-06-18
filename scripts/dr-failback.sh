@@ -90,24 +90,48 @@ kubectl --kubeconfig="$GKE_KUBECONFIG" patch configmap prometheus-upstream \
 kubectl --kubeconfig="$GKE_KUBECONFIG" rollout restart deploy/prometheus-proxy -n burst-workloads
 echo "  GKE KEDA 메트릭 소스 → On-prem 전환 완료"
 
-# ── Step 5: EKS 클러스터 완전 삭제 (On-Demand 모델) ──
+# Route53 SECONDARY(EKS) 레코드 제거 → 트래픽을 on-prem PRIMARY로 완전 복귀.
+# 데이터 동기화(Step 2-3) 이후에 수행하므로 split-brain 창이 닫힌 뒤 전환된다.
+if [ -n "${ROUTE53_ZONE_ID:-}" ] && [ -n "${DR_DOMAIN:-}" ]; then
+  CUR=$(aws route53 list-resource-record-sets --hosted-zone-id "$ROUTE53_ZONE_ID" \
+    --query "ResourceRecordSets[?SetIdentifier=='eks-dr-secondary'] | [0]" --output json 2>/dev/null || echo "null")
+  if [ "$CUR" != "null" ] && [ -n "$CUR" ]; then
+    echo "{ \"Changes\": [ { \"Action\": \"DELETE\", \"ResourceRecordSet\": $CUR } ] }" > /tmp/r53-del.json
+    aws route53 change-resource-record-sets --hosted-zone-id "$ROUTE53_ZONE_ID" \
+      --change-batch file:///tmp/r53-del.json && echo "  Route53 SECONDARY 제거 완료 (트래픽 on-prem 복귀)"
+  else
+    echo "  Route53 SECONDARY 레코드 없음 — 건너뜀."
+  fi
+else
+  echo "  ROUTE53_ZONE_ID/DR_DOMAIN 미설정 — Route53 정리 생략."
+fi
+
+# ── Step 5: EKS 클러스터 완전 삭제 (eksctl, On-Demand 모델) ──
 echo ""
 echo "[5/6] EKS DR 클러스터 완전 삭제..."
 
-# EKS 워크로드 namespace 먼저 정리 (PVC 등 리소스 해제)
+AWS_REGION="${AWS_REGION:-us-west-2}"
+CLUSTER_NAME="${CLUSTER_NAME:-k8s-idp-dr}"
+EKSCTL_CONFIG="infrastructure/aws-dr/eksctl-cluster.yaml"
+
+# EKS 워크로드 namespace 먼저 정리 (PVC 등 클라우드 리소스 해제 → 고아 EBS 방지)
 if [ -f "$EKS_KUBECONFIG" ]; then
   kubectl --kubeconfig="$EKS_KUBECONFIG" delete namespace trip-app --ignore-not-found --wait=false
   kubectl --kubeconfig="$EKS_KUBECONFIG" delete namespace backstage --ignore-not-found --wait=false
   kubectl --kubeconfig="$EKS_KUBECONFIG" delete namespace velero --ignore-not-found --wait=false
   kubectl --kubeconfig="$EKS_KUBECONFIG" delete namespace monitoring --ignore-not-found --wait=false
   echo "  EKS 워크로드 namespace 삭제 요청 완료"
-  sleep 10
+  sleep 15
 fi
 
-# Crossplane claim 삭제 → EKS 클러스터 + 노드 그룹 완전 제거
-kubectl delete ekscluster eks-dr -n default --ignore-not-found
-echo "  EKS Crossplane claim 삭제 완료"
-echo "  Crossplane이 EKS 클러스터를 완전히 제거합니다. (5-10분 소요)"
+# eksctl로 클러스터 + 노드그룹 + IRSA/CFN 스택까지 완전 제거 (Crossplane 미사용)
+# 완전장애 대응 설계라 삭제도 on-prem과 무관하게 eksctl로 직접 수행한다.
+if eksctl get cluster --name "$CLUSTER_NAME" --region "$AWS_REGION" &>/dev/null; then
+  eksctl delete cluster -f "$EKSCTL_CONFIG" --disable-nodegroup-eviction --wait
+  echo "  EKS 클러스터 완전 삭제 완료 (비용 \$0 복귀)"
+else
+  echo "  EKS 클러스터 '$CLUSTER_NAME' 미존재 — 삭제 건너뜀."
+fi
 
 # kubeconfig 정리
 rm -f kubeconfig/eks-dr

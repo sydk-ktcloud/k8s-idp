@@ -1,7 +1,15 @@
-# EKS DR 클러스터 Crossplane Claim
-# 평시에는 존재하지 않음 (Active-Passive On-Demand)
-# DR 활성화 시 dr-activate.sh가 kubectl apply로 생성
-# Failback 시 dr-failback.sh가 kubectl delete로 완전 삭제
+# [DEPRECATED — DR 경로에서 더 이상 사용하지 않음]
+# ───────────────────────────────────────────────────────────────
+# 이 Crossplane Claim은 on-prem Crossplane이 reconcile 해야만 EKS가 생성된다.
+# 그런데 on-prem이 완전히 죽으면 Crossplane도 같이 죽어 DR을 띄울 수 없는
+# 순환 의존성이 있었다. 그래서 DR 활성화 경로는 eksctl(GitHub-hosted runner + OIDC)로
+# 이관했다. 실제 DR 프로비저닝은 다음을 사용한다:
+#   - infrastructure/aws-dr/eksctl-cluster.yaml   (클러스터 정의)
+#   - scripts/dr-activate.sh                       (eksctl create)
+#   - .github/workflows/dr-activate.yaml           (ubuntu-latest + OIDC)
+#
+# 이 파일은 on-prem이 살아있는 상태에서 GitOps로 EKS를 관리하고 싶을 때의
+# 참고용으로만 남겨둔다. DR 자동화는 이 파일을 사용하지 않는다.
 #
 # 비용: 평시 $0, DR 시에만 EKS 비용 발생
 apiVersion: k8s-idp.example.org/v1alpha1

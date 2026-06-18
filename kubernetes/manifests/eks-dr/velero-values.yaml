@@ -1,7 +1,12 @@
 # EKS DR - Velero Configuration
 # AWS S3 DR 버킷에서 복구 (On-Prem MinIO → S3 미러링 데이터 사용)
 #
-# DR 활성화: velero restore create dr-restore --from-backup <latest> --storage-location s3-dr
+# 인증: static AWS key 대신 IRSA 사용.
+#   dr-activate.sh가 `eksctl create iamserviceaccount`로 velero SA에
+#   velero-dr-policy(IAM)를 바인딩 → 이 values는 SA를 새로 만들지 않고 재사용한다.
+#   (완전장애 시 on-prem Vault/Secret에 의존하지 않기 위함)
+#
+# DR 활성화: velero restore create dr-restore --from-backup <latest>
 # Failback:  velero backup create failback-$(date +%Y%m%d) --include-namespaces trip-app,backstage
 
 configuration:
@@ -17,7 +22,17 @@ configuration:
   - name: aws-ebs
     provider: aws
     config:
-      region: ap-northeast-2
+      region: us-west-2
+
+# IRSA 사용 → cloud-credentials secret 불필요
+credentials:
+  useSecret: false
+
+# SA는 eksctl iamserviceaccount가 IRSA 어노테이션과 함께 미리 생성함
+serviceAccount:
+  server:
+    create: false
+    name: velero
 
 initContainers:
 - name: velero-plugin-for-aws
@@ -34,11 +49,11 @@ resources:
     cpu: 500m
     memory: 512Mi
 
-# Velero 스케줄 (EKS 활성 시에만 의미 있음)
+# Velero 스케줄 (EKS 활성 시에만 의미 있음 — failback 대비 주기 백업)
 schedules:
   eks-dr-backup:
     disabled: false
-    schedule: "0 */6 * * *"    # 6시간마다 백업 (failback 대비)
+    schedule: "0 */6 * * *"    # 6시간마다 백업
     template:
       includedNamespaces:
       - trip-app
