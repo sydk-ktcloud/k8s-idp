@@ -1,0 +1,21 @@
+# EKS DR - gp3 기본 StorageClass
+# ───────────────────────────────────────────────────────────────
+# on-prem PVC는 storageClassName: longhorn 으로 백업된다. EKS엔 longhorn SC가 없으므로
+# Velero가 복구한 PVC가 Pending에 빠진다. 이를 막기 위해:
+#   1) EKS 기본 SC를 gp3(EBS)로 둔다.
+#   2) velero-change-sc-configmap.yaml로 longhorn → gp3 리매핑한다.
+# dr-activate.sh가 Velero restore 전에 이 파일을 apply 한다.
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+reclaimPolicy: Delete

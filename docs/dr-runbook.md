@@ -24,12 +24,14 @@ EKS에서도 GKE Burst 클러스터로 overflow 스케일링을 유지하는 절
 │                   VPN Control Plane                        │
 └────────┬──────────────┬──────────────┬────────────────────┘
          │              │              │
-    ┌────▼────┐   ┌─────▼─────┐  ┌────▼────┐
-    │ On-prem │   │ GKE Burst │  │ EKS DR  │
-    │ (primary)│   │ (overflow) │  │(dormant)│
-    │ tag:     │   │ tag:       │  │ tag:    │
-    │ onprem   │   │ gke-burst  │  │ eks-dr  │
-    └─────────┘   └────────────┘  └─────────┘
+    ┌────▼────┐   ┌─────▼─────┐  ┌─────▼──────┐
+    │ On-prem │   │ GKE Burst │  │   EKS DR   │
+    │ (primary)│   │ (overflow) │  │(평시 미존재 │
+    │ tag:     │   │ tag:       │  │ eksctl로   │
+    │ onprem   │   │ gke-burst  │  │ on-demand) │
+    └─────────┘   └────────────┘  └────────────┘
+   프로비저닝 두뇌(Lambda·GitHub Actions·eksctl)는 모두 on-prem 밖에 위치 →
+   on-prem 완전장애에도 DR 생성 가능
 
 평시:  On-prem → [Prometheus] → GKE KEDA → Burst
 DR시:  EKS DR → [Prometheus] → GKE KEDA → Burst
@@ -49,90 +51,109 @@ DR시:  EKS DR → [Prometheus] → GKE KEDA → Burst
 - AWS S3 버킷 `sydk-velero-dr-usw2`, `sydk-longhorn-dr-usw2` 존재 (MinIO 미러링 대상)
 - Cloud Headscale 가동 중 (`infrastructure/headscale-cloud/setup.sh`)
 - AWS Secrets Manager에 DR 시크릿 미러링 완료
-- EKS Crossplane claim 배포 완료 (nodeCount: 0, dormant)
+- OIDC + IAM Role 배포 완료 (`cloudformation-oidc-role.yaml`) 및 GitHub repo secret 등록
+  - `AWS_DR_ROLE_ARN`, `GKE_KUBECONFIG_B64`(선택), `DISCORD_CLUSTER_WEBHOOK`
+- DR 클러스터는 **평시 미존재**(eksctl On-Demand 생성) — 사전 프로비저닝 불필요
 
 ---
 
 ## DR 활성화 절차 (On-prem 장애 시)
 
-> **자동화 스크립트:** `./scripts/dr-activate.sh`
+> **핵심 설계:** 완전장애(on-prem 100% 다운)에서도 동작하도록, 프로비저닝 주체를
+> on-prem 밖(GitHub-hosted runner + OIDC + eksctl)에 둔다. on-prem의
+> kubectl/Crossplane/Vault에 **전혀 의존하지 않는다.**
+>
+> **자동 경로:** Lambda(장애 감지) → GitHub Actions `dr-activate`(ubuntu-latest) → `dr-activate.sh`
 
-### Step 1: 장애 감지
+### 동작 흐름
 
-- Dead Man's Switch: heartbeat CronJob이 GCS에 5분마다 업로드
-- GCP Cloud Monitoring: 15분 이상 업데이트 없으면 알림 발생
+```
+on-prem 사망
+   │  (heartbeat 끊김)
+   ▼
+AWS Lambda heartbeat-monitor (S3 LastModified 15분 초과 감지)   ← AWS, 살아있음
+   │  workflow_dispatch
+   ▼
+GitHub Actions: dr-activate.yaml (runs-on: ubuntu-latest)        ← GitHub 인프라
+   │  OIDC AssumeRole → AWS_DR_ROLE_ARN
+   ▼
+scripts/dr-activate.sh
+   ├─ eksctl create cluster -f infrastructure/aws-dr/eksctl-cluster.yaml
+   ├─ aws eks update-kubeconfig            (on-prem Secret 아님)
+   ├─ eksctl create iamserviceaccount      (Velero IRSA)
+   ├─ helm install velero                  (static key 없음)
+   ├─ velero restore (S3 백업 → trip-app,backstage)
+   └─ (선택) GKE Burst 메트릭 소스 → EKS 전환
+```
+
+> ⚠️ **기존 결함(수정됨):** 과거에는 self-hosted runner(on-prem) + Crossplane(on-prem)으로
+> EKS를 만들었기 때문에, on-prem이 완전히 죽으면 DR을 띄울 손발도 같이 죽었다(순환 의존성).
+> 이제는 위 경로 어디에도 on-prem이 없다.
+
+### 사전 준비 (1회)
+
+1. OIDC + IAM Role 배포:
+   ```bash
+   aws cloudformation deploy \
+     --template-file infrastructure/aws-dr/cloudformation-oidc-role.yaml \
+     --stack-name k8s-idp-dr-oidc --capabilities CAPABILITY_NAMED_IAM \
+     --region us-west-2 --parameter-overrides GitHubRepo=sydk-ktcloud/k8s-idp
+   ```
+2. 출력값 등록 (GitHub repo secrets):
+   - `AWS_DR_ROLE_ARN`        ← 출력 `DRProvisionRoleArn`
+   - `GKE_KUBECONFIG_B64`     ← GKE burst kubeconfig base64 (선택, 메트릭 전환용)
+   - `DISCORD_CLUSTER_WEBHOOK`← Discord 알림
+3. DNS 페일오버 배포 + repo **variables** 등록:
+   ```bash
+   aws cloudformation deploy \
+     --template-file infrastructure/aws-dr/cloudformation-dns-failover.yaml \
+     --stack-name k8s-idp-dns-failover --region us-west-2 \
+     --parameter-overrides HostedZoneId=<ZONE> DomainName=<도메인> OnPremIP=<노드IP>
+   ```
+   - repo variables: `ROUTE53_ZONE_ID`, `DR_DOMAIN` (dr-activate가 SECONDARY 자동 등록)
+4. 논리 백업 활성화 (EBS 복구 데이터 소스):
+   - `kubectl apply -f kubernetes/manifests/trip-app/db-logical-backup-cron.yaml`
+   - NetworkPolicy: `minio-storage → trip-app:5432` ingress 허용 추가
+
+### 데이터 복구가 EBS로 떨어지는 원리
+
+on-prem PVC는 Longhorn 포맷이라 EKS(EBS)에서 못 읽는다. 그래서 **2단계**로 복구한다:
+- **매니페스트/PVC**: Velero가 복구하되, `change-storage-class` 플러그인이
+  `longhorn → gp3`로 리매핑 → PVC가 **EBS gp3**에 바인딩(빈 볼륨).
+- **DB 데이터**: on-prem `db-logical-backup-cron`이 매시간 `pg_dump`를 S3에 올리고,
+  DR 시 `dr-activate.sh`가 그 덤프를 EBS postgres에 `pg_restore`. (RPO: DB 한정 1시간)
+
+### DNS/LB 자동 전환
+
+- on-prem `OnPremHealthCheck`(Route53) 실패 → PRIMARY(on-prem) 죽고 SECONDARY(EKS NLB) 자동 응답
+- SECONDARY는 `dr-activate.sh`가 `trip-frontend-dr-lb`(NLB) 생성 후 동적 등록
+- ⚠️ **auto-failback 주의**: on-prem 복구 시 health check가 살아나 자동으로 PRIMARY 복귀한다.
+  DB split-brain을 막으려면 health check 경로를 `/dr-health`(앱이 'DR 모드 아님'일 때만 200)로
+  바꾸고, failback은 데이터 동기화 후 수동 실행해 SECONDARY를 제거한다(`dr-failback.sh`가 수행).
+
+### Step 1: 장애 감지 (자동)
+
+- Dead Man's Switch: on-prem heartbeat CronJob이 S3에 5분마다 업로드
+- AWS Lambda가 5분마다 LastModified 확인 → 15분 초과 시 `dr-activate` 워크플로우 자동 dispatch
 - Discord `#클러스터-알림` 채널에서 확인
 
-### Step 2: EKS 노드 활성화
+### Step 2: DR 활성화 (자동 / 수동)
 
 ```bash
-# EKS 노드 그룹 scale up (3-5분 소요)
-kubectl patch ekscluster eks-dr -n default --type merge \
-  -p '{"spec":{"nodeCount": 3}}'
-
-# 상태 확인
-kubectl get ekscluster eks-dr -n default -w
+# 자동: Lambda가 트리거. 수동 실행은 Actions 탭 → "DR Activate" → Run workflow.
+# 로컬에서 직접 실행할 경우(AWS 자격증명 + eksctl/kubectl/helm/velero 필요):
+./scripts/dr-activate.sh
 ```
 
-### Step 3: EKS kubeconfig 가져오기
+### Step 3: 확인
 
 ```bash
-# Crossplane이 생성한 kubeconfig Secret
-EKS_SECRET=$(kubectl get secret -n crossplane-system -o name | grep eks-cluster-conn | head -1)
-kubectl get "$EKS_SECRET" -n crossplane-system -o jsonpath='{.data.kubeconfig}' | base64 -d > kubeconfig/eks-dr
-export KUBECONFIG=kubeconfig/eks-dr
-```
+# EKS 클러스터/워크로드 정상 동작
+eksctl get cluster --name k8s-idp-dr --region us-west-2
+kubectl --kubeconfig=kubeconfig/eks-dr get pods -n trip-app
+kubectl --kubeconfig=kubeconfig/eks-dr get pods -n backstage
 
-### Step 4: EKS 인프라 배포
-
-```bash
-# Tailscale VPN + NetworkPolicy + SecretStore
-kubectl apply -k kubernetes/manifests/eks-dr/
-
-# Prometheus (경량)
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  -n monitoring -f kubernetes/manifests/eks-dr/prometheus-values.yaml
-
-# Velero (GCS offsite 복구용)
-helm install velero vmware-tanzu/velero \
-  -n velero -f kubernetes/manifests/eks-dr/velero-values.yaml
-```
-
-### Step 5: 워크로드 복구
-
-```bash
-# 최신 백업에서 복구
-velero backup get
-velero restore create dr-restore \
-  --from-backup <최신-백업-이름> \
-  --include-namespaces trip-app,backstage \
-  --restore-volumes=true
-
-# 확인
-kubectl get pods -n trip-app
-kubectl get pods -n backstage
-```
-
-### Step 6: GKE Burst 메트릭 소스 전환
-
-```bash
-# EKS Prometheus ClusterIP 확인
-EKS_PROM_IP=$(kubectl get svc -n monitoring prometheus-kube-prometheus-prometheus -o jsonpath='{.spec.clusterIP}')
-
-# GKE prometheus-proxy upstream을 EKS로 전환
-kubectl --kubeconfig=kubeconfig/gke-burst patch configmap prometheus-upstream \
-  -n burst-workloads -p "{\"data\":{\"upstream_url\":\"http://${EKS_PROM_IP}:9090\"}}"
-kubectl --kubeconfig=kubeconfig/gke-burst rollout restart deploy/prometheus-proxy -n burst-workloads
-```
-
-### Step 7: 확인
-
-```bash
-# EKS 서비스 정상 동작
-kubectl get pods -n trip-app
-curl http://localhost:8080/health  # port-forward 후
-
-# GKE KEDA가 EKS 메트릭을 읽는지 확인
+# GKE KEDA가 EKS 메트릭을 읽는지 확인 (GKE 전환을 수행한 경우)
 kubectl --kubeconfig=kubeconfig/gke-burst get scaledobject -n burst-workloads
 ```
 
@@ -182,16 +203,14 @@ kubectl --kubeconfig=kubeconfig/gke-burst patch configmap prometheus-upstream \
 kubectl --kubeconfig=kubeconfig/gke-burst rollout restart deploy/prometheus-proxy -n burst-workloads
 ```
 
-### Step 5: EKS 정리
+### Step 5: EKS 정리 (eksctl 완전 삭제)
 
 ```bash
-# EKS 워크로드 삭제
-kubectl --kubeconfig=kubeconfig/eks-dr delete namespace trip-app --ignore-not-found
-kubectl --kubeconfig=kubeconfig/eks-dr delete namespace backstage --ignore-not-found
+# EKS 워크로드 삭제 (PVC → EBS 등 클라우드 리소스 해제)
+kubectl --kubeconfig=kubeconfig/eks-dr delete namespace trip-app backstage --ignore-not-found
 
-# EKS 노드 scale-to-zero (dormant로 복귀)
-kubectl patch ekscluster eks-dr -n default --type merge \
-  -p '{"spec":{"nodeCount": 0}}'
+# 클러스터 완전 삭제 → 비용 $0 복귀 (On-Demand 모델, Crossplane 미사용)
+eksctl delete cluster -f infrastructure/aws-dr/eksctl-cluster.yaml --wait
 ```
 
 ### Step 6: 최종 확인

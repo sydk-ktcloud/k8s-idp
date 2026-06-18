@@ -1,0 +1,92 @@
+# Route53 DNS Failover (on-prem → EKS DR 자동 전환)
+# ───────────────────────────────────────────────────────────────
+# 동작:
+#   - PRIMARY record  : on-prem 노드(NodePort) — Health Check 연결
+#   - SECONDARY record: EKS DR LoadBalancer — dr-activate.sh가 DR 시 동적으로 등록
+#   - on-prem Health Check 실패 → Route53가 자동으로 SECONDARY(EKS) 응답
+#
+# 이 템플릿은 HealthCheck + PRIMARY 레코드만 선언한다.
+# SECONDARY(EKS LB)는 DR 시점에야 LB DNS를 알 수 있으므로 dr-activate.sh가
+# `aws route53 change-resource-record-sets`로 upsert 한다.
+#
+# ⚠️ Split-brain 방지: Health Check 경로를 단순 "/"가 아니라 "/dr-health"로 두고,
+#    이 엔드포인트가 "on-prem 정상 AND DR 모드 아님"일 때만 200을 반환하게 하면
+#    on-prem 복구 시 자동으로 PRIMARY로 되돌아가는 것(=split-brain)을 막을 수 있다.
+#    failback 스크립트가 DR 모드를 해제한 뒤에야 PRIMARY 복귀.
+#
+# 적용:
+#   aws cloudformation deploy \
+#     --template-file infrastructure/aws-dr/cloudformation-dns-failover.yaml \
+#     --stack-name k8s-idp-dns-failover --region us-west-2 \
+#     --parameter-overrides HostedZoneId=Z0123 DomainName=trip.example.com \
+#       OnPremIP=1.2.3.4 OnPremPort=30249 HealthCheckPath=/dr-health
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "k8s-idp DR - Route53 failover (on-prem PRIMARY + health check)"
+
+Parameters:
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: "도메인이 속한 Route53 Hosted Zone ID"
+  DomainName:
+    Type: String
+    Description: "서비스 도메인 (예: trip.example.com) — failover 레코드 이름"
+  OnPremIP:
+    Type: String
+    Description: "on-prem 노드 공인 IP (NodePort 노출 대상)"
+  OnPremPort:
+    Type: Number
+    Default: 30249
+    Description: "on-prem NodePort (trip-frontend-main)"
+  HealthCheckPath:
+    Type: String
+    Default: /
+    Description: >-
+      Health Check 경로. 기본 "/"는 frontend가 그대로 서빙하므로 즉시 동작.
+      split-brain(자동 failback) 방지를 강화하려면 "/dr-health" 같은
+      'on-prem 정상 AND DR 모드 아님'일 때만 200을 주는 엔드포인트를 앱에 추가하고
+      이 값을 바꾼다. (앱 지원 필요 — 미지원 상태에서 /dr-health로 두면 항상 unhealthy)
+  RecordTTL:
+    Type: Number
+    Default: 60
+    Description: "레코드 TTL(초) — 낮을수록 빠른 페일오버"
+
+Resources:
+  # on-prem 엔드포인트 Health Check (실패 시 Route53가 SECONDARY로 전환)
+  OnPremHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: HTTP
+        IPAddress: !Ref OnPremIP
+        Port: !Ref OnPremPort
+        ResourcePath: !Ref HealthCheckPath
+        RequestInterval: 30
+        FailureThreshold: 3      # 30s * 3 ≈ 90초 후 페일오버
+      HealthCheckTags:
+        - Key: system
+          Value: dr
+        - Key: team
+          Value: platform
+
+  # PRIMARY 레코드 → on-prem (Health Check 연결)
+  PrimaryRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      TTL: !Ref RecordTTL
+      SetIdentifier: onprem-primary
+      Failover: PRIMARY
+      HealthCheckId: !Ref OnPremHealthCheck
+      ResourceRecords:
+        - !Ref OnPremIP
+
+Outputs:
+  HealthCheckId:
+    Value: !Ref OnPremHealthCheck
+  PrimaryRecordName:
+    Value: !Ref DomainName
+  Note:
+    Value: "SECONDARY(EKS LB) 레코드는 dr-activate.sh가 DR 시 동적으로 등록함"
